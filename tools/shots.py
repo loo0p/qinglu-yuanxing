@@ -9,7 +9,7 @@ SCENES = [('title', 'title'), ('create', 'create'), ('home', 'home'), ('sheet_fu
           ('event', 'event_beat1'), ('reveal', 'event_choices'), ('laogui', 'hantan_laogui'), ('reveal', 'hantan_laogui_choices'),
           ('result', 'result'), ('cult', 'cult'), ('xinmo', 'xinmo'), ('ending', 'ending'),
           ('create_rnd', 'create_portrait'), ('story', 'story'), ('reveal', 'story_choices'), ('jianghu', 'jianghu'), ('person', 'person'),
-          ('story:表白', 'bg_chasi'), ('story:偶遇', 'bg_shandao'), ('story:坊市传闻', 'bg_fangshi'), ('story:夜雨', 'bg_yeyu'), ('story:秘境', 'bg_dongfu'), ('story:宗门大比', 'bg_leitai')]
+          ('story:表白', 'bg_chasi'), ('story:偶遇', 'bg_shandao'), ('story:坊市传闻', 'bg_fangshi'), ('story:夜雨', 'bg_yeyu'), ('story:秘境', 'bg_dongfu'), ('story:宗门大比', 'bg_leitai'), ('story:暗恋不舍', 'anlian')]
 res = {}
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', headless=True, args=ARGS)

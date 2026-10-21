@@ -2004,7 +2004,8 @@ func _story() -> void:
 		"心魔": "bg_biguan", "闭关小成": "bg_biguan", "魔修袭镇": "bg_fangshi", "仇人上门": "courtyard", "劫修拦路": "bg_shandao", "师父考验": "bg_dongfu",
 		"夜雨": "bg_yeyu", "旧友死讯": "bg_yeyu", "表白": "bg_chasi", "访客": "bg_chasi", "论道": "bg_chasi", "义结金兰": "bg_chasi",
 		"坊市传闻": "bg_fangshi", "坊市欺客": "bg_fangshi", "赠礼": "bg_fangshi", "宗门大比": "bg_leitai", "站队": "bg_leitai", "拜师": "bg_dongfu",
-		"旧物": "bg_yeyu", "报恩": "bg_chasi", "飞升异象": "bg_houshan"}
+		"旧物": "bg_yeyu", "报恩": "bg_chasi", "飞升异象": "bg_houshan",
+		"暗恋不舍": "bg_chasi", "再问": "bg_chasi", "怨偶": "bg_fangshi", "旧友托梦": "bg_yeyu", "仇家寻上门": "courtyard"}
 	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2)
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))

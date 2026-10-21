@@ -95,6 +95,42 @@ func _init() -> void:
 	ok(arcs["表白"] >= 7 and arcs["旧友死讯"] >= 7, "45 日内：表白、旧友死讯至少 7/8 局出现")
 	ok(arcs["道侣遇险"] >= 6 and arcs["寻凶"] >= 6, "45 日内：道侣遇险、寻凶至少 6/8 局出现（应下/收殓时）")
 	ok(tops < 0.20, "45 日局最常见模板占比 < 0.20（%.3f）" % tops)
+	# 拒绝型玩家：总选第二个选项（婉拒/遥遥一拜/烧香送走……），后续也要有戏
+	var arcs2 := {"婉拒后": 0, "旧友托梦": 0, "仇家寻上门": 0}
+	var tops2 := 0.0
+	for sd in range(31, 39):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 45:
+			x.tick((d % 10) < 6)
+			var ev = x.pending()
+			if not ev.is_empty():
+				var o: Array = ev["opts"][1] if ev["opts"].size() > 1 else ev["opts"][0]
+				x.choose(String(o[0]))
+				x.close()
+		var m := metrics(x)
+		tops2 += m.top / 8.0
+		if m.cnt.has("暗恋不舍") or m.cnt.has("怨偶"):
+			arcs2["婉拒后"] += 1
+		for k in ["旧友托梦", "仇家寻上门"]:
+			if m.cnt.has(k):
+				arcs2[k] += 1
+	lines.append("拒绝型 45 日（8 局里出现的局数）：%s；最常见模板占比均值 %.3f" % [JSON.stringify(arcs2), tops2])
+	ok(arcs2["婉拒后"] >= 7 and arcs2["旧友托梦"] >= 7, "拒绝型：婉拒后有暗恋不舍/怨偶、不收殓有旧友托梦，至少 7/8 局")
+	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
+	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
+	# 旧档补种故事线
+	var y = W.new()
+	y.create(41, "苏青禾")
+	for d in 30:
+		y.tick(true)
+		if not y.pending().is_empty():
+			y.auto_choose()
+			y.close()
+	y.w.erase("arc")
+	var y2 = W.new()
+	y2.attach(null, JSON.parse_string(JSON.stringify(y.w)))
+	ok(y2.w.has("arc") and int(y2.w["arc"]["death_day"]) > int(y2.w["day"]), "没有故事线的旧档读入时补种，排在今天之后")
 	# 接进青庐规则：v1 旧档迁移 + 世界随日子走 + 存读档
 	var GS = load("res://scripts/game_state.gd")
 	var h = GS.new()

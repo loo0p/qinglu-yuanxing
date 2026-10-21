@@ -40,6 +40,8 @@ const T = {
 	"访客": [0, -2, false, 99, 0, 6, 1.0], "坊市欺客": [0, 4, false, 99, 0, 10, 1.0], "师门书信": [0, 4, false, 99, 0, 10, 1.0],
 	"义结金兰": [0, -6, false, 99, 0, 6, 1.0], "飞升异象": [0, -2, false, 99, 0, 6, 1.0], "闭关小成": [0, -2, false, 99, 0, 8, 1.0],
 	"旧物": [0, -2, false, 99, 0, 8, 1.0], "宗门大比": [0, 1, false, 99, 0, 25, 1.0], "劫修拦路": [1, 8, false, 99, 5, 12, 1.0],
+	"暗恋不舍": [1, -4, true, 99, 0, 0, 1.0], "怨偶": [1, 14, true, 99, 0, 0, 1.0], "旧友托梦": [1, 4, true, 99, 0, 0, 1.0],
+	"仇家寻上门": [2, 25, true, 99, 0, 0, 1.0], "再问": [2, -8, true, 99, 0, 0, 1.0],
 }
 const VAR = {
 	"论道": ["在{p}与{o}论道半夜。", "与{o}在{p}煮茶谈剑，相见恨晚。", "在{p}得{o}指点，解了一处功法上的疑难。", "与{o}在{p}对弈一局，输了半子。", "和{o}在{p}比了一回剑，点到为止。", "在{p}替{o}挡了一场雨，两人聊到天明。"],
@@ -104,6 +106,10 @@ func attach(gs, d: Dictionary) -> void:
 	w = d
 	rng.seed = int(w.get("rng_seed", 0))
 	rng.state = String(w.get("rng", "0")).to_int()
+	if not w.has("arc") and w.has("C"):
+		# v0.6.0–0.6.5 的档没有故事线：读档时补种（从今天往后排），不动已有的人和事
+		_arc_setup(int(w["day"]))
+		_save_rng()
 
 func _save_rng() -> void:
 	w["rng"] = str(rng.state)   # 64 位整数：存成字符串，JSON 的浮点会丢精度
@@ -556,7 +562,7 @@ func storyteller() -> void:
 		var ok := true
 		for k in it[2]:
 			var c := C(it[2][k])
-			if c.is_empty() or (not c["alive"] and it[1] != "旧友死讯"):
+			if c.is_empty() or (not c["alive"] and not (k == "B" and it[1] in ["旧友死讯", "旧友托梦"])):
 				ok = false
 		if it[1] == "旧友死讯" and _flag("mourned:%d" % int(it[2]["B"])) > 0:
 			ok = false
@@ -603,10 +609,12 @@ func storyteller() -> void:
 ## ① 一段缘（一个“命里该遇见”的人：偶遇 → 访客 → 表白 → 若应下，道侣遇险）
 ## ② 一场离别（第 14–26 日，认识的人被魔修/阴狠之人所害 → 旧友死讯 → 收殓则寻凶）
 ## 事件仍走说书人的队列，与随机事件交错；条件不成立（人死了、结了仇、已有道侣）就自然作罢。
-func _arc_setup() -> void:
+func _arc_setup(from_day: int = 0) -> void:
 	var p := P()
-	var cands := npcs().filter(func(c): return c["sex"] != p["sex"] and side(c) != "魔" and int(c["lv"]) <= 10 and partner(c) == null and not ("报仇" == c["goal"]))
-	var arc := {"death_day": rng.randi_range(14, 20), "death_done": false}
+	var cands := npcs().filter(func(c): return c["sex"] != p["sex"] and side(c) != "魔" and int(c["lv"]) <= 10 and partner(c) == null and not ("报仇" == c["goal"]) and int(R(c, p)["g"]) < 20)
+	var arc := {"death_day": from_day + (rng.randi_range(14, 20) if from_day == 0 else rng.randi_range(5, 10)), "death_done": false}
+	if partner(p) != null:
+		cands = []
 	if not cands.is_empty():
 		var f: Dictionary = _ch(cands)
 		arc["fated"] = int(f["id"])
@@ -633,17 +641,19 @@ func _arc_adjust(tid: String, roles: Dictionary, ctx: Dictionary) -> String:
 			fav(n, 4)
 			schedule(rng.randi_range(6, 10), "表白", {"B": int(n["id"])}, {"arc": "romance"})
 			return "访客"
-		"表白":
+		"表白", "再问":
 			if partner(p) != null or partner(n) != null or int(R(n, p)["g"]) >= 20 or int(R(n, p)["f"]) < 8:
 				return ""
-			return "表白"
+			return tid
+		"暗恋不舍", "怨偶":
+			return tid if partner(p) == null or tid == "怨偶" else ""
 		"道侣遇险":
 			return "道侣遇险" if partner(p) == n else ""
 	return tid
 
 func _arc_tick() -> void:
 	var arc: Dictionary = w.get("arc", {})
-	if arc.is_empty() or arc.get("death_done", true) or int(w["day"]) < int(arc["death_day"]) or int(w["day"]) > 30:
+	if arc.is_empty() or arc.get("death_done", true) or int(w["day"]) < int(arc["death_day"]) or int(w["day"]) > int(arc["death_day"]) + 14:
 		return
 	var p := P()
 	var fated := int(arc.get("fated", 0))
@@ -654,6 +664,8 @@ func _arc_tick() -> void:
 	var v: Dictionary = victims[0]
 	var killers := npcs().filter(func(c): return c != v and (side(c) == "魔" or tag(c, "阴狠")) and int(c["lv"]) >= int(v["lv"]))
 	if killers.is_empty():
+		killers = npcs().filter(func(c): return c != v and int(c["id"]) != fated and (side(c) == "魔" or tag(c, "阴狠") or tag(c, "嗜战")))
+	if killers.is_empty():
 		return
 	var k: Dictionary = _ch(killers)
 	arc["death_done"] = true
@@ -662,6 +674,22 @@ func _arc_tick() -> void:
 	chron(k, "在%s截杀了%s。" % [v["place"], v["name"]])
 	die(v, "死于%s之手" % k["name"])
 	schedule(rng.randi_range(1, 3), "旧友死讯", {"B": int(v["id"])})
+
+## 婉拒之后：痴情/温柔/怯懦的人放不下（暗恋不舍），傲气/记仇/阴狠/薄情的人记恨（怨偶）
+func _after_refusal(n: Dictionary, ctx: Dictionary) -> void:
+	if ctx.get("second", false):
+		return
+	var sour := tag(n, "傲气") or tag(n, "记仇") or tag(n, "阴狠") or tag(n, "薄情") or tag(n, "嗜战")
+	if sour:
+		schedule(rng.randi_range(6, 11), "怨偶", {"B": int(n["id"])}, {"arc": "romance"})
+	else:
+		schedule(rng.randi_range(5, 10), "暗恋不舍", {"B": int(n["id"])}, {"arc": "romance"})
+
+func _killer_of(how: String) -> Variant:
+	for x in npcs():
+		if ("死于%s" % x["name"]) in how or ("被%s" % x["name"]) in how:
+			return x
+	return null
 
 func _log_fire(tid: String) -> void:
 	w["fired"][tid] = int(w["fired"].get(tid, 0)) + 1
@@ -968,6 +996,38 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			ctx["cost"] = cost
 			return {"speaker": int(n["id"]), "text": pv("劫修", ["去坊市的路上，%s横剑拦住了她：“留下买路钱。”", "山口，%s从树后转出来，笑：“灵石，还是命？”", "夜路上，%s截住了她。"]) % nm,
 				"opts": [_o("pay", "交出 %d 灵石" % cost) if cost > 0 else _o("pay", "摊开空储物袋"), _o("fight", "拔剑")]}
+		"暗恋不舍":
+			return {"speaker": int(n["id"]), "text": pv("暗恋", [
+				"柴门外又放着一包新炒的松子，没有留名。她知道是谁。",
+				"%s还是常来，只在篱笆外站一站，问一句灵田的收成，就走。" % nm,
+				"坊市里撞见%s。%s远远看见她，拐进了另一条巷子，又折回来，塞给她一把伞：“要下雨了。”" % [nm, ta(n)],
+				"窗台上多了一盏莲花灯，灯芯是新换的。%s那晚在山道上站到很晚。" % nm]),
+				"opts": [_o("cut", "把话说清楚"), _o("keep", "收下这份心意")]}
+		"再问":
+			return {"speaker": int(n["id"]), "text": pv("再问", [
+				"%s又来了。这回什么也没带，站在桂树下：“上回的话，我想再问一遍。”" % nm,
+				"雨停的傍晚，%s在檐下收了伞：“我等了些日子。你……可想好了？”" % nm]),
+				"opts": [_o("yes", "应下"), _o("no", "仍是婉拒")]}
+		"怨偶":
+			return {"speaker": int(n["id"]), "text": pv("怨偶", [
+				"坊市里传开一句闲话：青庐那个女修，眼界高得很。传话的人说，是%s讲的。" % nm,
+				"%s在坊市口拦住她，笑得很淡：“我倒要看看，你那条道能走多远。”" % nm,
+				"药铺掌柜不肯再卖她青芝了，支支吾吾，说是%s打过招呼。" % nm]),
+				"opts": [_o("let", "随他去"), _o("ask", "当面问个明白")]}
+		"旧友托梦":
+			var k := C(roles["K"])
+			return {"speaker": int(n["id"]), "text": pv("托梦", [
+				"夜里梦见%s，站在当年同行的山道上，衣襟湿透。%s张了张嘴，只说了一个名字：%s。" % [nm, ta(n), k["name"]],
+				"灯下打了个盹，%s推门进来，像往常一样讨碗茶。茶还没倒，%s低声道：“是%s。”醒来时灯芯已经烧尽了。" % [nm, ta(n), k["name"]],
+				"梦里桂花落了满院。%s坐在石阶上，背对着她：“别替我难过。只是……%s还活着。”" % [nm, k["name"]]]),
+				"opts": [_o("name", "记下那个名字"), _o("let", "烧一炷香，送%s走" % ta(n))]}
+		"仇家寻上门":
+			var fr: String = ctx.get("friend", "那人")
+			return {"speaker": int(n["id"]), "text": pv("仇家", [
+				"院里的鸡忽然不叫了。%s站在灵田边上：“%s死前，把一样东西交给了你。交出来，我就走。”" % [nm, fr],
+				"%s找上了青庐。“听说你和%s交情不浅。”剑在鞘里轻轻响了一声。" % [nm, fr],
+				"柴门被推开，进来的是%s。“%s的东西，在你这儿吧？”" % [nm, fr]]),
+				"opts": [_o("fight", "迎战"), _o("give", "说没有，任%s搜" % ta(n)), _o("run", "从后窗走")]}
 	return {"speaker": 0, "text": "", "opts": ok}
 
 func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
@@ -1063,6 +1123,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				fav(n, -10, "%s拒了我" % pn(), -5)
 				out = "她说，道还长。%s没再说什么。" % nm
 				chron(p, "%s问她愿不愿意同修。她说，道还长。" % nm)
+				_after_refusal(n, ctx)
 		"旧友死讯":
 			var how: String = ctx.get("how", "")
 			if oid == "bury":
@@ -1078,6 +1139,10 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					out += "碑前，她记下了一个名字：%s。" % killer["name"]
 			else:
 				out = "她朝那方向拜了三拜。"
+				var k2 = _killer_of(how)
+				if k2 != null:
+					# 没去收殓：故人不肯走，凶手也没忘了她
+					schedule(rng.randi_range(2, 5), "旧友托梦", {"B": int(n["id"]), "K": int(k2["id"])})
 			remember(p, n, "%s不在了" % nm, -8)
 			chron(p, "听说%s——%s。%s" % [nm, how, out])
 		"寻凶":
@@ -1095,6 +1160,69 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				out = "她把%s的名字刻在丹炉底下。" % nm
 				chron(p, out)
 				schedule(40, "寻凶", {"B": int(n["id"])})
+		"再问":
+			ctx["second"] = true
+			return resolve("表白", roles, ctx, oid)
+		"暗恋不舍":
+			if oid == "cut":
+				fav(n, -6, "%s把话说绝了" % pn(), -6)
+				out = pv("暗恋断", ["她说：“你值得更好的人。”%s点点头，第二日便出了远门。" % nm, "她把松子还了回去，话说得很轻，也很清楚。%s没再来过。" % nm])
+				chron(p, "同%s把话说清楚了。" % nm)
+				chron(n, "放下了一段心事，出门远游。")
+			else:
+				fav(n, 10, "%s收下了我的心意" % pn(), 8)
+				out = pv("暗恋收", ["她没推辞。%s的耳根红了，嘴上只说：“顺路。”" % nm, "她收下了，回赠一包自己晒的青芝。%s捧着走了很远才敢打开。" % nm])
+				chron(p, "收下了%s的一份心意。" % nm)
+				schedule(rng.randi_range(9, 15), "再问", {"B": int(n["id"])}, {"arc": "romance", "second": true})
+		"怨偶":
+			if oid == "let":
+				_wu(6)
+				out = "她照旧去坊市买她的盐。闲话传了半个月，自己散了。\n（心境沉静：感悟 +6）"
+				chron(p, "%s在外头说她的闲话，她没理会。" % nm)
+			elif tag(n, "阴狠") or tag(n, "记仇"):
+				R(n, p)["g"] = int(R(n, p)["g"]) + 30
+				remember(n, p, "%s当众给我难堪" % pn(), -20)
+				out = "话说僵了。%s拂袖而去，留下一句：“你记着。”" % nm
+				chron(p, "与%s当面说破，不欢而散。" % nm)
+				schedule(rng.randi_range(12, 20), "仇人上门", {"B": int(n["id"])})
+			else:
+				fav(n, 8, "%s肯当面同我把话说开" % pn(), 6)
+				R(n, p)["g"] = maxi(0, int(R(n, p)["g"]) - 10)
+				out = "两人在茶棚下坐了一刻。%s最后说：“是我小气了。”" % nm
+				chron(p, "与%s在茶棚下把话说开了。" % nm)
+		"旧友托梦":
+			var k := C(roles["K"])
+			if oid == "name":
+				R(p, k)["g"] = int(R(p, k)["g"]) + 40
+				remember(p, k, "%s杀了%s" % [k["name"], nm], -30)
+				out = "她起身点灯，在丹炉底下刻了一个名字：%s。" % k["name"]
+				chron(p, "梦见%s，醒来记下了%s的名字。" % [nm, k["name"]])
+				schedule(rng.randi_range(4, 8), "寻凶", {"B": int(k["id"])})
+			else:
+				_wu(8)
+				out = "香烧完的时候，院里起了一阵风。她觉得%s是走了。\n（感悟 +8）" % nm
+				chron(p, "梦见%s，烧了一炷香送%s走。" % [nm, ta(n)])
+				schedule(rng.randi_range(6, 10), "仇家寻上门", {"B": int(k["id"])}, {"friend": nm})
+		"仇家寻上门":
+			var fr2: String = ctx.get("friend", "那人")
+			if oid == "fight":
+				if _roll(pl, float(n["lv"]), 6, 4):
+					out = "一剑落下，%s倒在灵田边上。她想，%s可以安心了。" % [nm, fr2]
+					chron(p, "%s寻上青庐，被她斩于院中，算是替%s了了这桩事。" % [nm, fr2])
+					die(n, "被%s所斩" % pn())
+				else:
+					_inj(3)
+					R(n, p)["g"] = int(R(n, p)["g"]) + 15
+					out = "她败了。%s翻遍青庐，什么也没找到，临走踢翻了丹炉。\n（受伤：闭关炼化减半 3 日）" % nm
+					chron(p, "%s寻上青庐，她不敌，丹炉被踢翻。" % nm)
+			elif oid == "give":
+				var lost := _ling(-mini(8, lingshi()))
+				out = "%s把青庐翻了个底朝天，什么也没找到，顺手拿走了 %d 块灵石。" % [nm, -lost]
+				chron(p, "%s来青庐翻找%s的遗物，一无所获。" % [nm, fr2])
+			else:
+				out = "她从后窗走了，在山里躲了两夜。回来时，柴门上多了一道剑痕。"
+				chron(p, "%s寻上门时，她从后窗走了。" % nm)
+				schedule(rng.randi_range(15, 25), "寻凶", {"B": int(n["id"])})
 		"坊市传闻":
 			chron(p, "听说：%s" % ctx.get("news", ""))
 		"赠礼":
