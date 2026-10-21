@@ -225,6 +225,7 @@ func _bg_fetch(name: String) -> void:
 		var b = JavaScriptBridge.eval("new URL('portrait/', location.href).href", true)
 		pf_base = String(b) if b is String and b != "" else "portrait/"
 	var req = HTTPRequest.new()
+	req.accept_gzip = false  # 浏览器已解开 Content-Encoding: gzip（GitHub Pages 会压 .bin），别让引擎再解一遍
 	add_child(req)
 	req.request_completed.connect(func(result, code, _h, body):
 		req.queue_free()
@@ -303,6 +304,7 @@ func _fetch_bgm(slot: String, fn: String) -> void:
 	if base is String and base != "":
 		url = String(base) + fn
 	var req = HTTPRequest.new()
+	req.accept_gzip = false  # 浏览器已解开 Content-Encoding: gzip（GitHub Pages 会压 .bin），别让引擎再解一遍
 	add_child(req)
 	req.request_completed.connect(func(result, code, _h, body):
 		req.queue_free()
@@ -383,6 +385,7 @@ func _pf_pump() -> void:
 			continue
 		pf_active += 1
 		var req = HTTPRequest.new()
+		req.accept_gzip = false
 		add_child(req)
 		req.request_completed.connect(func(result, code, _h, body):
 			req.queue_free()
