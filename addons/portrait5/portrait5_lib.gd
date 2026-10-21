@@ -3,22 +3,45 @@
 class_name Portrait5Lib
 extends RefCounted
 
-static var root := "res://portrait5/"
+## 部件贴图不进 pck：放在 res://web_portrait/（.gdignore，不导入、不导出），
+## 桌面/无头直接读文件；Web 端从站点 portrait/ 目录按需下载（fetch 回调由宿主提供）。
+static var json_path := "res://data/lib5.json"
+static var dir := "res://web_portrait/"
 static var lib: Dictionary = {}
 static var _tex := {}
+static var fetch: Callable = Callable()   # Web：fetch.call(file) 发起下载，完成后宿主调用 put(rel, bytes)
+static var miss := 0                      # 本次 setup 期间缺了几张（View 用它判断是否完整）
+static var gen := 0                       # 每到一张新图 +1，PortraitBox 据此重画
 
 static func ensure() -> void:
 	if not lib.is_empty(): return
-	var f := FileAccess.open(root + "lib5.json", FileAccess.READ)
+	var f := FileAccess.open(json_path, FileAccess.READ)
 	lib = JSON.parse_string(f.get_as_text())
 
+static func file_of(rel: String) -> String:
+	return rel.get_basename() + ".webp"
+
+static func has(rel: String) -> bool:
+	return _tex.has(rel) and _tex[rel] != null
+
+static func put(rel: String, bytes: PackedByteArray) -> void:
+	var img := Image.new()
+	if bytes.size() > 0 and img.load_webp_from_buffer(bytes) == OK:
+		_tex[rel] = ImageTexture.create_from_image(img)
+		gen += 1
+
 static func tex(rel: String) -> Texture2D:
-	if not _tex.has(rel):
-		var t: Texture2D = load(root + rel) if ResourceLoader.exists(root + rel) else null
-		if t == null:
-			var img := Image.load_from_file(ProjectSettings.globalize_path(root + rel))
-			t = ImageTexture.create_from_image(img)
-		_tex[rel] = t
+	if has(rel):
+		return _tex[rel]
+	if fetch.is_valid():
+		miss += 1
+		fetch.call(rel)
+		return null
+	var bytes := FileAccess.get_file_as_bytes(dir + file_of(rel))
+	put(rel, bytes)
+	if not has(rel):
+		miss += 1
+		return null
 	return _tex[rel]
 
 static func _pick(r: RandomNumberGenerator, a: Array):

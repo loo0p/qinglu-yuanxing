@@ -49,7 +49,7 @@ func _mat(s: Sprite2D, origin: Vector2, scale_f: float) -> ShaderMaterial:
 	m.set_shader_parameter("node_origin", origin)
 	m.set_shader_parameter("node_scale", scale_f)
 	m.set_shader_parameter("canvas_size", CANVAS)
-	m.set_shader_parameter("tex_px", Vector2(s.texture.get_size()))
+	m.set_shader_parameter("tex_px", Vector2(s.texture.get_size()) if s.texture != null else Vector2.ONE)   # Web 上贴图可能还没下载到：先占位，到齐后整张重建
 	s.material = m
 	return m
 

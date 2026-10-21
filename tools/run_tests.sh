@@ -12,5 +12,6 @@ mkdir -p build/web build/web_debug
 $G --headless --path . --export-release "Web" build/web/index.html >/dev/null 2>&1
 $G --headless --path . --export-debug "Web" build/web_debug/index.html >/dev/null 2>&1 || true
 mkdir -p build/web/audio build/web_debug/audio && cp web_audio/*.ogg build/web/audio/ && cp web_audio/*.ogg build/web_debug/audio/
+for d in build/web build/web_debug; do mkdir -p $d/portrait && cp -r web_portrait/. $d/portrait/ && rm -f $d/portrait/.gdignore; done
 python3 tools/precompress.py build/web || true
 echo "导出完成：build/web/（玩家版） build/web_debug/（调试版）"

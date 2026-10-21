@@ -180,6 +180,10 @@ func _ready() -> void:
 		sfx_players.append(sp)
 	get_viewport().size_changed.connect(func(): refresh())
 	_hook_web()
+	if OS.has_feature("web"):
+		PLib.fetch = _pf_fetch
+		# 标题页先出来；2.5 秒后在后台慢慢把立绘部件取完（按需的会插队）
+		get_tree().create_timer(2.5).timeout.connect(_pf_prefetch_all)
 	session_start = Time.get_ticks_msec()
 	refresh()
 
@@ -259,6 +263,56 @@ func _fetch_bgm(slot: String, fn: String) -> void:
 			cur_bgm = ""
 			_set_bgm(slot))
 	req.request(url)
+
+# ------------------------------------------------------------ 立绘部件按需下载（Web）
+const PF_MAX := 6
+var pf_queue := []
+var pf_want := {}
+var pf_active := 0
+var pf_base := ""
+
+func _pf_fetch(rel: String) -> void:
+	if pf_want.has(rel) and not pf_queue.has(rel):
+		return
+	pf_want[rel] = true
+	pf_queue.erase(rel)
+	pf_queue.push_front(rel)
+	_pf_pump()
+
+func _pf_prefetch_all() -> void:
+	var t = FileAccess.get_file_as_string("res://data/portrait_files.json")
+	var lst = JSON.parse_string(t) if t != "" else null
+	if not (lst is Array):
+		return
+	for rel in lst:
+		if not pf_want.has(rel):
+			pf_want[rel] = true
+			pf_queue.push_back(rel)
+	_pf_pump()
+
+func _pf_pump() -> void:
+	if pf_base == "":
+		var b = JavaScriptBridge.eval("new URL('portrait/', location.href).href", true)
+		pf_base = String(b) if b is String and b != "" else "portrait/"
+	while pf_active < PF_MAX and not pf_queue.is_empty():
+		var rel: String = pf_queue.pop_front()
+		if PLib.has(rel):
+			continue
+		pf_active += 1
+		var req = HTTPRequest.new()
+		add_child(req)
+		req.request_completed.connect(func(result, code, _h, body):
+			req.queue_free()
+			pf_active -= 1
+			if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+				PLib.put(rel, body)
+			else:
+				pf_want.erase(rel)   # 下次用到时重试
+			_pf_pump())
+		if req.request(pf_base + PLib.file_of(rel)) != OK:
+			req.queue_free()
+			pf_active -= 1
+			pf_want.erase(rel)
 
 func sfx(slot: String) -> void:
 	if not audio_unlocked or muted:
