@@ -1,4 +1,4 @@
-# 本地模拟 GitHub Pages：.bin/.json 按 Content-Encoding: gzip 发（v0.7.1 的线上空白立绘就是这样才复现）
+# 本地模拟 GitHub Pages：.bin/.json 用 gzip 内容编码发出（v0.7.1 的线上空白立绘就是这样才复现）
 # 用法：python3 tools/serve_gz.py 8813 build/web
 import http.server, gzip, os, sys
 root=sys.argv[2]; port=int(sys.argv[1])
