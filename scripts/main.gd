@@ -2299,6 +2299,29 @@ func _dev(cmd: String) -> String:
 			g.notices.clear()
 			_save()
 			refresh()
+		_ when cmd.begins_with("psheet:"):
+			# 调试：一屏摆一组立绘（静止，可指定 eye_state），验部件和闭眼帧
+			var specs = JSON.parse_string(cmd.substr(7))
+			var old_sheet = get_node_or_null("DevSheet")
+			if old_sheet != null:
+				old_sheet.free()
+			var bg := ColorRect.new()
+			bg.name = "DevSheet"
+			bg.color = Color(0.96, 0.94, 0.9)
+			bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+			add_child(bg)
+			var grid := GridContainer.new()
+			grid.columns = 3
+			grid.set_anchors_preset(Control.PRESET_FULL_RECT)
+			bg.add_child(grid)
+			for sp in specs:
+				var pb = PBox.new()
+				pb.custom_minimum_size = Vector2(118, 158)
+				grid.add_child(pb)
+				pb.setup(sp, PBox.BUST, 0.0)
+				pb.view.eye_state = String(sp.get("eye_state", "open"))
+				pb.view._apply_eyes(pb.view.eye_state)
+			return "ok"
 		_ when cmd.begins_with("story:"):
 			# 调试：直接弹某个江湖事件（截背景用）；绑不上角色就退回表白/访客
 			_dev("jianghu")

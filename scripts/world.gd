@@ -312,13 +312,18 @@ func _new_char(sex: String = "", sect: String = "", lv: int = -1, player: bool =
 	var c := {"id": id, "player": player, "sex": sex, "name": nm, "sect": sect, "lv": lv, "xp": 0.0,
 		"age": float(rng.randi_range(16, 30) + lv * 6), "traits": traits, "likes": likes, "dislikes": [_ch(rest)],
 		"goal": _ch(GOALS), "gt": 0, "place": SECT_HOME[sect] if rng.randf() < 0.6 else _ch(PLACES.slice(1)),
-		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "born": int(w["day"])}
+		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "pv": 7, "born": int(w["day"])}
 	w["C"][str(id)] = c
 	return c
 
 ## 立绘：存种子与选项，显示时 Portrait5Lib.roll(seed, opts) 还原（确定性）
+## v0.7 新增的立绘部件；旧存档里的人物不抽这些，免得读档后换了张脸
+const PV7_NEW := ["hair_f11@base_f", "hair_f12@base_f", "hair_m11@base_m", "robe_f9@base_f", "robe_m9@base_m",
+	"acc_f4@base_f", "huadian_moon", "mole_cheek", "huadian_drop"]
 func portrait_opts(c: Dictionary) -> Dictionary:
 	var o := {"sex": "f" if c["sex"] == "女" else "m", "elder": float(c["age"]) >= 75.0, "demonic": side(c) == "魔"}
+	if int(c.get("pv", 0)) < 7:
+		o["exclude"] = PV7_NEW
 	if SECT_TINT.has(c["sect"]):
 		o["robe_tint"] = SECT_TINT[c["sect"]]
 	return o

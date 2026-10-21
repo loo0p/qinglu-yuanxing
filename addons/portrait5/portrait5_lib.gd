@@ -47,6 +47,11 @@ static func tex(rel: String) -> Texture2D:
 static func _pick(r: RandomNumberGenerator, a: Array):
 	return a[r.randi() % a.size()]
 
+## drop ids listed in opts.exclude (keeps old saves' NPCs looking the same after pools grow)
+static func _ex(a: Array, nx: Array) -> Array:
+	if nx.is_empty(): return a
+	return a.filter(func(k): return not (k in nx))
+
 ## Roll a random character. opts: sex ("f"/"m"), elder (bool), demonic (bool), seed (String/int)
 static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 	ensure()
@@ -65,8 +70,10 @@ static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 		var ev: Dictionary = P.elder_feats.get(base, {})
 		for reg in ["brows", "mouth"]:
 			if ev.get(reg, []).size() > 0 and r.randf() < 0.5: sp.feats[reg] = _pick(r, ev[reg])
+	var nx: Array = opts.get("exclude", [])
 	var marks := []
 	for id in lib.marks:
+		if id in nx: continue
 		if lib.marks[id].sex == sex: marks.append(id)
 	if r.randf() < 0.35:
 		var a: String = _pick(r, marks); sp.marks.append(a)
@@ -81,15 +88,15 @@ static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 	else:
 		var pool := []
 		for k in (P.elder_robes[sex] if elder else P.robes[sex]):
-			if k != demon_robe: pool.append(k)
+			if k != demon_robe and not (k in nx): pool.append(k)
 		sp.robe = _pick(r, pool)
 	var pal: Array = P.pal_f if sex == "f" else P.pal_m
 	sp.robe_tint = opts.get("robe_tint", _pick(r, pal))
-	if r.randf() < 0.35 and not (sp.robe in P.fixed): sp.outer = _pick(r, P.outers[sex])
+	if r.randf() < 0.35 and not (sp.robe in P.fixed): sp.outer = _pick(r, _ex(P.outers[sex], nx))
 	sp.outer_tint = _pick(r, pal)
-	var hk_pool: Array = P.hair[("fe" if sex == "f" else "me") if elder else sex]
+	var hk_pool: Array = _ex(P.hair[("fe" if sex == "f" else "me") if elder else sex], nx)
 	sp.hair = _pick(r, hk_pool)
-	for a in P.acc.get(sp.hair, []):
+	for a in _ex(P.acc.get(sp.hair, []), nx):
 		if r.randf() < 0.6: sp.acc.append(a)
 	if sex == "m":
 		if elder and sp.hair != "hair_me1@base_me" and r.randf() < 0.75: sp.beard = _pick(r, P.beards.me)

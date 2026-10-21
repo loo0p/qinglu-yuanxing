@@ -98,6 +98,12 @@ func _init() -> void:
 	ok(ja == jb, "存档往返后继续跑，结果一致（确定性）")
 	# 立绘：每个 NPC 的立绘选项可还原
 	ok(a.portrait_opts(a.npcs()[0]).has("sex"), "NPC 立绘选项")
+	var n0: Dictionary = a.npcs()[0]
+	ok(int(n0.get("pv", 0)) == 7 and not a.portrait_opts(n0).has("exclude"), "新人物可抽 v0.7 立绘部件")
+	var old_c := n0.duplicate(true); old_c.erase("pv")
+	ok(a.portrait_opts(old_c).get("exclude", []).size() == 9, "旧存档人物不抽新部件（脸不变）")
+	var r_old := Portrait5Lib.roll(123, a.portrait_opts(old_c))
+	ok(not (r_old["hair"] in a.PV7_NEW) and not (r_old["robe"] in a.PV7_NEW), "旧人物立绘只用旧部件")
 	# 文字重复度：玩家 100 日里读到的事件文字、结果、自己的生平，按句切开（人名换成“某”、数字换成 N、去掉括号里的数值提示），不同句子占比
 	var ur := 0.0
 	var worst := ""
