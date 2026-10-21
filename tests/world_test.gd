@@ -187,6 +187,28 @@ func _init() -> void:
 	ok(arcs2["婉拒后"] >= 7 and arcs2["旧友托梦"] >= 7, "拒绝型：婉拒后有暗恋不舍/怨偶、不收殓有旧友托梦，至少 7/8 局")
 	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
 	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
+	# 节令只在历法上的日子出现（第 1 日 = 正月初一，30 日一月）
+	var fest_bad := []
+	var fest_n := 0
+	for sd in [61, 62, 63]:
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 200:
+			x.tick(true)
+			var ev = x.pending()
+			if ev.is_empty():
+				continue
+			if String(ev["tid"]) == "节令":
+				fest_n += 1
+				var f := String(ev["ctx"].get("fest", ""))
+				var c: Array = W.cal(int(x.w["day"]))
+				var md: Array = W.FEST_DATES.get(f, [0, 0])
+				if int(md[0]) != int(c[1]) or int(c[2]) < int(md[1]) or int(c[2]) > int(md[1]) + 2 or not String(ev["text"]).contains(f):
+					fest_bad.append("%s@%s" % [f, W.cal_text(int(x.w["day"]))])
+			x.choose(String(ev["opts"][0][0]))
+			x.close()
+	lines.append("节令 3 局 × 200 日：%d 次，错日 %s" % [fest_n, JSON.stringify(fest_bad)])
+	ok(fest_bad.is_empty() and fest_n >= 9, "节令落在真实日子上（上元正月十五、清明三月初五、端午五月初五……），200 日里多数节都过上")
 	# 第三拍：对后话也说不（总挑“拒绝”那一项）→ 远方来信/落难；总选第二项（收下心意→再问→仍婉拒）→ 喜帖
 	var REFUSE := ["no", "bye", "cut", "let", "bow", "wait", "pass", "shrug", "hide", "keep_no"]
 	var third := {"拒绝到底": 0, "再问又拒": 0, "喜帖": 0}

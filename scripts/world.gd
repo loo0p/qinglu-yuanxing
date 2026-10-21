@@ -46,11 +46,47 @@ const T = {
 	"宗门招徒": [1, 2, false, 2, 6, 20, 1.2], "入门试炼": [1, 6, true, 99, 0, 0, 1.0], "秘境请柬": [1, 4, false, 2, 10, 20, 1.2],
 	"拍卖会": [0, 2, false, 99, 8, 18, 1.2], "劫修伏击": [2, 22, false, 2, 12, 25, 1.5], "师弟惹祸": [1, 6, false, 99, 6, 15, 1.2],
 	"天材地宝": [1, 6, false, 99, 6, 18, 1.2], "宝地相争": [1, 10, true, 99, 0, 0, 1.0], "对手突破": [0, 4, false, 99, 10, 15, 1.2],
-	"旧债上门": [1, 6, false, 99, 6, 18, 1.0], "节令": [0, -4, false, 99, 3, 14, 1.4],
+	"旧债上门": [1, 6, false, 99, 6, 18, 1.0], "节令": [0, -4, true, 99, 0, 0, 1.0],
 	# 第三拍：对后话也说“不”的人
 	"远方来信": [0, -4, true, 99, 0, 0, 1.0], "喜帖": [1, 2, true, 99, 0, 0, 1.0], "落难": [1, 8, true, 99, 0, 0, 1.0],
 }
 const FESTIVALS = ["上元", "清明", "端午", "七夕", "中秋", "重阳", "冬至"]
+## 历法：第 1 日是正月初一，每月 30 日（与「她的生平」的月份分组一致）。节令按月日落在真实的日子上
+## （清明、冬至是节气，这里取农历里大致的日子：三月初五、冬月二十）。
+const FEST_DATES = {"上元": [1, 15], "清明": [3, 5], "端午": [5, 5], "七夕": [7, 7], "中秋": [8, 15], "重阳": [9, 9], "冬至": [11, 20]}
+const MONTH_NAMES = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"]
+
+## 日子 → [年(0 起), 月(1–12), 日(1–30)]
+static func cal(day: int) -> Array:
+	var d := maxi(day, 1) - 1
+	return [d / 360, (d / 30) % 12 + 1, d % 30 + 1]
+
+## “正月十五”“次年三月初五”
+static func cal_text(day: int) -> String:
+	var c := cal(day)
+	return ("" if c[0] == 0 else ("次年" if c[0] == 1 else "第%d年" % (c[0] + 1))) + MONTH_NAMES[c[1] - 1] + cn_day(c[2])
+
+static func cn_day(n: int) -> String:
+	var d := ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+	if n <= 10:
+		return "初" + d[n]
+	if n < 20:
+		return "十" + d[n - 10]
+	if n == 20:
+		return "二十"
+	if n < 30:
+		return "廿" + d[n - 20]
+	return "三十"
+
+## 今天（或前两天）是不是某个节令；返回节名，不是返回 ""
+func festival_today() -> String:
+	var c := cal(int(w["day"]))
+	for f in FEST_DATES:
+		var md: Array = FEST_DATES[f]
+		if int(md[0]) == int(c[1]) and int(c[2]) >= int(md[1]) and int(c[2]) <= int(md[1]) + 2:
+			if not w.get("fest_done", {}).has("%d:%s" % [c[0], f]):
+				return f
+	return ""
 const TREASURES = ["千年雪莲", "一窝赤血灵芝", "一块天外陨铁", "九叶紫参", "一眼地火灵泉", "一株月下昙"]
 const LOTS = ["一卷残缺的剑谱", "一枚上古传送符", "半张丹方", "一盏能照见心魔的琉璃灯", "一只来历不明的空储物镯"]
 const VAR = {
@@ -605,6 +641,10 @@ func storyteller() -> void:
 			if tid != "":
 				fire(tid, it[2], it[3])
 				return
+	# 节令：到了日子（当天或之后两天里）在青庐，多半会过上这个节
+	if festival_today() != "" and rng.randf() < 0.7:
+		fire("节令", {}, {})
+		return
 	var p_event := 0.35 + int(w["since_major"]) * 0.012
 	if rng.randf() > p_event:
 		w["tension"] = maxi(0, int(w["tension"]) - 2)
@@ -862,7 +902,7 @@ func bind(tid: String) -> Variant:
 		"旧债上门":
 			return _r1(_pick(func(c): return int(c["lv"]) >= 2 and int(R(c, p)["g"]) < 30, func(c): return 1.0 + float(tag(c, "贪财") or tag(c, "圆滑")) * 3.0))
 		"节令":
-			return {}
+			return {} if festival_today() != "" else null
 	return null
 
 func weight(tid: String, roles: Dictionary) -> float:
@@ -1169,10 +1209,15 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				"%s在柴门外站着，手里捏着一张旧契：“这青庐的地，原先是租我家的。”" % nm]),
 				"opts": [_o("pay", "认了，还钱"), _o("dan", "提出炼一炉丹抵债"), _o("deny", "不认这笔账")]}
 		"节令":
-			var fest: String = FESTIVALS[int(int(w["day"]) / 14) % FESTIVALS.size()]
+			var fest: String = festival_today()
+			if fest == "":
+				fest = "中秋"   # 调试命令硬弹时
+			if not w.has("fest_done"):
+				w["fest_done"] = {}
+			w["fest_done"]["%d:%s" % [cal(int(w["day"]))[0], fest]] = true
 			ctx["fest"] = fest
 			var fx: String = {"上元": "镇上挂满了灯", "清明": "山下飘着纸钱的灰", "端午": "河边在赛龙舟", "七夕": "镇上的姑娘都在穿针乞巧", "中秋": "月亮大得像要落进灵田", "重阳": "坊市有人卖茱萸和菊花酒", "冬至": "姑母信里说包了饺子"}[fest]
-			return {"speaker": 0, "text": "%s到了，%s。%s" % [fest, fx, pv("节尾", ["青庐里只有她一个人。", "她站在院里听了一会儿山下的动静。", "灶上的水开了，她没去管。"])],
+			return {"speaker": 0, "text": "%s，%s到了，%s。%s" % [cal_text(int(w["day"])), fest, fx, pv("节尾", ["青庐里只有她一个人。", "她站在院里听了一会儿山下的动静。", "灶上的水开了，她没去管。"])],
 				"opts": [_o("town", "下山凑个热闹"), _o("home", "在青庐守着"), _o("aunt", "给姑母捎点东西（2 灵石）")]}
 		"远方来信":
 			return {"speaker": int(n["id"]), "text": pv("远信", [
