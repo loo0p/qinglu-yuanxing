@@ -34,3 +34,6 @@ json.dump(rels, open(os.path.join(R, 'data/portrait_files.json'), 'w'), ensure_a
 open(os.path.join(dst, '.gdignore'), 'w').close()
 tot = sum(os.path.getsize(p) for p in glob.glob(dst + '/*/*.webp'))
 print(len(rels), 'files', round(tot / 1e6, 2), 'MB')
+# 五官贴片打包（网页版按包取）
+import subprocess
+subprocess.run([sys.executable, os.path.join(R, 'tools/bundle_portraits.py')], check=True)

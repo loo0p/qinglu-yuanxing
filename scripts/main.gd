@@ -323,7 +323,34 @@ var pf_want := {}
 var pf_active := 0
 var pf_base := ""
 
+## 五官贴片按脸型打成了包（tools/bundle_portraits.py）：要其中任何一条，就取整个包（v0.6.8）
+var pf_bundles = null
+func _pf_unit(rel: String) -> String:
+	if pf_bundles == null:
+		var t = FileAccess.get_file_as_string("res://data/portrait_bundles.json")
+		var d = JSON.parse_string(t) if t != "" else null
+		pf_bundles = d if d is Dictionary else {}
+	return String(pf_bundles.get(rel, rel))
+
+func _pf_put_bundle(body: PackedByteArray) -> void:
+	if body.size() < 4:
+		return
+	var n = body.decode_u32(0)
+	var o = 4
+	for i in n:
+		if o + 2 > body.size():
+			return
+		var ln = body.decode_u16(o)
+		var name = body.slice(o + 2, o + 2 + ln).get_string_from_utf8()
+		o += 2 + ln
+		var sz = body.decode_u32(o)
+		o += 4
+		if not PLib.has(name):
+			PLib.put(name, body.slice(o, o + sz))
+		o += sz
+
 func _pf_fetch(rel: String) -> void:
+	rel = _pf_unit(rel)
 	if pf_want.has(rel) and not pf_queue.has(rel):
 		return
 	pf_want[rel] = true
@@ -338,7 +365,8 @@ func _pf_prefetch_all() -> void:
 	var lst = JSON.parse_string(t) if t != "" else null
 	if not (lst is Array):
 		return
-	for rel in lst:
+	for rel0 in lst:
+		var rel = _pf_unit(rel0)
 		if not pf_want.has(rel):
 			pf_want[rel] = true
 			pf_queue.push_back(rel)
@@ -350,7 +378,8 @@ func _pf_pump() -> void:
 		pf_base = String(b) if b is String and b != "" else "portrait/"
 	while pf_active < PF_MAX and not pf_queue.is_empty():
 		var rel: String = pf_queue.pop_front()
-		if PLib.has(rel):
+		var is_pack = rel.begins_with("pack/")
+		if not is_pack and PLib.has(rel):
 			continue
 		pf_active += 1
 		var req = HTTPRequest.new()
@@ -359,11 +388,14 @@ func _pf_pump() -> void:
 			req.queue_free()
 			pf_active -= 1
 			if result == HTTPRequest.RESULT_SUCCESS and code == 200:
-				PLib.put(rel, body)
+				if is_pack:
+					_pf_put_bundle(body)
+				else:
+					PLib.put(rel, body)
 			else:
 				pf_want.erase(rel)   # 下次用到时重试
 			_pf_pump())
-		if req.request(pf_base + PLib.file_of(rel)) != OK:
+		if req.request(pf_base + (rel if is_pack else PLib.file_of(rel))) != OK:
 			req.queue_free()
 			pf_active -= 1
 			pf_want.erase(rel)
