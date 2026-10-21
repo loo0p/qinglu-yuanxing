@@ -4,7 +4,7 @@
 
 ## v0.7.1（线上立绘空白修复）
 - 线上 v0.6.8–v0.7.0 建角/人物立绘是空白：GitHub Pages 给 .bin 特征包加了 Content-Encoding: gzip，浏览器已解开，引擎 HTTPRequest 又解一遍报 stream_peer_gzip 错，包没装上，立绘一直等部件。本地 serve.py 不压缩所以测不出来。
-- 修法：三处 HTTPRequest 都设 accept_gzip = false。用模拟 Pages 压缩的本地服务器（/tmp/gzserve.py，.bin/.json 按 gzip 发）验过：无报错、立绘正常。
+- 修法：三处 HTTPRequest 都设 accept_gzip = false。用模拟 Pages 压缩的本地服务器（tools/serve_gz.py，.bin/.json 按 gzip 发）验过：无报错、立绘正常。
 
 ## v0.7.0（立绘：新部件 · 眨眼修好）
 - lib5 原位新部件：女发 f11（高髻+长发，可配玉簪垂珠 acc_f4）、f12（半披+侧辫）、男发 m11（束冠插簪）；衣袍 f9（灰袍深领+绦带）、m9（短袖劲装+护腕）；花钿两种（红月牙、青水滴）与颊痣。
