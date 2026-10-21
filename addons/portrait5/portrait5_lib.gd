@@ -12,6 +12,7 @@ static var _tex := {}
 static var fetch: Callable = Callable()   # Web：fetch.call(file) 发起下载，完成后宿主调用 put(rel, bytes)
 static var miss := 0                      # 本次 setup 期间缺了几张（View 用它判断是否完整）
 static var gen := 0                       # 每到一张新图 +1，PortraitBox 据此重画
+static var low := false                   # 当前在画的是缩略图：宿主把它的下载排在主立绘之后
 
 static func ensure() -> void:
 	if not lib.is_empty(): return

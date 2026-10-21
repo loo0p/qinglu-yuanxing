@@ -28,18 +28,45 @@ func setup(spec: Dictionary, crop_rect: Rect2 = BUST, motion: float = 1.0) -> vo
 
 func _build() -> void:
 	Lib.miss = 0
+	Lib.low = view.motion <= 0.0   # 缩略图（不动的）下载排在主立绘后面
 	view.setup(spec)
+	Lib.low = false
 	complete = Lib.miss == 0
 	view.visible = complete
 	_gen = Lib.gen
 	set_process(not complete)
+	queue_redraw()
 
 func _process(delta: float) -> void:
 	_wait += delta
+	_pulse += delta
+	if not complete:
+		queue_redraw()
 	if _wait < 0.15 or Lib.gen == _gen:
 		return
 	_wait = 0.0
 	_build()
+
+## 部件没到齐时画一个淡墨剪影（头、颈、肩），轻轻呼吸，免得一片空白
+var _pulse := 0.0
+func _draw() -> void:
+	if complete or view == null:
+		return
+	var a := 0.10 + 0.05 * sin(_pulse * 2.4)
+	var ink := Color(0.29, 0.25, 0.2, a)
+	draw_set_transform(view.position, 0.0, view.scale)
+	var body := PackedVector2Array()
+	for i in 25:
+		var t := PI + PI * float(i) / 24.0
+		body.append(Vector2(216 + cos(t) * 190, 600 + sin(t) * 300))
+	draw_colored_polygon(body, ink)
+	draw_rect(Rect2(186, 230, 60, 90), ink)
+	var head := PackedVector2Array()
+	for i in 40:
+		var t := TAU * float(i) / 40.0
+		head.append(Vector2(216 + cos(t) * 74, 165 + sin(t) * 92))
+	draw_colored_polygon(head, Color(ink.r, ink.g, ink.b, a * 1.2))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -51,3 +78,4 @@ func _fit() -> void:
 	var s := maxf(size.x / crop.size.x, size.y / crop.size.y) if cover else minf(size.x / crop.size.x, size.y / crop.size.y)
 	view.scale = Vector2(s, s)
 	view.position = -crop.position * s + (size - crop.size * s) * 0.5
+	queue_redraw()

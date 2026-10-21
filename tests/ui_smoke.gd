@@ -76,7 +76,16 @@ func seq(list: Array) -> bool:
 
 func _go() -> void:
 	var ok := true
-	ok = ok and seq(["新游戏", "出发", "知道了", "历练", "出发：后山"])
+	ok = ok and seq(["新游戏", "出发", "知道了"])
+	# 新手提示：新局第 1 日在青庐有姑母的字条；“记下了”后不再出；去历练页又有一张
+	var gd_ok: bool = main.g.s.has("guide") and _find("记下了") != null
+	gd_ok = gd_ok and click("记下了") and _find("记下了") == null
+	main.tab = "depart"; main.refresh()
+	gd_ok = gd_ok and _find("记下了") != null
+	main.tab = "home"; main.refresh()
+	log_lines.append("新手提示（新局出现、记下后消失）：" + ("PASS" if gd_ok else "FAIL"))
+	ok = ok and gd_ok
+	ok = ok and seq(["历练", "出发：后山"])
 	ok = ok and seq(["溪边", "贴上避水符", "继续", "溪畔野地", "采一把续骨草", "继续", "葛老三", "递上续骨草", "继续", "古松残碑", "拓下碑文", "继续", "归途", "回青庐", "回家", "进屋"])
 	ok = ok and seq(["开第三块阳田", "修炼", "2 日"]) if false else ok and seq(["开第三块阳田", "修炼"])
 	# 闭关 2 日：点 1 日两次
@@ -139,6 +148,37 @@ func _go() -> void:
 	var nm_ok = main.safe_name("鑫𠀀") == "苏青禾" and main.safe_name("林晚照") == "林晚照"
 	log_lines.append("旧档名字兜底：" + ("PASS" if nm_ok else "FAIL"))
 	ok = ok and nm_ok
+	# 旧档（没有 guide 键）读进来：不出新手提示
+	var od: Dictionary = g.to_dict()
+	od.erase("guide")
+	od["day"] = 2
+	od["ending"] = ""
+	od["ended"] = false
+	od["loc"] = "home"
+	g.from_dict(od)
+	main.modal = {}; main.tab = "home"; main.screen = "game"; main.refresh()
+	var mig_ok: bool = _find("记下了") == null
+	log_lines.append("旧档不出新手提示：" + ("PASS" if mig_ok else "FAIL"))
+	ok = ok and mig_ok
+	# 设置：文字速度、音量改了能存能读
+	if g.world and not g.world.pending().is_empty():
+		g.world.auto_choose()
+		g.world.close()
+	main.modal = {}
+	var sp0: int = main.text_speed
+	var vm0: float = main.vol_music
+	main.show_settings = true; main.refresh()
+	var st_ok: bool = click("立即")
+	st_ok = st_ok and main.text_speed == 3
+	main.vol_music = 0.35
+	main._save_settings()
+	main.text_speed = 1; main.vol_music = 0.8
+	main._load_settings()
+	st_ok = st_ok and main.text_speed == 3 and absf(main.vol_music - 0.35) < 0.01
+	main.text_speed = sp0; main.vol_music = vm0; main._save_settings()
+	st_ok = st_ok and click("回去") and not main.show_settings
+	log_lines.append("设置（文字速度/音量存读）：" + ("PASS" if st_ok else "FAIL"))
+	ok = ok and st_ok
 	log_lines.append("UI 冒烟：" + ("PASS" if ok else "FAIL"))
 	for l in log_lines:
 		print(l)

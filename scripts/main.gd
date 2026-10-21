@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.6 试玩版"
+const VERSION = "v0.7.3 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -101,6 +101,11 @@ var bgm: AudioStreamPlayer
 var sfx_players = []
 var audio_unlocked = false
 var muted = false
+var vol_music := 0.8     # 设置：音乐音量 0–1
+var vol_sfx := 0.9       # 设置：音效音量 0–1
+var text_speed := 1      # 设置：文字速度 0 慢 · 1 中 · 2 快 · 3 立即
+const TEXT_CHAR_S = [0.045, 0.025, 0.012, 0.0]
+var show_settings := false
 var cur_bgm = ""
 var bgm_on = false
 var bgm_tween: Tween
@@ -173,7 +178,7 @@ func _ready() -> void:
 	fx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fx_layer)
 	bgm = AudioStreamPlayer.new()
-	bgm.volume_db = -8.0
+	bgm.volume_db = _bgm_db()
 	add_child(bgm)
 	for i in 3:
 		var sp = AudioStreamPlayer.new()
@@ -352,13 +357,25 @@ func _pf_put_bundle(body: PackedByteArray) -> void:
 			PLib.put(name, body.slice(o, o + sz))
 		o += sz
 
+## 三档排队：主立绘/对话立绘（pf_hi，后要的先取）> 缩略图（pf_lo，按出现顺序）> 后台预取（pf_queue）
+var pf_hi := []
+var pf_lo := []
 func _pf_fetch(rel: String) -> void:
 	rel = _pf_unit(rel)
-	if pf_want.has(rel) and not pf_queue.has(rel):
-		return
+	var queued: bool = pf_queue.has(rel) or pf_hi.has(rel) or pf_lo.has(rel)
+	if pf_want.has(rel) and not queued:
+		return   # 已在下载
 	pf_want[rel] = true
-	pf_queue.erase(rel)
-	pf_queue.push_front(rel)
+	if PLib.low:
+		if pf_hi.has(rel) or pf_lo.has(rel):
+			return
+		pf_queue.erase(rel)
+		pf_lo.push_back(rel)
+	else:
+		pf_queue.erase(rel)
+		pf_lo.erase(rel)
+		pf_hi.erase(rel)
+		pf_hi.push_front(rel)
 	_pf_pump()
 
 func _pf_prefetch_all() -> void:
@@ -379,8 +396,8 @@ func _pf_pump() -> void:
 	if pf_base == "":
 		var b = JavaScriptBridge.eval("new URL('portrait/', location.href).href", true)
 		pf_base = String(b) if b is String and b != "" else "portrait/"
-	while pf_active < PF_MAX and not pf_queue.is_empty():
-		var rel: String = pf_queue.pop_front()
+	while pf_active < PF_MAX and not (pf_hi.is_empty() and pf_lo.is_empty() and pf_queue.is_empty()):
+		var rel: String = pf_hi.pop_front() if not pf_hi.is_empty() else (pf_lo.pop_front() if not pf_lo.is_empty() else pf_queue.pop_front())
 		var is_pack = rel.begins_with("pack/")
 		if not is_pack and PLib.has(rel):
 			continue
@@ -405,7 +422,7 @@ func _pf_pump() -> void:
 			pf_want.erase(rel)
 
 func sfx(slot: String) -> void:
-	if not audio_unlocked or muted:
+	if not audio_unlocked or muted or vol_sfx < 0.01:
 		return
 	var st = snd("sfx", slot)
 	if st == null:
@@ -413,6 +430,7 @@ func sfx(slot: String) -> void:
 	var sp = sfx_players[sfx_rr % sfx_players.size()]
 	sfx_rr += 1
 	sp.stream = st
+	sp.volume_db = _sfx_db()
 	sp.play()
 
 func _set_bgm(slot: String) -> void:
@@ -435,7 +453,7 @@ func _set_bgm(slot: String) -> void:
 		bgm.stream = st
 		bgm.volume_db = -40.0
 		bgm.play())
-	tw.tween_property(bgm, "volume_db", -8.0, 1.2)
+	tw.tween_property(bgm, "volume_db", _bgm_db(), 1.2)
 	bgm_on = st != null
 
 func _input(ev: InputEvent) -> void:
@@ -464,11 +482,75 @@ func _load_settings() -> void:
 	var cf = ConfigFile.new()
 	if cf.load("user://settings.cfg") == OK:
 		muted = bool(cf.get_value("audio", "muted", false))
+		vol_music = clampf(float(cf.get_value("audio", "music", 0.8)), 0.0, 1.0)
+		vol_sfx = clampf(float(cf.get_value("audio", "sfx", 0.9)), 0.0, 1.0)
+		text_speed = clampi(int(cf.get_value("text", "speed", 1)), 0, 3)
 
 func _save_settings() -> void:
 	var cf = ConfigFile.new()
 	cf.set_value("audio", "muted", muted)
+	cf.set_value("audio", "music", vol_music)
+	cf.set_value("audio", "sfx", vol_sfx)
+	cf.set_value("text", "speed", text_speed)
 	cf.save("user://settings.cfg")
+
+## 音乐底子是 -8 dB，再乘设置里的音量
+func _bgm_db() -> float:
+	return -80.0 if vol_music < 0.01 else -8.0 + linear_to_db(vol_music)
+
+func _sfx_db() -> float:
+	return -80.0 if vol_sfx < 0.01 else linear_to_db(vol_sfx)
+
+## 设置页：音乐/音效音量、文字速度；改了立刻生效并存进 user://settings.cfg（与存档分开）
+func _settings() -> void:
+	_stage_image("bg_home" if screen == "game" else "title", 0.6)
+	var c = card()
+	H("设置", 24, C_ACCENT, c)
+	for it in [["音乐", "music"], ["音效", "sfx"]]:
+		var k: String = it[1]
+		var r = row(c, 8)
+		var nl = L(it[0], 15, C_TEXT, r)
+		nl.custom_minimum_size = Vector2(44, 0)
+		var sl = HSlider.new()
+		sl.min_value = 0
+		sl.max_value = 100
+		sl.step = 5
+		sl.value = (vol_music if k == "music" else vol_sfx) * 100.0
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sl.custom_minimum_size = Vector2(0, MIN_TAP)
+		r.add_child(sl)
+		var vl = L("%d" % int(sl.value), 14, C_DIM, r)
+		vl.custom_minimum_size = Vector2(32, 0)
+		sl.value_changed.connect(func(v):
+			vl.text = "%d" % int(v)
+			if k == "music":
+				vol_music = v / 100.0
+				if bgm_tween and bgm_tween.is_valid():
+					bgm_tween.kill()
+				bgm.volume_db = _bgm_db()
+			else:
+				vol_sfx = v / 100.0
+			_save_settings())
+		if k == "sfx":
+			sl.drag_ended.connect(func(_c): sfx("tap"))
+	L("文字速度", 15, C_TEXT, c)
+	var tr = row(c, 4)
+	for i in 4:
+		var ii = i
+		var b = B(("● " if text_speed == i else "") + ["慢", "中", "快", "立即"][i], func(): text_speed = ii; _save_settings(), true, tr, 44)
+		b.add_theme_font_size_override("font_size", 14)
+	var demo = L("", 15, C_TEXT, c)
+	demo.text = "山雨欲来，她把晒着的青芝收进了屋。"
+	if TEXT_CHAR_S[text_speed] > 0.0:
+		demo.visible_characters = 0
+		demo.create_tween().tween_property(demo, "visible_characters", demo.text.length(), demo.text.length() * TEXT_CHAR_S[text_speed])
+	if screen == "game" and g.s.get("guide", {}) is Dictionary and g.s.has("guide"):
+		var gd: Dictionary = g.s["guide"]
+		var off: bool = gd.get("off", false)
+		B("新手提示：" + ("已关闭（点此重新打开）" if off else "开着（点此关闭）"), func(): gd["off"] = not off; _save(), true, c, 44)
+	L("静音可点标题页的 ♪。设置存在这台设备的浏览器里，与存档分开。", 13, C_DIM, c)
+	B("回去", func(): show_settings = false, true, footer, 52)
 
 func _sb(bg: Color, border: Color = Color(0, 0, 0, 0), radius: int = 6, bw: int = 0, pad: int = 8) -> StyleBoxFlat:
 	var sb = StyleBoxFlat.new()
@@ -795,6 +877,7 @@ func _start_new() -> void:
 	session_start = Time.get_ticks_msec()
 	screen = "game"
 	tab = "home"
+	g.s["guide"] = {"seen": {}, "off": false}   # 新手提示只给新开的局；旧档/迁移来的档没有这个键，不显示
 	modal = {"kind": "msg", "portrait": "aunt", "title": "姑母", "text": "姑母把一张避水符塞进她袖里：“后山的溪涨水了，先去那边认认路。”\n“筑基不急。人要先回来。”"}
 
 
@@ -862,6 +945,9 @@ func _refresh() -> void:
 	if not OS.is_userfs_persistent():
 		var wl = L("⚠ 这个浏览器不能长期保存（可能是隐私模式），关掉页面进度会丢。", 12, C_WARN, hud)
 		wl.add_theme_stylebox_override("normal", _sb(C_PAPER, Color(0, 0, 0, 0), 4, 0, 4))
+	if show_settings:
+		_settings()
+		return
 	match screen:
 		"title":
 			_title()
@@ -885,6 +971,7 @@ func _refresh() -> void:
 	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
 		_extra_choice()
 		return
+	_guide()
 	match tab:
 		"home": _home()
 		"depart": _depart()
@@ -894,6 +981,48 @@ func _refresh() -> void:
 	_nav()
 	if sheet != "":
 		_sheet()
+
+# ------------------------------------------------------------ 新手提示（姑母留的字条）
+## 只在新开的局、前 6 日里出现；每张只出一次；“不必再提”就全关（设置里可再打开）。
+const GUIDE = {
+	"home": "这院子就是青庐。阳田种青芝，丹炉炼丹，静室闭关——点院里的地方就能打理。日子在这里过，一天是一天。",
+	"home2": "回来了就好。累了就闭关，采回的灵草放进丹炉。寿元一日日少，别都耗在路上。",
+	"depart": "出门历练：挑一条路，带够干粮。路上每一站都要你拿主意，采回的灵草能入药。别贪远，人要先回来。",
+	"cult": "静室里闭关，一日一日把感悟炼成修为。修为攒满，院里会出现「冲关」：过了心魔那几问，才算筑基。",
+	"jianghu": "山外的人和事都记在「江湖」里。你怎么待人，人家都记得——好的坏的都记得。",
+}
+func _guide_key() -> String:
+	var gd = g.s.get("guide", null)
+	if not (gd is Dictionary) or gd.get("off", false) or int(g.s.get("day", 0)) > 6 or sheet != "":
+		return ""
+	var k: String = tab
+	if tab == "home" and int(g.s.get("trips_done", 0)) >= 1 and gd["seen"].has("home"):
+		k = "home2"
+	if not GUIDE.has(k) or gd["seen"].has(k):
+		return ""
+	return k
+
+func _guide() -> void:
+	var k := _guide_key()
+	if k == "":
+		return
+	var gd: Dictionary = g.s["guide"]
+	var p = PanelContainer.new()
+	p.add_theme_stylebox_override("panel", _sb(Color(0.99, 0.97, 0.91, 0.96), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.8), 8, 1, 10))
+	body.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	p.add_child(v)
+	var hr = row(v, 6)
+	IC("vn_aunt" if tex("vn_aunt") else "ico_ration", 30, hr)
+	H("姑母留的字条", 17, C_ACCENT, hr)
+	L(GUIDE[k], 14, C_TEXT, v)
+	var br = row(v, 6)
+	var b1 = B("记下了", func(): gd["seen"][k] = true; _save(), true, br, 44)
+	b1.add_theme_font_size_override("font_size", 14)
+	var b2 = B("不必再提", func(): gd["off"] = true; _save(), true, br, 44)
+	b2.add_theme_font_size_override("font_size", 14)
+	b2.add_theme_color_override("font_color", C_DIM)
 
 # ------------------------------------------------------------ 舞台（整幅插画）
 func _stage_image(name: String, dim: float = 0.0, dim_col: Color = Color("#F3EEE2")) -> Rect2:
@@ -1230,6 +1359,7 @@ func _sheet_stats(v: Node) -> void:
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var r2 = row(v)
 	B("放声" if muted else "静音", func(): _toggle_mute(), true, r2, 36)
+	B("设置", func(): sheet = ""; show_settings = true, true, r2, 36)
 	B("回标题", func(): sheet = ""; screen = "title", true, r2, 36)
 	L("《青庐远行》%s" % VERSION, 11, C_DIM, v)
 
@@ -1257,6 +1387,10 @@ func _title() -> void:
 	var top = row()
 	var vtag = L(VERSION, 12, Color("#5A5046"), top)
 	vtag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb = B("设置", func(): show_settings = true, true, top, 34)
+	sb.size_flags_horizontal = Control.SIZE_SHRINK_END
+	sb.custom_minimum_size = Vector2(60, MIN_TAP)
+	sb.add_theme_font_size_override("font_size", 14)
 	var mb = B("♪" if not muted else "♪×", func(): _toggle_mute(), true, top, 34)
 	mb.size_flags_horizontal = Control.SIZE_SHRINK_END
 	mb.custom_minimum_size = Vector2(MIN_TAP, MIN_TAP)
@@ -1452,10 +1586,13 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 		var last_len = String(bs[min(beat_i, bs.size() - 1)]).length()
 		var total = tl.text.length()
 		tl.visible_characters = total - last_len
-		var tw = tl.create_tween()
-		tw.tween_property(tl, "visible_characters", total, last_len * 0.025)
-		type_tw = tw
-		type_label = tl
+		if TEXT_CHAR_S[text_speed] <= 0.0:
+			tl.visible_characters = -1
+		else:
+			var tw = tl.create_tween()
+			tw.tween_property(tl, "visible_characters", total, last_len * TEXT_CHAR_S[text_speed])
+			type_tw = tw
+			type_label = tl
 	if not done:
 		var adv = B("▼", func(): _advance(), true, v, 44)
 		adv.flat = true
@@ -2254,7 +2391,7 @@ func _person() -> void:
 				L("第%d日  %s" % [int(m[0]), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
 	B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 46)
 
-## 生平时间线：按月分组（30 日一月），近的月份在上、月内按日先后；每条右侧是提到的人的小头像（点开看此人）
+## 生平时间线：按历法分月（第 1 日是正月初一，30 日一月；节令也按这个历），近的月份在上、月内按日先后；每条右侧是提到的人的小头像（点开看此人）
 func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	var w = g.world
 	var lg: Array = c["log"]
@@ -2267,7 +2404,7 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 			ppl.append(o)
 	var months := []
 	for e in lg:
-		var m := int(e[0]) / 30
+		var m := (maxi(int(e[0]), 1) - 1) / 30
 		if months.is_empty() or int(months[-1][0]) != m:
 			months.append([m, []])
 		months[-1][1].append(e)
@@ -2276,12 +2413,13 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	for mi in range(months.size() - 1, first - 1, -1):
 		var m: int = months[mi][0]
 		var hr = row(cc, 8)
-		H("第%s个月" % _cn_num(m + 1), 20, C_ACCENT, hr)
+		var mt: String = w.cal_text(m * 30 + 1)
+		H(mt.substr(0, mt.length() - 2), 20, C_ACCENT, hr)
 		var sub = L("第 %d–%d 日 · %d 件" % [m * 30 + 1, m * 30 + 30, months[mi][1].size()], 13, C_DIM, hr)
 		sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for e in months[mi][1]:
 			var er = row(cc, 6)
-			var dl = L("%d日" % (int(e[0]) % 30 + 1), 13, C_GOLD, er)
+			var dl = L(w.cn_day(int(w.cal(int(e[0]))[2])), 13, C_GOLD, er)
 			dl.custom_minimum_size = Vector2(40, 0)
 			dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -2326,19 +2464,13 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 		var mb = B("再往前：%d 个月 · %d 件" % [first, hidden], func(): life_all = true, true, cc, 44)
 		mb.add_theme_font_size_override("font_size", 14)
 
-func _cn_num(n: int) -> String:
-	var d := ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
-	if n <= 10:
-		return d[n]
-	if n < 20:
-		return "十" + (d[n % 10] if n % 10 else "")
-	return d[n / 10] + "十" + (d[n % 10] if n % 10 else "")
-
 func _rel_depth(r: Dictionary) -> float:
 	return absf(float(r["f"])) + float(r["g"]) + r["t"].size() * 50
 
 # ------------------------------------------------------------ 调试场景（只在调试导出里可用，给验收截图）
 func _dev(cmd: String) -> String:
+	if cmd != "settings" and cmd != "state":
+		show_settings = false
 	match cmd:
 		"state":
 			return JSON.stringify({"screen": screen, "loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""), "rev": store.rev})
@@ -2353,7 +2485,10 @@ func _dev(cmd: String) -> String:
 			g.notices.clear()
 			_save()
 			refresh()
-		"story", "jianghu", "person", "create_rnd", "life":
+		"settings":
+			show_settings = true
+			refresh()
+		"story", "jianghu", "person", "create_rnd", "life", "guide", "guide_depart":
 			if cmd == "create_rnd":
 				screen = "create"
 				_reroll_portrait()
@@ -2374,6 +2509,11 @@ func _dev(cmd: String) -> String:
 				g.world.fire("表白" if c["sex"] == "男" else "访客", {"B": int(c["id"])}, {})
 			if cmd == "jianghu":
 				tab = "jianghu"
+			if cmd in ["guide", "guide_depart"]:
+				g.s["day"] = 1
+				g.s["trips_done"] = 0
+				g.s["guide"] = {"seen": {}, "off": false}
+				tab = "home" if cmd == "guide" else "depart"
 			if cmd == "life":
 				tab = "jianghu"
 				person_id = 1
