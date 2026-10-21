@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 dbg, rel = int(sys.argv[1]), int(sys.argv[2]); pre = sys.argv[3] if len(sys.argv) > 3 else 'v04'
 out = 'build/shots'
 ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
-SCENES = [('title', 'title'), ('home', 'home'), ('sheet_furnace', 'furnace'), ('depart', 'depart'), ('choose', 'map'),
+SCENES = [('title', 'title'), ('create', 'create'), ('home', 'home'), ('sheet_furnace', 'furnace'), ('depart', 'depart'), ('choose', 'map'),
           ('event', 'event_beat1'), ('reveal', 'event_choices'), ('laogui', 'hantan_laogui'), ('reveal', 'hantan_laogui_choices'),
           ('result', 'result'), ('cult', 'cult'), ('xinmo', 'xinmo'), ('ending', 'ending')]
 res = {}

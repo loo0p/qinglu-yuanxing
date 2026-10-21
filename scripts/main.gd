@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.4 试玩版"
+const VERSION = "v0.5 试玩版"
 
 const C_TEXT := Color("#2E2A24")
 const C_ACCENT := Color("#34586A")
@@ -1022,60 +1022,81 @@ func _preset(k: int) -> void:
 func _title() -> void:
 	_stage_image("title")
 	var top = row()
-	var vtag = L(VERSION, 13, Color("#5A5046"), top)
+	var vtag = L(VERSION, 12, Color("#5A5046"), top)
 	vtag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var mb = B("放声" if muted else "静音", func(): _toggle_mute(), true, top, 30)
+	var mb = B("♪" if not muted else "♪×", func(): _toggle_mute(), true, top, 34)
 	mb.size_flags_horizontal = Control.SIZE_SHRINK_END
-	mb.add_theme_font_size_override("font_size", 12)
+	mb.custom_minimum_size = Vector2(44, 34)
 	var gap = Control.new()
-	gap.custom_minimum_size = Vector2(0, 70)
+	gap.custom_minimum_size = Vector2(0, get_viewport_rect().size.y * 0.09)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(gap)
-	var t = H("青庐远行", 52, Color("#2B2620"))
+	var t = H("青庐远行", 56, Color("#2B2620"))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var st0 = L("一盏灯，一条山路，一个想筑基的姑娘", 15, Color("#4A3F33"))
+	var st0 = L("一盏灯，一条山路", 15, Color("#4A3F33"))
 	st0.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_spacer()
 	if store.exists():
 		var d = store.load_data()
 		if d != null:
 			var st = d["state"]
-			var info = "%s · 第 %d 日 · %s" % [safe_name(String(st.get("name", ""))), int(st.get("day", 0)), "已完结" if st.get("ended", false) else "进行中"]
-			B("继续：" + info, _continue, true, null, 54)
+			var cb = BI("继续 · %s · 第%d日" % [safe_name(String(st.get("name", ""))), int(st.get("day", 0))], "ico_ration", _continue, true, footer, 60)
+			cb.alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cb.add_theme_font_size_override("font_size", 18)
 		else:
-			L("存档读不出来（已保留原文件）。", 13, C_WARN)
-	B("新游戏", func(): screen = "create", true, null, 54)
-	var gap2 = Control.new()
-	gap2.custom_minimum_size = Vector2(0, get_viewport_rect().size.y * 0.25)
-	body.add_child(gap2)
+			L("存档读不出来（已保留原文件）。", 13, C_WARN, footer)
+	var nb = B("新游戏", func(): screen = "create", true, footer, 60)
+	nb.add_theme_font_size_override("font_size", 20)
+	var pad = Control.new()
+	pad.custom_minimum_size = Vector2(0, 8)
+	footer.add_child(pad)
 
 func _create() -> void:
-	_stage_image("bg_home", 0.55)
-	H("离家之前", 28)
-	var c0 = card()
-	var hr = row(c0)
-	IC("vn_heroine_smile", 92, hr)
-	var intro = L("青庐在山脚下，她跟着姑母长大。炼气将满，只差筑基这一步。", 15, C_TEXT, hr)
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	L("她叫：", 15)
+	_stage_image("bg_home", 0.25)
+	var pr = TextureRect.new()
+	pr.texture = tex("vn_heroine_smile")
+	pr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var vs = get_viewport_rect().size
+	pr.size = Vector2(vs.x, vs.y * 0.42)
+	pr.position = Vector2(0, vs.y * 0.04)
+	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(pr)
+	_spacer()
+	var c = card()
+	H("她叫", 22, C_ACCENT, c)
 	var nr = GridContainer.new()
 	nr.columns = 2
 	nr.add_theme_constant_override("h_separation", 6)
 	nr.add_theme_constant_override("v_separation", 6)
-	body.add_child(nr)
+	c.add_child(nr)
 	for nm in NAMES_PRESET:
-		B(("◉ " if create_name == nm else "○ ") + nm, func(): create_name = nm, true, nr, 42)
-	L("离家时，她最舍不得：", 15)
-	var cr = row()
-	for c in [["aunt", "姑母"], ["town", "小镇"], ["book", "一本书"]]:
-		B(("◉ " if create_cherish == c[0] else "○ ") + c[1], func(): create_cherish = c[0], true, cr, 42)
-	var nc = card()
-	L("这份牵挂，会在心魔劫里被问起。", 13, C_DIM, nc)
+		var b = B(nm, func(): create_name = nm, true, nr, 48)
+		b.add_theme_font_size_override("font_size", 18)
+		if create_name == nm:
+			_mark(b)
+	H("最舍不得", 22, C_ACCENT, c)
+	var cr = row(c)
+	for ch in [["aunt", "姑母", "por_aunt"], ["town", "小镇", "ico_ration"], ["book", "旧书", "ico_fu"]]:
+		var b2 = BI(ch[1], ch[2], func(): create_cherish = ch[0], true, cr, 56)
+		b2.add_theme_constant_override("icon_max_width", 34)
+		b2.add_theme_font_size_override("font_size", 16)
+		if create_cherish == ch[0]:
+			_mark(b2)
 	if store.exists():
-		L("已有存档：开始新游戏会把它另存为 qinglu_prev，不会删除。", 12, C_WARN, nc)
-	L("进度只存在这台设备的浏览器里。", 12, C_DIM, nc)
-	B("出发", func(): _start_new(), true, footer, 52)
-	B("返回", func(): screen = "title", true, footer, 40)
+		L("旧档会另存，不删除。", 12, C_WARN, c)
+	var r = row(footer)
+	var bk = B("返回", func(): screen = "title", true, r, 56)
+	bk.size_flags_stretch_ratio = 0.4
+	var go = B("出发", func(): _start_new(), true, r, 56)
+	go.add_theme_font_size_override("font_size", 20)
+
+## 选中态：朱红描边
+func _mark(b: Button) -> void:
+	var sb = _sb(Color(1.0, 0.95, 0.88, 0.97), Color("#B03A2E"), 4, 2, 8)
+	for st in ["normal", "hover", "focus", "pressed"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.add_theme_color_override("font_color", Color("#B03A2E"))
 
 # ------------------------------------------------------------ 对话框（视觉小说式）
 func _beats(text: String) -> Array:
@@ -1730,6 +1751,7 @@ func _dev(cmd: String) -> String:
 			if cmd == "result":
 				g.enter_node("T4"); g.resolve("C")
 			sheet = ""
+			g.notices.clear()
 			_save()
 			refresh()
 		"reveal":
@@ -1737,6 +1759,11 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"sheet_furnace", "sheet_field", "sheet_stats", "sheet_pack":
 			sheet = cmd.substr(6)
+			refresh()
+		"create":
+			screen = "create"
+			modal = {}
+			sheet = ""
 			refresh()
 		"title":
 			screen = "title"
@@ -1750,6 +1777,7 @@ func _dev(cmd: String) -> String:
 			for pk in [["H1", "A"], ["H2a", "A"]]:
 				g.enter_node(pk[0]); g.resolve(pk[1]); g.continue_trip()
 			g.enter_node("H3")
+			g.notices.clear()
 			_save()
 			refresh()
 		"xinmo", "ending":
@@ -1766,6 +1794,7 @@ func _dev(cmd: String) -> String:
 				g.s["ending"] = "zhuji"
 				g.s["ended"] = true
 				g.s["log"].append({"day": 41, "text": "第 41 日，筑基功成。"})
+			g.notices.clear()
 			_save()
 			refresh()
 		"laogui", "depart", "home", "cult":
@@ -1799,6 +1828,7 @@ func _dev(cmd: String) -> String:
 			if cmd == "home":
 				tab = "home"
 				g.enqueue("juqi")
+			g.notices.clear()
 			_save()
 			refresh()
 	return cmd
