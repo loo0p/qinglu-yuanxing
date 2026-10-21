@@ -91,6 +91,24 @@ func _init() -> void:
 		if int(all.get(k, 0)) == 0:
 			miss.append(k)
 	ok(miss.is_empty(), "v0.7.2 新事件在 8 局 100 日里都出现过（缺：%s）" % "、".join(miss))
+	# v0.7.6：从后窗躲仇人——再上门的开场换一套；躲满三回，对方不再找来（不会每 20 日一字不差地重来）
+	var xr = W.new()
+	xr.create(77, "苏青禾")
+	var foe: Dictionary = xr.npcs()[0]
+	var bid := int(foe["id"])
+	var texts := []
+	var resched := []
+	for k in 3:
+		xr.fire("仇人上门", {"B": bid}, {})
+		texts.append(String(xr.pending()["text"]))
+		var q0: int = xr.w["queue"].size()
+		var out_r: String = xr.choose("run")
+		xr.close()
+		resched.append(xr.w["queue"].size() > q0)
+		ok(out_r != "" and not out_r.contains("%s"), "后窗躲仇人第 %d 回有结果文字" % (k + 1))
+	var again_ok: bool = texts[1] != texts[0] and texts[2] != texts[0] and int(xr.R(foe, xr.P()).get("run", 0)) == 3
+	lines.append("后窗躲仇人：再上门开场 %s；是否再排期 %s" % [JSON.stringify(texts.slice(1)), JSON.stringify(resched)])
+	ok(again_ok and resched == [true, true, false], "躲过的仇人再上门换开场，躲满三回不再排期")
 	# v0.7.5：小师弟/小师妹只给看着年轻、比她小或境界比她低的人；没人合适就现生一个年轻的
 	var sd_n := 0
 	var sd_bad := []
