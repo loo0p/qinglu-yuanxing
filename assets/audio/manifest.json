@@ -1,19 +1,27 @@
 {
- "_comment": "音频槽位清单。把文件放进 assets/audio/ 并在这里填文件名（.ogg 或 .mp3），留空=静默。BGM 循环播放；音效单次。音频只在玩家第一次点击后开始。来源与许可请记入 CREDITS.md。",
+ "_comment": "音频槽位清单。把文件放进 assets/audio/ 并在这里填文件名（.ogg 或 .mp3），留空=静默。BGM 循环播放；音效单次。音频只在玩家第一次点击后开始。来源与许可请记入 CREDITS.md。 bgm_loop：是否循环（无循环偏移，文件首尾已做无缝处理）。",
  "bgm": {
-  "title": "",
-  "home": "",
-  "travel_houshan": "",
-  "hantan": "",
-  "xinmo": "",
-  "ending": ""
+  "title": "bgm_title.ogg",
+  "home": "bgm_home.ogg",
+  "travel_houshan": "bgm_travel_houshan.ogg",
+  "hantan": "bgm_hantan.ogg",
+  "xinmo": "bgm_xinmo.ogg",
+  "ending": "bgm_ending.ogg"
  },
  "sfx": {
-  "tap": "",
-  "page": "",
-  "pickup": "",
-  "success": "",
-  "fail": "",
-  "breakthrough": ""
+  "tap": "sfx_tap.ogg",
+  "page": "sfx_page.ogg",
+  "pickup": "sfx_pickup.ogg",
+  "success": "sfx_success.ogg",
+  "fail": "sfx_fail.ogg",
+  "breakthrough": "sfx_breakthrough.ogg"
+ },
+ "bgm_loop": {
+  "title": false,
+  "home": true,
+  "travel_houshan": true,
+  "hantan": true,
+  "xinmo": true,
+  "ending": false
  }
 }

@@ -47,6 +47,7 @@ jobs:
           mkdir -p build/web
           ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
           test -s build/web/index.wasm && test -s build/web/index.pck
+          mkdir -p build/web/audio && cp web_audio/*.ogg build/web/audio/
           touch build/web/.nojekyll
           ls -la build/web
       - uses: actions/upload-pages-artifact@v3

@@ -19,3 +19,6 @@
 - random_chinese_fantasy_names 词库 — hythl0day — MIT — https://github.com/hythl0day/random_chinese_fantasy_names
 - Chinese-Names-Corpus 字频 — wainshine — Apache-2.0 — https://github.com/wainshine/Chinese-Names-Corpus
 - 仅借思路：RimWorld AI Storyteller（公开 wiki）；Space Station 14 StationEvents（MIT）https://github.com/space-wizards/space-station-14 ；Generative Agents（Apache-2.0）https://github.com/joonspk-research/generative_agents ；heavenly-tribulation（MIT）https://github.com/hetu-script/heavenly-tribulation ；Anime2.5DRig（MIT）https://github.com/852wa/Anime2.5DRig ；See-through（Apache-2.0）https://github.com/shitagaki-lab/see-through ；DiceBear（MIT）https://github.com/dicebear/dicebear
+
+## 音乐与音效
+- Music and sound effects generated with ElevenLabs (elevenlabs.io) by the project owner's account.（2026-10-21；6 首配乐 + 6 个音效，详见制作清单；商业发行前需确认所用 ElevenLabs 套餐允许商用。）

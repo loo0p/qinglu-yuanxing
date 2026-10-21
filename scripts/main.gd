@@ -201,16 +201,57 @@ func snd(kind: String, slot: String) -> AudioStream:
 	var key = kind + ":" + slot
 	if snd_cache.has(key):
 		return snd_cache[key]
-	var a: AudioStream = null
 	var fn = String(manifest.get(kind, {}).get(slot, ""))
-	if fn != "":
-		var bytes = FileAccess.get_file_as_bytes("res://assets/audio/" + fn)
-		if bytes.size() > 0 and fn.ends_with(".ogg"):
-			a = AudioStreamOggVorbis.load_from_buffer(bytes)
-			if a and kind == "bgm":
-				a.loop = true
+	if fn == "" or not fn.ends_with(".ogg"):
+		snd_cache[key] = null
+		return null
+	if kind == "bgm":
+		# 配乐不打进 pck（首包小）：本地/编辑器读 res://web_audio，网页版按需从 audio/ 拉取
+		var local = "res://web_audio/" + fn
+		if FileAccess.file_exists(local):
+			var st = _ogg(FileAccess.get_file_as_bytes(local), slot)
+			snd_cache[key] = st
+			return st
+		_fetch_bgm(slot, fn)
+		return null
+	var a: AudioStream = null
+	var bytes = FileAccess.get_file_as_bytes("res://assets/audio/" + fn)
+	if bytes.size() > 0:
+		a = AudioStreamOggVorbis.load_from_buffer(bytes)
 	snd_cache[key] = a
 	return a
+
+func _ogg(bytes: PackedByteArray, slot: String) -> AudioStream:
+	if bytes.size() == 0:
+		return null
+	var a = AudioStreamOggVorbis.load_from_buffer(bytes)
+	if a:
+		a.loop = bool(manifest.get("bgm_loop", {}).get(slot, true))
+		a.loop_offset = 0.0
+	return a
+
+var bgm_fetching := {}
+func _fetch_bgm(slot: String, fn: String) -> void:
+	if bgm_fetching.has(slot) or not OS.has_feature("web"):
+		return
+	bgm_fetching[slot] = true
+	var url = "audio/" + fn
+	var base = JavaScriptBridge.eval("new URL('audio/', location.href).href", true)
+	if base is String and base != "":
+		url = String(base) + fn
+	var req = HTTPRequest.new()
+	add_child(req)
+	req.request_completed.connect(func(result, code, _h, body):
+		req.queue_free()
+		bgm_fetching.erase(slot)
+		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+			snd_cache["bgm:" + slot] = null
+			return
+		snd_cache["bgm:" + slot] = _ogg(body, slot)
+		if cur_bgm == slot and audio_unlocked and not muted and not bgm_on:
+			cur_bgm = ""
+			_set_bgm(slot))
+	req.request(url)
 
 func sfx(slot: String) -> void:
 	if not audio_unlocked or muted:
