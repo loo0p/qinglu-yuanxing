@@ -63,6 +63,7 @@ var create_portrait = {}
 var create_pseed = 0
 var person_id = 0       # 江湖：正在看的人物卡
 var person_tab = "life" # life | rel | mem
+var life_all = false    # 生平：是否展开更早的月份
 var screen = "title"     # title | create | game
 var tab = "home"         # home | depart | cult | log | jianghu
 var modal: Dictionary = {}
@@ -2084,7 +2085,10 @@ func _story() -> void:
 		"夜雨": "bg_yeyu", "旧友死讯": "bg_yeyu", "表白": "bg_chasi", "访客": "bg_chasi", "论道": "bg_chasi", "义结金兰": "bg_chasi",
 		"坊市传闻": "bg_fangshi", "坊市欺客": "bg_fangshi", "赠礼": "bg_fangshi", "宗门大比": "bg_leitai", "站队": "bg_leitai", "拜师": "bg_dongfu",
 		"旧物": "bg_yeyu", "报恩": "bg_chasi", "飞升异象": "bg_houshan",
-		"暗恋不舍": "bg_chasi", "再问": "bg_chasi", "怨偶": "bg_fangshi", "旧友托梦": "bg_yeyu", "仇家寻上门": "courtyard"}
+		"暗恋不舍": "bg_chasi", "再问": "bg_chasi", "怨偶": "bg_fangshi", "旧友托梦": "bg_yeyu", "仇家寻上门": "courtyard",
+		"宗门招徒": "bg_leitai", "入门试炼": "bg_leitai", "秘境请柬": "bg_chasi", "拍卖会": "bg_fangshi", "劫修伏击": "bg_shandao",
+		"师弟惹祸": "bg_fangshi", "天材地宝": "bg_houshan", "宝地相争": "bg_houshan", "对手突破": "bg_biguan", "旧债上门": "courtyard",
+		"节令": "bg_fangshi", "远方来信": "bg_yeyu", "喜帖": "bg_chasi", "落难": "bg_shandao"}
 	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2)
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
@@ -2225,11 +2229,7 @@ func _person() -> void:
 	var cc = card()
 	match person_tab:
 		"life":
-			var lg: Array = c["log"]
-			if lg.is_empty():
-				L("（没听说过什么）", 13, C_DIM, cc)
-			for i in range(lg.size() - 1, maxi(-1, lg.size() - 30), -1):
-				L("第%d日  %s" % [int(lg[i][0]), lg[i][1]], 13, C_TEXT, cc)
+			_life_timeline(c, cc)
 		"rel":
 			var ks = c["rel"].keys()
 			ks.sort_custom(func(a, b): return _rel_depth(c["rel"][a]) > _rel_depth(c["rel"][b]))
@@ -2252,7 +2252,87 @@ func _person() -> void:
 				L("%s对她还没什么印象。" % ("她" if c["sex"] == "女" else "他"), 13, C_DIM, cc)
 			for m in ms:
 				L("第%d日  %s" % [int(m[0]), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
-	B("回江湖", func(): modal = {}; tab = "jianghu", true, footer, 46)
+	B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 46)
+
+## 生平时间线：按月分组（30 日一月），近的月份在上、月内按日先后；每条右侧是提到的人的小头像（点开看此人）
+func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
+	var w = g.world
+	var lg: Array = c["log"]
+	if lg.is_empty():
+		L("（没听说过什么）", 13, C_DIM, cc)
+		return
+	var ppl := []
+	for o in w.w["C"].values():
+		if int(o["id"]) != int(c["id"]) and not o.get("player", false) and String(o["name"]).length() >= 2:
+			ppl.append(o)
+	var months := []
+	for e in lg:
+		var m := int(e[0]) / 30
+		if months.is_empty() or int(months[-1][0]) != m:
+			months.append([m, []])
+		months[-1][1].append(e)
+	var first := 0 if life_all else maxi(0, months.size() - 3)
+	var pname := String(w.P()["name"])
+	for mi in range(months.size() - 1, first - 1, -1):
+		var m: int = months[mi][0]
+		var hr = row(cc, 8)
+		H("第%s个月" % _cn_num(m + 1), 20, C_ACCENT, hr)
+		var sub = L("第 %d–%d 日 · %d 件" % [m * 30 + 1, m * 30 + 30, months[mi][1].size()], 13, C_DIM, hr)
+		sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		for e in months[mi][1]:
+			var er = row(cc, 6)
+			var dl = L("%d日" % (int(e[0]) % 30 + 1), 13, C_GOLD, er)
+			dl.custom_minimum_size = Vector2(40, 0)
+			dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			var tp = PanelContainer.new()
+			var tsb = StyleBoxFlat.new()
+			tsb.bg_color = Color(0, 0, 0, 0)
+			tsb.border_color = Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.45)
+			tsb.border_width_left = 2
+			tsb.content_margin_left = 8
+			tsb.content_margin_bottom = 4
+			tp.add_theme_stylebox_override("panel", tsb)
+			tp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			er.add_child(tp)
+			var tl = L(String(e[1]).replace(pname, "她") if c.get("player", false) else String(e[1]), 14, C_TEXT, tp)
+			tl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			var who := []
+			for o in ppl:
+				if String(e[1]).contains(String(o["name"])):
+					who.append(o)
+					if who.size() >= 2:
+						break
+			for o in who:
+				var oid := int(o["id"])
+				var tb = Button.new()
+				tb.custom_minimum_size = Vector2(44, 50)
+				tb.flat = true
+				tb.tooltip_text = String(o["name"])
+				tb.pressed.connect(func(): _press(func(): person_id = oid; person_tab = "life"; life_all = false))
+				er.add_child(tb)
+				var pb = PBox.new()
+				pb.set_anchors_preset(Control.PRESET_FULL_RECT)
+				pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				tb.add_child(pb)
+				pb.setup(npc_spec(o), PBox.FACE, 0.0)
+				if not o["alive"]:
+					pb.modulate = Color(0.75, 0.75, 0.75, 0.85)
+	if first > 0:
+		var hidden := 0
+		for i in first:
+			hidden += months[i][1].size()
+		var mb = B("再往前：%d 个月 · %d 件" % [first, hidden], func(): life_all = true, true, cc, 44)
+		mb.add_theme_font_size_override("font_size", 14)
+
+func _cn_num(n: int) -> String:
+	var d := ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+	if n <= 10:
+		return d[n]
+	if n < 20:
+		return "十" + (d[n % 10] if n % 10 else "")
+	return d[n / 10] + "十" + (d[n % 10] if n % 10 else "")
 
 func _rel_depth(r: Dictionary) -> float:
 	return absf(float(r["f"])) + float(r["g"]) + r["t"].size() * 50
@@ -2273,7 +2353,7 @@ func _dev(cmd: String) -> String:
 			g.notices.clear()
 			_save()
 			refresh()
-		"story", "jianghu", "person", "create_rnd":
+		"story", "jianghu", "person", "create_rnd", "life":
 			if cmd == "create_rnd":
 				screen = "create"
 				_reroll_portrait()
@@ -2285,7 +2365,7 @@ func _dev(cmd: String) -> String:
 			g.s["extra"] = "field"
 			screen = "game"
 			modal = {}
-			for i in 40:
+			for i in (110 if cmd == "life" else 40):
 				g.tick("biguan")
 				g.world.auto_choose()
 			g.world.close()
@@ -2294,6 +2374,12 @@ func _dev(cmd: String) -> String:
 				g.world.fire("表白" if c["sex"] == "男" else "访客", {"B": int(c["id"])}, {})
 			if cmd == "jianghu":
 				tab = "jianghu"
+			if cmd == "life":
+				tab = "jianghu"
+				person_id = 1
+				person_tab = "life"
+				life_all = false
+				modal = {"kind": "person"}
 			if cmd == "person":
 				tab = "jianghu"
 				person_id = int(g.world.acquaintances()[0]["id"])

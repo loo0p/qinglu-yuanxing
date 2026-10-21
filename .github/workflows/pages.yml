@@ -46,6 +46,10 @@ jobs:
           timeout 300 ~/godot/godot --headless --path . -s res://tests/ui_smoke.gd >/dev/null 2>&1 || true
           tail -3 tests/ui_smoke_results.txt
           grep -q "UI 冒烟：PASS" tests/ui_smoke_results.txt
+      - name: 乱点试玩（3 个种子，查死局/卡住）
+        run: |
+          timeout 300 ~/godot/godot --headless --path . -s res://tests/play_random.gd | tee /tmp/r.txt
+          grep -q "乱点试玩：0 失败" /tmp/r.txt
       - name: 导出 Web（玩家版，用 export/templates 里的瘦身模板，不需要官方模板包）
         run: |
           mkdir -p build/web

@@ -1,5 +1,5 @@
 #!/bin/sh
-# 一键：无头规则测试 + UI 冒烟 + Web 导出（release=玩家版，debug=带调试钩子，只给截图）
+# 一键：无头规则测试 + 江湖指标 + UI 冒烟 + 乱点试玩 + Web 导出（release=玩家版，debug=带调试钩子，只给截图）
 # Godot 路径可用环境变量 GODOT 覆盖
 set -e
 G=${GODOT:-/workspace/tools/godot/Godot_v4.7.2-stable_linux.x86_64}
@@ -8,6 +8,7 @@ $G --headless --path . --import >/dev/null 2>&1 || true
 timeout 300 $G --headless --path . -s res://tests/run_tests.gd
 timeout 300 $G --headless --path . -s res://tests/world_test.gd
 timeout 300 $G --headless --path . -s res://tests/ui_smoke.gd
+timeout 300 $G --headless --path . -s res://tests/play_random.gd
 mkdir -p build/web build/web_debug
 $G --headless --path . --export-release "Web" build/web/index.html >/dev/null 2>&1
 $G --headless --path . --export-debug "Web" build/web_debug/index.html >/dev/null 2>&1 || true
