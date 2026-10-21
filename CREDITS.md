@@ -12,3 +12,10 @@
 
 ## 引擎
 - Godot Engine 4.7.2（MIT） — https://godotengine.org 。`export/templates/` 中的 Web 模板由 Godot 4.7.2-stable 源码自行编译（参数见 `tools/build_web_template.sh`）。
+
+## 计划采用 / 借鉴（设计 v4 阶段，尚未引入任何代码或数据）
+- Dialogue Manager 4 — Nathan Hoad — MIT — https://github.com/nathanhoad/godot_dialogue_manager
+- GDTracery — Althar93 — Apache-2.0 — https://github.com/Althar93/GDTracery
+- random_chinese_fantasy_names 词库 — hythl0day — MIT — https://github.com/hythl0day/random_chinese_fantasy_names
+- Chinese-Names-Corpus 字频 — wainshine — Apache-2.0 — https://github.com/wainshine/Chinese-Names-Corpus
+- 仅借思路：RimWorld AI Storyteller（公开 wiki）；Space Station 14 StationEvents（MIT）https://github.com/space-wizards/space-station-14 ；Generative Agents（Apache-2.0）https://github.com/joonspk-research/generative_agents ；heavenly-tribulation（MIT）https://github.com/hetu-script/heavenly-tribulation ；Anime2.5DRig（MIT）https://github.com/852wa/Anime2.5DRig ；See-through（Apache-2.0）https://github.com/shitagaki-lab/see-through ；DiceBear（MIT）https://github.com/dicebear/dicebear
