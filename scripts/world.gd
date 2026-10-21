@@ -382,6 +382,8 @@ func portrait_opts(c: Dictionary) -> Dictionary:
 		o["exclude"] = PV7_NEW
 	if int(c.get("pv", 0)) >= 8:
 		o["demon_mix"] = true   # v0.7.4 起的新人物：魔门中人不再一律穿同一件黑袍（旧人物不变）
+	if int(c.get("pv", 0)) >= 8 and int(c.get("young", 0)) == 1:
+		o["no_beard"] = true   # v0.7.7：现生的小师弟/小师妹（14–24 岁）不长胡子；旧人物没有 young 键，脸不变
 	if SECT_TINT.has(c["sect"]):
 		o["robe_tint"] = SECT_TINT[c["sect"]]
 	return o
@@ -907,7 +909,7 @@ func bind(tid: String) -> Variant:
 			var pl4 := plv()
 			return _r1(_pick(func(c): return side(c) == "魔" and int(c["lv"]) >= pl4))
 		"师弟惹祸":
-			# v0.7.5：“小师弟/小师妹”只给看着年轻、比她小或境界比她低的熟人；没有合适的人，fire 时现生一个年轻的
+			# v0.7.5/v0.7.7：“小师弟/小师妹”只给看着年轻（立绘无胡子、非老者）、比她小或境界比她低的熟人；没有合适的人，fire 时现生一个年轻的
 			var c5 = _pick(func(c): return _shidi_ok(c))
 			return _r1(c5) if c5 != null else {"new": 1}
 		"天材地宝":
@@ -958,7 +960,16 @@ func _shidi_ok(c: Dictionary) -> bool:
 		return false
 	if float(c["age"]) >= 36.0:
 		return false
-	return float(c["age"]) < float(p["age"]) or int(c["lv"]) < plv()
+	if not (float(c["age"]) < float(p["age"]) or int(c["lv"]) < plv()):
+		return false
+	return not looks_old(c)
+
+## 立绘看着老：老者底模或带胡子（v0.7.7：17 岁带山羊胡的人不该被叫“小师弟”）
+func looks_old(c: Dictionary) -> bool:
+	var o := portrait_opts(c)
+	if o["elder"]:
+		return true
+	return Portrait5Lib.roll(int(c["pseed"]), o)["beard"] != null
 
 ## 没有合适的熟人时，现生一个年轻、境界不高于她的后辈（早就认识，总喊她“姐姐”）
 func _spawn_shidi() -> Dictionary:
@@ -967,6 +978,7 @@ func _spawn_shidi() -> Dictionary:
 	var sect: String = _ch(SECT_LIST.filter(func(x): return SECTS.get(x, "中") != "魔"))
 	var c := _new_char(_ch(["男", "男", "女"]), sect, rng.randi_range(0, maxi(0, pl - 1)))
 	c["age"] = float(clampi(int(float(p["age"])) - rng.randi_range(1, 5), 14, 24))
+	c["young"] = 1   # v0.7.7：立绘不抽胡子（见 portrait_opts）
 	c["place"] = p["place"]
 	R(p, c)["m"] = 1   # 早就认识（不记“初识”）
 	R(c, p)["m"] = 1

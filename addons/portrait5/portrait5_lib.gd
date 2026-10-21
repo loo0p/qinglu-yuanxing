@@ -110,4 +110,6 @@ static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 			for k in P.beards.m:
 				if k != "beard_m5@base_m5" or base in ["base_m4", "base_m5"]: bp.append(k)
 			sp.beard = _pick(r, bp)
+	# no_beard（v0.7.7 现生的 14–24 岁后辈）：签照抽（顺序不变），只是不长胡子；旧人物没有这个键
+	if opts.get("no_beard", false): sp.beard = null
 	return sp

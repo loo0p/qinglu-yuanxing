@@ -121,11 +121,43 @@ func _init() -> void:
 			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
 				sd_n += 1
 				var c: Dictionary = x.C(ev["roles"]["B"])
-				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.portrait_opts(c)["elder"]:
+				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.portrait_opts(c)["elder"] or Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c))["beard"] != null:
 					sd_bad.append("%s %.0f岁 lv%d" % [c["name"], float(c["age"]), int(c["lv"])])
 			x.auto_choose()
 	lines.append("师弟惹祸：8 局 100 日 %d 次" % sd_n)
 	ok(sd_bad.is_empty() and sd_n >= 2 and sd_n <= 7, "小师弟/小师妹都年轻、比她小或境界低（%d 次，不合：%s）" % [sd_n, "、".join(sd_bad)])
+	# v0.7.7：小师弟不带胡子（选人时看立绘；现生的后辈不抽胡子）。旧人物（无 young 键）立绘逐项不变
+	var bd_n := 0
+	var bd_bad := []
+	for sd in range(1, 41):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 100:
+			x.tick(true)
+			var ev = x.pending()
+			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
+				bd_n += 1
+				var c: Dictionary = x.C(ev["roles"]["B"])
+				var spc = Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c))
+				if spc["beard"] != null or float(c["age"]) >= 36.0:
+					bd_bad.append("%s %.0f岁 %s" % [c["name"], float(c["age"]), spc["beard"]])
+			x.auto_choose()
+	var same_pv := true
+	var nb_any := 0
+	for sd in 200:
+		var om := {"sex": "m", "elder": false, "demonic": false, "demon_mix": true}
+		var on := om.duplicate(); on["no_beard"] = true
+		var r1 := Portrait5Lib.roll(sd, om)
+		var r2 := Portrait5Lib.roll(sd, on)
+		if r1["beard"] != null:
+			nb_any += 1
+		r1["beard"] = null
+		same_pv = same_pv and JSON.stringify(r1) == JSON.stringify(r2)
+	lines.append("师弟惹祸（胡子）：40 局 100 日 %d 次" % bd_n)
+	ok(bd_bad.is_empty() and bd_n >= 10, "小师弟/小师妹立绘不带胡子（%d 次，不合：%s）" % [bd_n, "、".join(bd_bad)])
+	ok(same_pv and nb_any > 20, "no_beard 只去掉胡子，其余部件与原抽签逐项相同（200 个里原本带胡子 %d 个）" % nb_any)
+	var oc := {"sex": "男", "age": 20.0, "sect": "散修", "pv": 8, "traits": ["冷淡", "温和"]}
+	ok(not a_opts_has_nb(oc), "没有 young 键的人物（旧档/普通 NPC）不加 no_beard")
 	var a = run(3, 80)
 	var b = run(3, 80, 37)
 	var ja := JSON.stringify(JSON.parse_string(JSON.stringify(a.w)))
@@ -372,3 +404,8 @@ func _init() -> void:
 		print(l)
 	print("江湖测试：%d 失败" % fails)
 	quit(0 if fails == 0 else 1)
+
+func a_opts_has_nb(c: Dictionary) -> bool:
+	var x = W.new()
+	x.create(1, "苏青禾")
+	return x.portrait_opts(c).has("no_beard")
