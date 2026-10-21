@@ -1,11 +1,11 @@
-; 《青庐远行》灰盒切片 · 候选代码（非发布版）
+; 《青庐远行》v0.3 试玩版
 config_version=5
 
 [application]
-config/name="青庐远行（灰盒·候选代码）"
+config/name="青庐远行"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-boot_splash/bg_color=Color(0.957, 0.945, 0.918, 1)
+boot_splash/bg_color=Color(0.953, 0.933, 0.886, 1)
 boot_splash/show_image=false
 
 [display]
@@ -16,8 +16,8 @@ window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [gui]
-theme/custom_font="res://fonts/NotoSansSC-sub.otf"
-theme/default_font_size=15
+theme/custom_font="res://fonts/WenKai-sub.ttf"
+theme/default_font_size=16
 
 [rendering]
 renderer/rendering_method="gl_compatibility"

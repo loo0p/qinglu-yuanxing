@@ -1,6 +1,6 @@
 class_name GameState
 extends RefCounted
-## 《青庐远行》灰盒切片 · 候选代码（非发布版）
+## 《青庐远行》v0.3 试玩版 · 规则层（纯逻辑，无 UI）
 ## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
 ## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
 
@@ -93,7 +93,7 @@ func new_game(name: String, cherish: String, seed: int = -1) -> void:
 		"stats": {"biguan_days": 0, "trip_days": 0, "heavy": 0, "light": 0, "revisit": 0, "started_ms": Time.get_ticks_msec()},
 		"rng": 0,
 	}
-	_log("%s 离开青庐（候选代码·灰盒）。" % name)
+	_log("%s 背起行囊，离开青庐。" % name)
 
 func to_dict() -> Dictionary:
 	s["rng"] = rng.state
@@ -294,7 +294,7 @@ func tick(mode: String) -> void:
 			if int(s["lian_prog"]) >= SHUI_LIAN_DAYS:
 				s["lian_prog"] = -1
 				_store_add("herb_hantanlian", 1)
-				_log("水田的寒潭莲开了。")
+				_log("水田里的寒潭莲开了，一池清冷。")
 				notice("水田的寒潭莲开了：寒潭莲 +1")
 	if not s["queue"].is_empty():
 		var q = s["queue"][0]
@@ -337,7 +337,7 @@ func tick(mode: String) -> void:
 		s["ended"] = true
 		s["ending"] = "zuohua"
 		s["loc"] = "ending"
-		_log("寿元耗尽，她回到青庐静室坐化。")
+		_log("寿元耗尽。她回到青庐静室，在灯下坐化。")
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 
@@ -357,7 +357,7 @@ func _pill_done(name: String) -> void:
 			_log("筑基丹成丹失败：主药保留，得筑基药渣（+%d 余韵）；第二炉 %d 日必成。" % [ZHAJI_YUYUN, ZHUJI_SECOND_DAYS])
 			notice("筑基丹没成：主药还在，第二炉 3 日必成。")
 			return
-		_log("筑基丹成了。")
+		_log("炉火渐熄，筑基丹成了，丹香满室。")
 		notice("筑基丹出炉！")
 	_store_add(RECIPES[name]["out"], 1)
 
@@ -484,10 +484,10 @@ func choose_extra(kind: String) -> bool:
 	s["extra"] = kind
 	if kind == "field":
 		s["fields"].append({"prog": 0})
-		_log("第五点灵脉：开第三块阳田。")
+		_log("灵脉第五点通了：开出第三块阳田。")
 	else:
 		s["gu_prog"] = 0
-		_log("第五点灵脉：开水田。")
+		_log("灵脉第五点通了：引潭水，开出一块水田。")
 	return true
 
 ## v3.2：第 5 点改建：耗 1 日（不算闭关）+ 10 灵石；水田正在长莲时不能改
@@ -946,14 +946,14 @@ func come_home(turned_back: bool) -> Dictionary:
 	if route_id == "hantan":
 		s["flags"]["hantan_visited"] = true
 	s["flags"]["fog_left"] = 0   # 潭雾只拖本趟
-	# 世事（灰盒）：第一次从寒潭回来、结算完之后出现
+	# 世事：第一次从寒潭回来、结算完之后出现
 	if route_id == "hantan" and not turned_back and not s["flags"].get("world_xiangyang", false):
 		s["flags"]["world_xiangyang"] = true
 		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，第 %d 日之前去才有。" % XIANGYANG_DEADLINE
-		_log("世事：向阳坡赤阳果，第 %d 日前去才有。" % XIANGYANG_DEADLINE)
+		_log("世事：听说向阳坡的赤阳果熟了，第 %d 日前去才摘得到。" % XIANGYANG_DEADLINE)
 	s["trip"] = {}
 	s["last_home"] = sum
-	_log("回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
+	_log("推开柴门，回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
 	return sum
 
 # ---------------------------------------------------------------- 冲关与心魔（§2.6 / §6）
@@ -1032,9 +1032,9 @@ func answer_xinmo(i: int) -> Dictionary:
 		s["ended"] = true
 		s["ending"] = "zhuji"
 		s["loc"] = "ending"
-		_log("第 %d 日，筑基。" % I("day"))
+		_log("第 %d 日，筑基功成。" % I("day"))
 		return {"done": true, "passed": true}
 	s["loc"] = "home"
 	s["unstable"] = 3
-	_log("心魔劫未过：回答与她做过的事对不上。筑基丹保留，先闭关 3 日（炼化减半）。")
+	_log("心魔劫未过：她答的，与她做过的对不上。筑基丹还在，先闭关 3 日（炼化减半）。")
 	return {"done": true, "passed": false}

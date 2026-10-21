@@ -1,11 +1,22 @@
-# 候选代码：生成 GB2312 + 常用符号 子集字体（Noto Sans CJK SC, OFL）
-import glob
-chars=set(chr(c) for c in range(0x20,0x7f))
-for b1 in range(0xA1,0xF8):
-    for b2 in range(0xA1,0xFF):
-        try: chars.add(bytes([b1,b2]).decode('gb2312'))
-        except: pass
-chars |= set("◎★☆·—…×→←↑↓「」『』《》〈〉、。，！？：；（）【】％＋－／～①②③④⑤⑥⑦⑧⑨⑩■□▲△●○◆◇✓✗")
-for f in glob.glob('/workspace/qinglu/data/*.json')+glob.glob('/workspace/qinglu/scripts/*.gd'):
-    chars |= set(open(f,encoding='utf-8').read())
-open('/tmp/qinglu_chars.txt','w',encoding='utf-8').write(''.join(sorted(c for c in chars if c.isprintable())))
+#!/usr/bin/env python3
+"""字体子集：正文 霞鹜文楷（LXGW WenKai, OFL）+ 标题 马善政毛笔楷书（Ma Shan Zheng, OFL）。
+只保留游戏里真正用到的字（扫 data/*.json 与 scripts/*.gd）。改了文案要重跑。
+用法：python3 tools/make_font.py <WenKai.ttf> <MaShanZheng.ttf>（需要 fonttools：pip install fonttools）"""
+import glob, os, re, sys, subprocess
+R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+body = set(chr(c) for c in range(0x20, 0x7f)) | set("◎◉○●·—…×→←↑↓「」『』《》、。，！？：；（）【】％＋－／～✓⚠“”‘’")
+brush = set("0123456789")
+for f in glob.glob(R + "/data/*.json") + glob.glob(R + "/scripts/*.gd"):
+    t = open(f, encoding="utf-8").read(); body |= set(t)
+    if f.endswith("main.gd"):
+        for m in re.findall(r'H\("([^"]*)"', t): brush |= set(m)
+    if f.endswith(".json"):
+        for m in re.findall(r'"(?:title|name)":\s*"([^"]*)"', t): brush |= set(m)
+body = "".join(sorted(c for c in body if c.isprintable()))
+brush = "".join(sorted(c for c in brush if c.isprintable()))
+os.makedirs(R + "/fonts", exist_ok=True)
+for src, dst, chars in [(sys.argv[1], "WenKai-sub.ttf", body), (sys.argv[2], "MaShanZheng-sub.ttf", brush)]:
+    tf = "/tmp/_chars.txt"; open(tf, "w", encoding="utf-8").write(chars)
+    subprocess.run([sys.executable, "-m", "fontTools.subset", src, "--text-file=" + tf, "--output-file=" + R + "/fonts/" + dst,
+                    "--layout-features=*", "--no-hinting", "--desubroutinize"], check=True)
+    print(dst, len(chars), "字", os.path.getsize(R + "/fonts/" + dst), "bytes")

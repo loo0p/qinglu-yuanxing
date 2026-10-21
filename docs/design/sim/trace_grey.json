@@ -1,0 +1,868 @@
+[
+{
+"day": 1,
+"mode": "road",
+"xiuwei": 0,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 0,
+"ganliang": 7,
+"lingshi": 20,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 2,
+"mode": "road",
+"xiuwei": 0,
+"yuyun": 0,
+"ganwu": 15,
+"qingzhi": 0,
+"ganliang": 6,
+"lingshi": 20,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 3,
+"mode": "road",
+"xiuwei": 0,
+"yuyun": 0,
+"ganwu": 15,
+"qingzhi": 0,
+"ganliang": 5,
+"lingshi": 20,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 4,
+"mode": "road",
+"xiuwei": 0,
+"yuyun": 0,
+"ganwu": 30,
+"qingzhi": 0,
+"ganliang": 4,
+"lingshi": 30,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 5,
+"mode": "biguan",
+"xiuwei": 30,
+"yuyun": 0,
+"ganwu": 35,
+"qingzhi": 0,
+"ganliang": 8,
+"lingshi": 30,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 6,
+"mode": "biguan",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 15,
+"qingzhi": 4,
+"ganliang": 8,
+"lingshi": 30,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 7,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 15,
+"qingzhi": 0,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 8,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 30,
+"qingzhi": 0,
+"ganliang": 8,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 9,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 30,
+"qingzhi": 0,
+"ganliang": 7,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 10,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 2,
+"ganliang": 6,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 11,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 2,
+"ganliang": 5,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 12,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 6,
+"ganliang": 4,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 13,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 85,
+"qingzhi": 6,
+"ganliang": 3,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 14,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 100,
+"qingzhi": 6,
+"ganliang": 2,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 15,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 105,
+"qingzhi": 6,
+"ganliang": 1,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 16,
+"mode": "road",
+"xiuwei": 60,
+"yuyun": 0,
+"ganwu": 105,
+"qingzhi": 8,
+"ganliang": 0,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 2,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 17,
+"mode": "biguan",
+"xiuwei": 150,
+"yuyun": 0,
+"ganwu": 85,
+"qingzhi": 0,
+"ganliang": 11,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 18,
+"mode": "biguan",
+"xiuwei": 180,
+"yuyun": 0,
+"ganwu": 65,
+"qingzhi": 4,
+"ganliang": 11,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 19,
+"mode": "biguan",
+"xiuwei": 240,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 0,
+"ganliang": 11,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 20,
+"mode": "road",
+"xiuwei": 240,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 0,
+"ganliang": 10,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 21,
+"mode": "road",
+"xiuwei": 240,
+"yuyun": 0,
+"ganwu": 45,
+"qingzhi": 0,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 0
+},
+{
+"day": 22,
+"mode": "biguan",
+"xiuwei": 300,
+"yuyun": 0,
+"ganwu": 40,
+"qingzhi": 2,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 1
+},
+{
+"day": 23,
+"mode": "biguan",
+"xiuwei": 360,
+"yuyun": 0,
+"ganwu": 20,
+"qingzhi": 2,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 1
+},
+{
+"day": 24,
+"mode": "biguan",
+"xiuwei": 390,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 6,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+],
+[
+"juqi",
+2
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 1,
+"guo": 1
+},
+{
+"day": 25,
+"mode": "biguan",
+"xiuwei": 430,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 3,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"juqi",
+2
+],
+[
+"zhuji",
+6
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 26,
+"mode": "biguan",
+"xiuwei": 440,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 3,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+2
+],
+[
+"zhuji",
+6
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 27,
+"mode": "biguan",
+"xiuwei": 480,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 3,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"juqi",
+1
+],
+[
+"zhuji",
+6
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 28,
+"mode": "biguan",
+"xiuwei": 490,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 5,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+6
+]
+],
+"ready": {
+"juqi": 1,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 29,
+"mode": "biguan",
+"xiuwei": 530,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 5,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+5
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 30,
+"mode": "biguan",
+"xiuwei": 540,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 9,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+4
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 31,
+"mode": "biguan",
+"xiuwei": 550,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 9,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+3
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 32,
+"mode": "biguan",
+"xiuwei": 560,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 9,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+2
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 33,
+"mode": "biguan",
+"xiuwei": 570,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 9,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [
+[
+"zhuji",
+1
+]
+],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 0
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 34,
+"mode": "biguan",
+"xiuwei": 580,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 11,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 1
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 35,
+"mode": "biguan",
+"xiuwei": 590,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 11,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 1
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 36,
+"mode": "biguan",
+"xiuwei": 600,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 15,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 1
+},
+"lian": 0,
+"guo": 0
+},
+{
+"day": 37,
+"mode": "home",
+"xiuwei": 600,
+"yuyun": 0,
+"ganwu": 0,
+"qingzhi": 15,
+"ganliang": 9,
+"lingshi": 28,
+"queue": [],
+"ready": {
+"juqi": 0,
+"quzhang": 0,
+"zhuji": 1
+},
+"lian": 0,
+"guo": 0
+}
+]

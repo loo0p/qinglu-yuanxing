@@ -1,0 +1,63 @@
+# 推送到 main → 无头 Godot 4.7.2 跑测试 → 用仓库里的瘦身模板导出 Web（单线程，无需 COOP/COEP）→ 发布到 GitHub Pages
+name: 测试并发布到 Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+env:
+  GODOT_VERSION: 4.7.2
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 缓存 Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-stable-linux
+      - name: 下载 Godot ${{ env.GODOT_VERSION }}（官方 release，固定版本）
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && chmod +x godot
+      - name: 导入资源
+        run: ~/godot/godot --headless --path . --import || true
+      - name: 规则测试
+        run: |
+          timeout 300 ~/godot/godot --headless --path . -s res://tests/run_tests.gd | tee /tmp/t.txt
+          grep -q "，0 失败" /tmp/t.txt
+      - name: UI 冒烟
+        run: |
+          timeout 300 ~/godot/godot --headless --path . -s res://tests/ui_smoke.gd >/dev/null 2>&1 || true
+          tail -3 tests/ui_smoke_results.txt
+          grep -q "UI 冒烟：PASS" tests/ui_smoke_results.txt
+      - name: 导出 Web（玩家版，用 export/templates 里的瘦身模板，不需要官方模板包）
+        run: |
+          mkdir -p build/web
+          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          test -s build/web/index.wasm && test -s build/web/index.pck
+          touch build/web/.nojekyll
+          ls -la build/web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

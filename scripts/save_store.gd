@@ -1,5 +1,5 @@
 extends RefCounted
-## 候选代码·灰盒：存档（user://，Web 端为 IndexedDB）
+## 存档（user://，Web 端为 IndexedDB）
 ## 写入顺序：写临时文件 → 读回校验 → 旧档改名为 .bak → 临时文件改名为正式档。
 ## 读档：正式档损坏则退回 .bak。rev 递增，用于发现“两个标签页同时写同一存档”。
 

@@ -1,3 +1,17 @@
+# Godot
 .godot/
-build/
 *.import
+# 这些资源用 importer="keep" 原样打包，.import 要进库
+!assets/**/*.import
+*.tmp
+# 导出与截图（Pages 由 Actions 现场导出，不进库）
+build/
+# 本地杂项
+__pycache__/
+*.pyc
+.DS_Store
+docs/design/sim/results.json
+# 密钥类：任何时候都不进库
+.secrets/
+*.key
+.env
