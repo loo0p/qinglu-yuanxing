@@ -740,7 +740,8 @@ func start_trip(route_id: String) -> bool:
 		return false
 	s["loc"] = "trip"
 	s["trip"] = {"route": route_id, "node": "", "walked": 0, "path": [], "stage": "choose",
-		"choices": routes[route_id]["start"].duplicate(), "result": {}, "start_day": I("day")}
+		"choices": routes[route_id]["start"].duplicate(), "result": {}, "start_day": I("day"),
+		"w0": int(world.w["day"]) if world != null else 0}
 	_log("出发：%s。" % routes[route_id]["name"])
 	return true
 
@@ -969,6 +970,23 @@ func come_home(turned_back: bool) -> Dictionary:
 		s["flags"]["world_xiangyang"] = true
 		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，第 %d 日之前去才有。" % XIANGYANG_DEADLINE
 		_log("世事：听说向阳坡的赤阳果熟了，第 %d 日前去才摘得到。" % XIANGYANG_DEADLINE)
+	# 江湖：出门这几天山外发生的事（优先认识的人），回家时一并听说
+	if world != null:
+		var w0 := int(s["trip"].get("w0", 0))
+		var fresh := []
+		for x in world.w["news"]:
+			if int(x[0]) > w0:
+				var mine := false
+				for i in x[2]:
+					if world.known(world.C(i)):
+						mine = true
+				fresh.append([0 if mine else 1, x[1]])
+		fresh.sort_custom(func(a, b): return a[0] < b[0])
+		var lines := []
+		for f in fresh.slice(0, 3):
+			lines.append(f[1])
+		if not lines.is_empty():
+			sum["news"] = lines
 	s["trip"] = {}
 	s["last_home"] = sum
 	_log("推开柴门，回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])

@@ -636,7 +636,7 @@ func _start_new() -> void:
 	if store.exists():
 		store.archive()
 	g.new_game(create_name if create_name.strip_edges() != "" else "苏青禾", create_cherish, -1, true)
-	g.s["portrait"] = create_portrait.duplicate(true) if not create_portrait.is_empty() else PLib.roll("p%d" % randi(), {"sex": "f", "elder": false, "demonic": false})
+	g.s["portrait"] = create_portrait.duplicate(true) if not create_portrait.is_empty() else _hero_roll("p%d" % randi())
 	play_ms_base = 0
 	session_start = Time.get_ticks_msec()
 	screen = "game"
@@ -1178,6 +1178,8 @@ func _create() -> void:
 func _reroll_portrait(part: String = "all") -> void:
 	create_pseed += 1
 	var fresh = PLib.roll("c%d_%d" % [randi(), create_pseed], {"sex": "f", "elder": false, "demonic": false})
+	# 主角不带魔纹
+	fresh["marks"] = fresh["marks"].filter(func(m): return not String(m).begins_with("demon"))
 	if part == "all" or create_portrait.is_empty():
 		create_portrait = fresh
 		return
@@ -1205,6 +1207,12 @@ func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = 
 	p.add_child(pb)
 	pb.setup(spec, crop, motion)
 	return p
+
+## 主角立绘：女、非老者、无魔纹
+func _hero_roll(seed_v) -> Dictionary:
+	var sp = PLib.roll(seed_v, {"sex": "f", "elder": false, "demonic": false})
+	sp["marks"] = sp["marks"].filter(func(m): return not String(m).begins_with("demon"))
+	return sp
 
 func npc_spec(c: Dictionary) -> Dictionary:
 	if c.get("player", false):
@@ -1254,7 +1262,7 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 	if spec.is_empty() and portrait.begins_with("vn_heroine") and g.s.get("portrait", {}) is Dictionary and not g.s.get("portrait", {}).is_empty():
 		spec = g.s["portrait"]
 	if not spec.is_empty():
-		var pf = _portrait_frame(spec, Vector2(150, 200), body)
+		var pf = _portrait_frame(spec, Vector2(168, 224), body)
 		pf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	elif portrait != "" and tex(portrait):
 		var pr = TextureRect.new()
@@ -1333,6 +1341,11 @@ func _modal() -> void:
 				chip("姑母处寄存 %d" % int(sm["aunt_ration"]), ir, "ico_ration")
 			if sm.get("turned_back", false):
 				L("半路折返。", 13, C_DIM, c)
+			if sm.has("news"):
+				var nw = card()
+				H("山外", 20, C_ACCENT, nw)
+				for t in sm["news"]:
+					L("· " + String(t), 13, C_TEXT, nw)
 			if sm.has("world"):
 				var w = card()
 				H("世事", 20, C_WARN, w)
@@ -2090,7 +2103,7 @@ func _dev(cmd: String) -> String:
 				refresh()
 				return cmd
 			g.new_game("苏青禾", "aunt", 5, true)
-			g.s["portrait"] = PLib.roll("p5", {"sex": "f", "elder": false, "demonic": false})
+			g.s["portrait"] = _hero_roll("p5")
 			g.s["trips_done"] = 1
 			g.s["extra"] = "field"
 			screen = "game"
@@ -2129,7 +2142,7 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"event":
 			g.new_game("苏青禾", "aunt", 3, true)
-			g.s["portrait"] = PLib.roll("p3", {"sex": "f", "elder": false, "demonic": false})
+			g.s["portrait"] = _hero_roll("p3")
 			screen = "game"
 			modal = {}
 			g.start_trip("houshan")
@@ -2158,7 +2171,7 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"laogui", "depart", "home", "cult":
 			g.new_game("苏青禾", "aunt", 3, true)
-			g.s["portrait"] = PLib.roll("p3", {"sex": "f", "elder": false, "demonic": false})
+			g.s["portrait"] = _hero_roll("p3")
 			screen = "game"
 			modal = {}
 			g.start_trip("houshan")

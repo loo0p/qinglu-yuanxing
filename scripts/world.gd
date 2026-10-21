@@ -350,10 +350,10 @@ func tick(home: bool = true) -> void:
 	w["day"] = int(w["day"]) + 1
 	_sync_player()
 	for c in npcs():
-		c["age"] = float(c["age"]) + 1.0 / 360.0
+		c["age"] = snappedf(float(c["age"]) + 1.0 / 360.0, 0.0001)   # 取整到 4 位：JSON 往返不丢精度
 		if int(c["inj"]) > 0:
 			c["inj"] = int(c["inj"]) - 1
-		c["xp"] = float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0)
+		c["xp"] = snappedf(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0), 0.0001)
 		var lv := int(c["lv"])
 		if float(c["xp"]) >= 8.0 * pow(1.35, lv):
 			c["xp"] = 0.0
@@ -404,7 +404,7 @@ func solo(c: Dictionary) -> void:
 	var goal: String = c["goal"]
 	_flag_add("solo:" + goal)
 	chron(c, String(_ch(SOLO[goal])).format({"p": c["place"], "s": c["sect"]}))
-	if goal == "炼一炉九转丹" and rng.randf() < 0.08:
+	if goal == "炼一炉九转丹" and rng.randf() < 0.05:
 		chron(c, "九转丹成。")
 		c["lv"] = mini(18, int(c["lv"]) + 2)
 		rumor("%s炼成了九转丹。" % c["name"], [c])
@@ -482,6 +482,8 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 			remember(lose, win, "%s抢了我在%s看中的灵物" % [win["name"], place], -15)
 			chron(win, String(_ch(VAR["争宝_w"])).format({"p": place, "o": lose["name"]}))
 			chron(lose, String(_ch(VAR["争宝_l"])).format({"p": place, "o": win["name"]}))
+			if rng.randf() < 0.3:
+				rumor(pv("争宝闻", ["听说%s在%s抢先得了一件宝物，%s空手而回。", "%s在%s和%s争一株灵草，争赢了。", "%s从%s带回一卷残图，据说是从%s手里截下的。"]) % [win["name"], place, lose["name"]], [win, lose])
 		"斗法":
 			var ab2 := [a, b] if int(a["lv"]) + rng.randf() * 5 > int(b["lv"]) + rng.randf() * 5 else [b, a]
 			var win2: Dictionary = ab2[0]
@@ -491,6 +493,9 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 			chron(win2, String(_ch(VAR["斗法_w"])).format({"p": place, "o": lose2["name"]}))
 			chron(lose2, String(_ch(VAR["斗法_l"])).format({"p": place, "o": win2["name"]}))
 			lose2["place"] = SECT_HOME[lose2["sect"]]
+			if rng.randf() < 0.5:
+				var dv := pv("斗法闻", ["{w}与{l}在{p}斗法，{l}落败。", "{w}在{p}一剑挑伤了{l}。", "{l}在{p}输给了{w}，被抬回了山门。"])
+				rumor(dv.format({"w": win2["name"], "l": lose2["name"], "p": place}), [win2, lose2])
 			if int(win2["lv"]) - int(lose2["lv"]) >= 3 and (tag(win2, "阴狠") or side(win2) == "魔") and rng.randf() < 0.5:
 				die(lose2, "死于%s之手" % win2["name"])
 			else:
@@ -631,7 +636,7 @@ func bind(tid: String) -> Variant:
 		"表白":
 			if partner(p) != null:
 				return null
-			return _r1(_pick(func(c): return known(c) and c["sex"] != p["sex"] and int(R(c, p)["f"]) > 45 and partner(c) == null))
+			return _r1(_pick(func(c): return known(c) and c["sex"] != p["sex"] and int(R(c, p)["f"]) > 38 and partner(c) == null))
 		"旧友死讯":
 			for c in npcs(false):
 				if not c["alive"] and not c["asc"] and known(c) and int(R(p, c)["f"]) > 5 and _flag("mourned:%d" % int(c["id"])) == 0:
@@ -866,9 +871,9 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 					ks.append(C(k)["name"])
 			if ks.is_empty():
 				ks = ["姑母"]
-			return {"speaker": 0, "text": pv("夜雨", ["夜雨敲窗。她想起%s。", "灯花爆了一下。她没来由地想起%s。", "山里起雾，像那年和%s走过的那段路。", "听见檐下风铃响，以为是%s来了。", "梦见%s站在桂树下，醒来记不清说了什么。"]) % _ch(ks), "opts": ok}
+			return {"speaker": 0, "text": pv("夜雨", ["檐下滴了一夜的水。她数着数着，想到了%s。", "夜雨敲窗。她想起%s。", "灯花爆了一下。她没来由地想起%s。", "山里起雾，像那年和%s走过的那段路。", "听见檐下风铃响，以为是%s来了。", "梦见%s站在桂树下，醒来记不清说了什么。"]) % _ch(ks), "opts": ok}
 		"灵田":
-			return {"speaker": 0, "text": pv("灵田", ["灵田里冒了一株不认识的苗。", "鸟啄了半垄青芝。", "今年的青芝结得密。", "夜里下了霜，她给灵田盖了草帘。", "田埂边的野兔又来了，她没赶它。", "引水的竹管裂了，修了一下午。"]), "opts": ok}
+			return {"speaker": 0, "text": pv("灵田", ["田垄上落了一只白鹭，站了半个时辰才走。", "灵田里冒了一株不认识的苗。", "鸟啄了半垄青芝。", "今年的青芝结得密。", "夜里下了霜，她给灵田盖了草帘。", "田埂边的野兔又来了，她没赶它。", "引水的竹管裂了，修了一下午。"]), "opts": ok}
 		"访客":
 			var tail: String = {"好奇": "问了很多丹炉的事。", "淡泊": "喝完就走了。", "傲气": "嫌她的茶淡。", "温柔": "走前替她把晾的衣裳收了。", "贪财": "眼睛在灵田上转了好几圈。", "侠义": "顺手把塌了的篱笆扶正了。", "痴情": "说起一个人，说了一半又停了。"}.get(n["traits"][0], "坐了一刻。")
 			return {"speaker": int(n["id"]), "text": pv("访客", ["%s路过青庐，讨了一碗茶，", "%s顺路来看她，带了半袋新茶，", "%s在柴门外喊了她一声，进来坐了坐，", "%s来借丹炉，还的时候擦得锃亮，"]) % nm + tail, "opts": ok}
@@ -908,11 +913,11 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			meet(n)
 			if oid == "go":
 				fav(n, 8, "同行过一段山路", 5)
-				out = "%s。%s自称%s。" % [pv("偶遇同行", ["结伴走了一程", "同行到岔路口才分开", "一起避了场雨，说了些各自的来处", "她分了半块干粮，对方回了一句谢"]), ta(n), nm]
+				out = "%s。%s自称%s。" % [pv("偶遇同行", ["结伴走了一程", "同行到岔路口才分开", "一起避了场雨，说了些各自的来处", "她分了半块干粮，对方回了一句谢", "一路无话，到岔口时对方先开了口", "对方教她认了两种路边的药草"]), ta(n), nm]
 				chron(n, "山道上遇见%s，同行一程。" % pn())
 				chron(p, "遇见%s，%s。" % [nm, "同行了一程"])
 			else:
-				out = "%s。后来才知道，那人叫%s。" % [pv("偶遇别", ["各自赶路", "她拱了拱手，没多停", "彼此点头，擦肩而过"]), nm]
+				out = "%s。后来才知道，那人叫%s。" % [pv("偶遇别", ["各自赶路", "她拱了拱手，没多停", "彼此点头，擦肩而过", "她侧身让了路"]), nm]
 				chron(p, "路上与%s擦肩而过。" % nm)
 		"求助":
 			meet(n)
