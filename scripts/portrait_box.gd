@@ -60,7 +60,7 @@ func _draw() -> void:
 		var t := PI + PI * float(i) / 24.0
 		body.append(Vector2(216 + cos(t) * 190, 600 + sin(t) * 300))
 	draw_colored_polygon(body, ink)
-	draw_rect(Rect2(186, 230, 60, 90), ink)
+	draw_rect(Rect2(188, 256, 56, 45), ink)   # 颈：接在头下、肩上，不与两者重叠（重叠处会显深）
 	var head := PackedVector2Array()
 	for i in 40:
 		var t := TAU * float(i) / 40.0

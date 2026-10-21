@@ -1213,15 +1213,16 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				"%s在柴门外站着，手里捏着一张旧契：“这青庐的地，原先是租我家的。”" % nm]),
 				"opts": [_o("pay", "认了，还钱"), _o("dan", "提出炼一炉丹抵债"), _o("deny", "不认这笔账")]}
 		"节令":
-			var fest: String = festival_today()
+			var real_day := festival_today()
+			var fest: String = real_day
 			if fest == "":
-				fest = "中秋"   # 调试命令硬弹时
+				fest = "中秋"   # 调试命令硬弹时（不是节令的日子就不报日期）
 			if not w.has("fest_done"):
 				w["fest_done"] = {}
 			w["fest_done"]["%d:%s" % [cal(int(w["day"]))[0], fest]] = true
 			ctx["fest"] = fest
 			var fx: String = {"上元": "镇上挂满了灯", "清明": "山下飘着纸钱的灰", "端午": "河边在赛龙舟", "七夕": "镇上的姑娘都在穿针乞巧", "中秋": "月亮大得像要落进灵田", "重阳": "坊市有人卖茱萸和菊花酒", "冬至": "姑母信里说包了饺子"}[fest]
-			return {"speaker": 0, "text": "%s，%s到了，%s。%s" % [cal_text(int(w["day"])), fest, fx, pv("节尾", ["青庐里只有她一个人。", "她站在院里听了一会儿山下的动静。", "灶上的水开了，她没去管。"])],
+			return {"speaker": 0, "text": "%s%s到了，%s。%s" % [(cal_text(int(w["day"])) + "，") if real_day != "" else "", fest, fx, pv("节尾", ["青庐里只有她一个人。", "她站在院里听了一会儿山下的动静。", "灶上的水开了，她没去管。"])],
 				"opts": [_o("town", "下山凑个热闹"), _o("home", "在青庐守着"), _o("aunt", "给姑母捎点东西（2 灵石）")]}
 		"远方来信":
 			return {"speaker": int(n["id"]), "text": pv("远信", [
