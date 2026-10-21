@@ -1,0 +1,128 @@
+{
+ "_comment": "候选代码·灰盒：事件数据。占位文本（每条≤150字）。字段：heavy 重事件；once 首次之后重访快走；ganwu 首次结算感悟；options[].cost 显示在按钮上；requires 不满足则灰显；visible_if 不满足则隐藏；effects 当场结果；near/long 近期/远期后果（仅写入标记，不在选前展示）；key+thought 为 ◎ 关键选择；xinmo 心魔标签。",
+ "H1_xibian": {"title": "溪边", "type": "险地", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位】春水涨过了踏石。对岸就是去葛老三家的小路。姑母给的那张避水符还在袖里。",
+  "options": [
+   {"id": "A", "label": "贴避水符过溪", "cost": {"items": {"fu_bishui": 1}}, "requires": {"has_item": {"fu_bishui": 1}},
+    "effects": {"log": "用避水符过了溪。"}},
+   {"id": "B", "label": "绕老松坡", "cost": {"days": 1},
+    "effects": {"tags": ["避"], "log": "绕了老松坡。", "goto": "H2b"}},
+   {"id": "C", "label": "硬闯", "cost": {"chance": 0.5},
+    "roll": {"chance": 0.5, "success": {"log": "踩着石头闯过去了。"}, "fail": {"injure": 2, "log": "滑进溪里，受了寒。"}},
+    "effects": {"tags": ["力"]}}
+  ]},
+ "H2a_yedi": {"title": "溪畔野地", "type": "野地", "heavy": false, "once": true, "ganwu": 0,
+  "text": "【占位】石缝里长着几丛续骨草。",
+  "options": [{"id": "A", "label": "采续骨草", "effects": {"items": {"herb_xugucao": 1}}}]},
+ "H2b_laosong": {"title": "老松坡", "type": "野地", "heavy": false, "once": true, "ganwu": 0,
+  "text": "【占位】松针厚厚一层，风很静。", "options": [{"id": "A", "label": "继续走"}]},
+ "H3_gelaosan": {"title": "葛老三的木屋", "type": "人家", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位】葛老三坐在门槛上揉腿：“丫头，有续骨草没有？”",
+  "options": [
+   {"id": "A", "label": "交续骨草", "cost": {"items": {"herb_xugucao": 1}}, "requires": {"has_item": {"herb_xugucao": 1}},
+    "effects": {"items": {"fu_jingshui": 1}, "lingshi": 10, "tags": ["善"], "memory": {"npc": "葛老三", "text": "她送来了续骨草"}, "log": "葛老三回赠净水符一张、灵石十枚。"}},
+   {"id": "B", "label": "帮他劈柴", "cost": {"days": 1},
+    "effects": {"lingshi": 5, "tags": ["善"], "memory": {"npc": "葛老三", "text": "她帮着劈了柴"}, "log": "劈了一日柴，得灵石五枚。"}},
+   {"id": "C", "label": "讨杯水就走", "effects": {"log": "喝了水，继续上路。"}}
+  ]},
+ "H4a_canbei": {"title": "古松残碑", "type": "机缘", "heavy": true, "once": true, "ganwu": 25,
+  "text": "【占位】碑上的字被苔藓吃掉一半，剩下的像是一段吐纳口诀。",
+  "options": [
+   {"id": "A", "label": "抄下碑文", "effects": {"flags": {"stele_read": true}, "log": "抄下了残碑上的口诀。"}},
+   {"id": "B", "label": "静坐参悟", "cost": {"days": 1}, "effects": {"ganwu": 10, "flags": {"stele_read": true}, "log": "在碑前坐了一日。"}}
+  ]},
+ "H4b_pomiao": {"title": "破庙", "type": "歇脚", "heavy": false, "once": true, "ganwu": 0,
+  "text": "【占位】庙门半塌，香案上落满灰。", "options": [{"id": "A", "label": "吐纳片刻", "effects": {"ganwu": 5}}]},
+ "H5_guitu": {"title": "归途", "type": "归途", "heavy": false, "once": false, "ganwu": 0, "days": 0,
+  "text": "回青庐。", "options": [{"id": "A", "label": "回家", "effects": {"end_trip": true}}]},
+ "Hstar_xiangyang": {"title": "向阳坡", "type": "野地·对峙", "heavy": true, "once": false, "ganwu": 15,
+  "text": "【占位】坡上枯了一半的果树下，一头野猪正拱着落果。",
+  "variants": [{"if": {"flag": {"xiangyang_done": true}}, "text": "【占位】果树已经空了。", "ganwu": 0,
+    "options": [{"id": "A", "label": "看一眼就走"}]}],
+  "options": [
+   {"id": "A", "label": "等它吃饱离开", "effects": {"flags": {"xiangyang_done": true}},
+    "branch": [{"if": {"day_le": 23}, "effects": {"items": {"herb_chiyangguo": 1}, "log": "野猪走后，树梢还剩一颗赤阳果。"}},
+               {"else": true, "effects": {"log": "来晚了，果子已被采光。"}}]},
+   {"id": "B", "label": "斗法驱赶", "cost": {"chance": 0.7},
+    "effects": {"tags": ["力"], "flags": {"xiangyang_done": true}},
+    "roll": {"chance": 0.7, "success": {"log": "野猪逃进了林子。"}, "fail": {"injure": 2, "log": "被撞了一下，伤了气。"}},
+    "branch": [{"if": {"day_le": 23}, "effects": {"items": {"herb_chiyangguo": 1}}}, {"else": true, "effects": {"log": "树上什么也没剩。"}}]}
+  ]},
+ "T1_lengshan": {"title": "冷杉道", "type": "人家", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位】采药人背着空篓往山下走，说潭边那只老龟活得比村子还久。",
+  "options": [
+   {"id": "A", "label": "问老龟的事", "effects": {"flags": {"rumor_laogui": true}, "log": "采药人说：老龟爱吃丹。"}},
+   {"id": "B", "label": "帮他辨一株草", "effects": {"tags": ["善"], "memory": {"npc": "采药人", "text": "她帮着辨过草"}}}
+  ]},
+ "T2_yedi": {"title": "寒潭野地", "type": "野地", "heavy": false, "once": false, "ganwu": 0,
+  "text": "【占位】潭边的浅水里，莲叶枯成了褐色。",
+  "options": [
+   {"id": "A", "label": "走过"},
+   {"id": "B", "label": "细采", "cost": {"days": 1}, "visible_if": {"not_flag": {"laogui_grudge": true}},
+    "effects": {"items": {"seed_lianzi": 1}, "log": "在泥里摸到一粒寒潭莲子。"}}
+  ]},
+ "T3a_shiwu": {"title": "潭边石屋", "type": "人家", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位】老猎户在火塘边烤手：“老龟？它只跟有耐心的人说话。”",
+  "options": [
+   {"id": "A", "label": "烤火听他讲", "effects": {"log": "老猎户说：陪它坐坐。"}},
+   {"id": "B", "label": "帮他修屋顶", "cost": {"days": 1}, "effects": {"lingshi": 3, "tags": ["善"], "memory": {"npc": "老猎户", "text": "她修过屋顶"}}}
+  ]},
+ "T3b_bingxi": {"title": "冰隙", "type": "险地", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位·备用路线】冰面裂开一道缝，底下的水是黑的。",
+  "options": [
+   {"id": "A", "label": "贴避水符", "cost": {"items": {"fu_bishui": 1}}, "requires": {"has_item": {"fu_bishui": 1}}},
+   {"id": "B", "label": "绕行", "cost": {"days": 1}, "effects": {"tags": ["避"]}},
+   {"id": "C", "label": "硬闯", "cost": {"chance": 0.5}, "effects": {"tags": ["力"]},
+    "roll": {"chance": 0.5, "success": {}, "fail": {"injure": 2, "log": "落进冰水，受了寒。"}}}
+  ]},
+ "T4_laogui": {"title": "寒潭老龟", "type": "机缘", "heavy": true, "once": false, "ganwu": 0, "key": "laogui",
+  "text": "【占位】潭心的石头上趴着一只老龟，背后开着一朵寒潭莲。它睁开一只眼：“又来一个。”",
+  "variants": [
+   {"if": {"flag": {"laogui_done": true}}, "text": "【占位】老龟在石头上晒壳，没睁眼。", "options": [{"id": "Z", "label": "点头走过"}]},
+   {"if": {"flag": {"laogui_grudge": true}}, "text": "【占位】老龟背过身去，不理你。",
+    "options": [
+     {"id": "S", "label": "赔罪：奉上两颗聚气丹", "cost": {"items": {"pill_juqi": 2}}, "requires": {"has_item": {"pill_juqi": 2}},
+      "effects": {"items": {"herb_hantanlian": 1}, "flags": {"laogui_done": true, "laogui_apology": true}, "memory": {"npc": "老龟", "text": "她回来赔了罪"}, "log": "老龟收下丹，推来一朵莲。"}},
+     {"id": "Z", "label": "走过"}]},
+   {"if": {"flag": {"laogui": "D"}}, "text": "【占位】老龟：“说了，只换不送。”",
+    "options": [
+     {"id": "B", "label": "拿一颗聚气丹换", "cost": {"items": {"pill_juqi": 1}}, "requires": {"has_item": {"pill_juqi": 1}},
+      "effects": {"items": {"herb_hantanlian": 1, "seed_lianzi": 1}, "flags": {"laogui_done": true, "laogui_b_later": true}, "log": "换得寒潭莲与莲子。"}},
+     {"id": "Z", "label": "走过"}]}
+  ],
+  "options": [
+   {"id": "A", "label": "凝气跃过去摘一朵", "cost": {"chance": 0.6}, "requires": {"min_layer": 5}, "key": true,
+    "thought": "它老了，未必拦得住我。",
+    "roll": {"chance": 0.6, "success": {"items": {"herb_hantanlian": 1}, "log": "摘到了寒潭莲。"}, "fail": {"injure": 2, "log": "落水受寒，空手而回。"}},
+    "effects": {"flags": {"laogui": "A", "laogui_grudge": true}, "tags": ["力"], "xinmo": "laogui_A", "memory": {"npc": "老龟", "text": "她抢了莲"}}},
+   {"id": "B", "label": "拿一颗聚气丹换", "cost": {"items": {"pill_juqi": 1}}, "requires": {"has_item": {"pill_juqi": 1}}, "key": true,
+    "thought": "炉里一颗丹，换潭里一朵莲。",
+    "effects": {"items": {"herb_hantanlian": 1, "seed_lianzi": 1}, "flags": {"laogui": "B", "laogui_done": true}, "tags": ["利"], "xinmo": "laogui_B", "memory": {"npc": "老龟", "text": "她拿丹换了莲"}, "log": "老龟吞了丹，推来一朵莲和一粒莲子。"}},
+   {"id": "C", "label": "在石头上坐下，陪它坐坐", "cost": {"days": 2, "note": "陪坐 3 日"}, "key": true,
+    "thought": "它好像很久没跟人说话了。",
+    "effects": {"ganwu": 40, "items": {"herb_hantanlian": 1}, "flags": {"laogui": "C", "laogui_done": true, "anqu_road": true}, "tags": ["善"], "xinmo": "laogui_C", "memory": {"npc": "老龟", "text": "她陪我坐了三天"}, "log": "第三天傍晚，老龟把一朵莲推到你脚边。路书记下：寒潭暗渠。"}},
+   {"id": "D", "label": "什么也不说，转身走", "key": true,
+    "thought": "不是我的，不要。",
+    "effects": {"flags": {"laogui": "D"}, "tags": ["避"], "xinmo": "laogui_D", "memory": {"npc": "老龟", "text": "明年这时候再来"}, "log": "身后一声：“明年这时候再来。”路书标注：老龟只换不送。"}}
+  ]},
+ "T5_bingpu": {"title": "冰瀑", "type": "对峙", "heavy": true, "once": true, "ganwu": 15,
+  "text": "【占位】冰瀑下，一只雪狐挡在窄路中间，龇着牙。",
+  "options": [
+   {"id": "A", "label": "凝神与它对视", "effects": {"log": "雪狐看了你一会儿，让开了。"}},
+   {"id": "B", "label": "斗法", "cost": {"chance": 0.7}, "effects": {"tags": ["力"]},
+    "roll": {"chance": 0.7, "success": {"log": "雪狐逃了。"}, "fail": {"injure": 2, "log": "被抓伤了。"}}},
+   {"id": "C", "label": "退回去绕行", "cost": {"days": 1}, "effects": {"tags": ["避"]}}
+  ]},
+ "T6_liewu": {"title": "猎屋", "type": "歇脚", "heavy": false, "once": false, "ganwu": 0,
+  "text": "【占位】空猎屋里有半截蜡烛和一张旧纸。",
+  "options": [
+   {"id": "A", "label": "写家书", "visible_if": {"not_flag": {"letter_pending": true}}, "effects": {"ganwu": 5, "flags": {"letter_pending": true, "letter_ever": true}, "log": "写了封家书，托猎户捎回去。"}},
+   {"id": "B", "label": "歇一歇就走"}
+  ]},
+ "T7_wulin": {"title": "雾林", "type": "异象", "heavy": false, "once": true, "ganwu": 0,
+  "text": "【占位】林子里的雾带着一股苦味。", "options": [{"id": "A", "label": "继续走"}]},
+ "T8_huicheng": {"title": "回程野地", "type": "野地", "heavy": false, "once": true, "ganwu": 0,
+  "text": "【占位】远远看得见青庐的炊烟了。", "options": [{"id": "A", "label": "继续走"}]},
+ "T9_guitu": {"title": "归途", "type": "归途", "heavy": false, "once": false, "ganwu": 0, "days": 0,
+  "text": "回青庐。", "options": [{"id": "A", "label": "回家", "effects": {"end_trip": true}}]}
+}

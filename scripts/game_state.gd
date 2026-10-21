@@ -1,0 +1,961 @@
+class_name GameState
+extends RefCounted
+## 《青庐远行》灰盒切片 · 候选代码（非发布版）
+## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
+## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
+
+const SAVE_VERSION := 1
+const FIELD_DAYS := 6
+const FIELD_YIELD := 2
+const RECIPES := {
+	"juqi": {"qz": 2, "days": 2, "out": "pill_juqi", "name": "聚气丹"},
+	"quzhang": {"qz": 1, "days": 1, "out": "pill_quzhang", "name": "驱瘴丹"},
+	"zhuji": {"qz": 3, "days": 6, "out": "pill_zhuji", "name": "筑基丹",
+		"main": {"herb_hantanlian": 1, "herb_chiyangguo": 1}},
+}
+const JUQI_XW := 30
+const JUQI_SOFTCAP := 8
+const BIGUAN_XW := 10
+const REFINE_CAP := 20
+const XW_GOAL := 600
+const YUYUN_CAP := 120
+const WU_SOFTCAP := 140
+const RATION_TOPUP := 8
+const RATION_CAP := 12
+const PACK_SLOTS := 6
+const SLOT_STACK := 5
+const BASKET_CAP := 30
+const SHUI_LIAN_DAYS := 20
+const XIANGYANG_DEADLINE := 23
+const ZHUJI_RATE := 0.7
+const ZHUJI_SECOND_DAYS := 3
+const ZHAJI_YUYUN := 20
+const SHOUYUAN_START := 120
+const GELAOSAN_FRUIT_PRICE := 20
+
+const NAMES := {
+	"res_lingshi": "灵石", "res_xiuwei": "修为", "res_ganwu": "感悟", "res_xinjing": "心境",
+	"res_shouyuan": "寿元", "res_ganliang": "干粮", "herb_qingzhi": "青芝", "seed_lianzi": "寒潭莲子",
+	"herb_hantanlian": "寒潭莲", "herb_chiyangguo": "赤阳果", "herb_xugucao": "续骨草", "crop_linggu": "灵谷",
+	"pill_juqi": "聚气丹", "pill_quzhang": "驱瘴丹", "pill_zhuji": "筑基丹",
+	"fu_bishui": "避水符", "fu_jingshui": "净水符", "fu_dingfeng_can": "残符·定风",
+}
+## 随身行囊装符与丹；采药篓装草药、种子、作物
+const PACK_KINDS := ["fu_", "pill_"]
+
+var s: Dictionary = {}
+var events: Dictionary = {}
+var routes: Dictionary = {}
+var xinmo: Dictionary = {}
+var rng := RandomNumberGenerator.new()
+var on_tick: Callable = Callable()   # 测试钩子：每日结算后回调 snapshot()
+var notices: Array = []              # 给 UI 的一次性提示
+
+func _init() -> void:
+	events = _load_json("res://data/events.json")
+	routes = _load_json("res://data/routes.json")
+	xinmo = _load_json("res://data/xinmo.json")
+
+static func _load_json(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_error("missing " + path)
+		return {}
+	var d = JSON.parse_string(f.get_as_text())
+	return d if d is Dictionary else {}
+
+# ---------------------------------------------------------------- 开局 / 存读档
+func new_game(name: String, cherish: String, seed: int = -1) -> void:
+	if seed < 0:
+		seed = int(Time.get_unix_time_from_system()) ^ randi()
+	rng.seed = seed
+	s = {
+		"v": SAVE_VERSION, "day": 0, "name": name, "cherish": cherish,
+		"xiuwei": 0, "yuyun": 0, "ganwu": 0, "wu_lost": 0,
+		"src": {"biguan": 0, "ganwu": 0, "dan": 0},
+		"shouyuan": SHOUYUAN_START, "hunger_days": 0, "lingshi": 20,
+		"fields": [{"prog": 0}, {"prog": 0}], "extra": "",
+		"gu_prog": 0, "lian_prog": -1,
+		"queue": [], "zhuji_second": false, "debug_zhuji": "",
+		"store": {}, "ration": 8, "aunt_ration": 0,
+		"pack": [{"id": "fu_bishui", "n": 1, "key": false}], "basket": {},
+		"flags": {}, "tags": {"力": 0, "利": 0, "善": 0, "避": 0},
+		"memory": [], "log": [], "roadbook": {},
+		"injured": 0, "unstable": 0,
+		"loc": "home", "trip": {}, "trips_done": 0,
+		"juqi_eaten": 0, "juqi_brewed": 0,
+		"pending_overflow": [], "xm": {}, "ended": false, "ending": "",
+		"stats": {"biguan_days": 0, "trip_days": 0, "heavy": 0, "light": 0, "revisit": 0, "started_ms": Time.get_ticks_msec()},
+		"rng": 0,
+	}
+	_log("%s 离开青庐（候选代码·灰盒）。" % name)
+
+func to_dict() -> Dictionary:
+	s["rng"] = rng.state
+	s["rng_seed"] = rng.seed
+	return s.duplicate(true)
+
+func from_dict(d: Dictionary) -> bool:
+	if not d.has("v") or int(d["v"]) != SAVE_VERSION:
+		return false
+	s = d.duplicate(true)
+	# JSON 读回的数字是 float，关键整数字段归一
+	for k in ["day", "xiuwei", "yuyun", "ganwu", "lingshi", "ration", "shouyuan", "injured", "unstable"]:
+		s[k] = int(s[k])
+	rng.seed = int(s.get("rng_seed", 0))
+	rng.state = int(s.get("rng", 0))
+	return true
+
+# ---------------------------------------------------------------- 基础量
+func I(k: String) -> int:
+	return int(s.get(k, 0))
+
+func store_n(id: String) -> int:
+	return int(s["store"].get(id, 0))
+
+func pack_n(id: String) -> int:
+	var n := 0
+	for sl in s["pack"]:
+		if sl["id"] == id:
+			n += int(sl["n"])
+	return n
+
+func basket_n(id: String) -> int:
+	return int(s["basket"].get(id, 0))
+
+func basket_total() -> int:
+	var n := 0
+	for k in s["basket"]:
+		n += int(s["basket"][k])
+	return n
+
+func total_n(id: String) -> int:
+	return store_n(id) + pack_n(id) + basket_n(id)
+
+## 当前可用数量：路上只算随身行囊 + 采药篓；在家算仓 + 行囊
+func avail_n(id: String) -> int:
+	if s["loc"] == "trip":
+		return pack_n(id) + basket_n(id)
+	return store_n(id) + pack_n(id)
+
+func layer() -> int:
+	return min(9, 1 + int(I("xiuwei") * 9 / XW_GOAL))
+
+func realm_text() -> String:
+	if s.get("ended", false) and s.get("ending", "") == "zhuji":
+		return "筑基初期"
+	if I("xiuwei") >= XW_GOAL:
+		return "炼气圆满"
+	return "炼气%s层" % ["一", "二", "三", "四", "五", "六", "七", "八", "九"][layer() - 1]
+
+func _log(t: String) -> void:
+	s["log"].append({"day": I("day"), "text": t})
+
+func notice(t: String) -> void:
+	notices.append(t)
+
+# ---------------------------------------------------------------- 物品进出
+func _is_pack_kind(id: String) -> bool:
+	for p in PACK_KINDS:
+		if id.begins_with(p):
+			return true
+	return false
+
+func _store_add(id: String, n: int) -> void:
+	s["store"][id] = store_n(id) + n
+	if int(s["store"][id]) <= 0:
+		s["store"].erase(id)
+
+func add_item(id: String, n: int) -> void:
+	if n <= 0:
+		return
+	if s["loc"] != "trip":
+		_store_add(id, n)
+		return
+	if _is_pack_kind(id):
+		for i in n:
+			if not _pack_add_one(id, false):
+				s["pending_overflow"].append(id)
+	else:
+		var room := BASKET_CAP - basket_total()
+		var put := mini(room, n)
+		if put > 0:
+			s["basket"][id] = basket_n(id) + put
+		if n > put:
+			notice("采药篓已满（%d 件），%s ×%d 没装下。" % [BASKET_CAP, NAMES.get(id, id), n - put])
+
+func _pack_add_one(id: String, key: bool) -> bool:
+	for sl in s["pack"]:
+		if sl["id"] == id and int(sl["n"]) < SLOT_STACK and bool(sl["key"]) == key:
+			sl["n"] = int(sl["n"]) + 1
+			return true
+	if s["pack"].size() < PACK_SLOTS:
+		s["pack"].append({"id": id, "n": 1, "key": key})
+		return true
+	return false
+
+func _pack_remove(id: String, n: int, allow_key: bool = true) -> int:
+	var left := n
+	# 先用不带“钥匙”标记的
+	for pass_key in [false, true]:
+		if pass_key and not allow_key:
+			break
+		for sl in s["pack"]:
+			if left <= 0:
+				break
+			if sl["id"] == id and bool(sl["key"]) == pass_key:
+				var t := mini(left, int(sl["n"]))
+				sl["n"] = int(sl["n"]) - t
+				left -= t
+	s["pack"] = s["pack"].filter(func(x): return int(x["n"]) > 0)
+	return n - left
+
+func consume(id: String, n: int) -> bool:
+	if avail_n(id) < n:
+		return false
+	var left := n
+	if s["loc"] == "trip":
+		var b := mini(left, basket_n(id))
+		if b > 0:
+			s["basket"][id] = basket_n(id) - b
+			if basket_n(id) == 0:
+				s["basket"].erase(id)
+			left -= b
+		left -= _pack_remove(id, left)
+	else:
+		var t := mini(left, store_n(id))
+		_store_add(id, -t)
+		left -= t
+		left -= _pack_remove(id, left)
+	return left == 0
+
+## 行囊溢出：玩家选扔掉哪一格（slot>=0）或不要新物品（-1）
+func resolve_overflow(slot: int) -> void:
+	if s["pending_overflow"].is_empty():
+		return
+	var id: String = s["pending_overflow"].pop_front()
+	if slot >= 0 and slot < s["pack"].size():
+		var old = s["pack"][slot]
+		_log("行囊满了，扔下 %s ×%d。" % [NAMES.get(old["id"], old["id"]), int(old["n"])])
+		s["pack"].remove_at(slot)
+		_pack_add_one(id, false)
+	else:
+		_log("行囊满了，没带上 %s。" % NAMES.get(id, id))
+
+# ---------------------------------------------------------------- 日结算（§2.3）
+func gain(v: int, k: String) -> void:
+	var room := XW_GOAL - I("xiuwei")
+	var a := mini(v, maxi(room, 0))
+	s["xiuwei"] = I("xiuwei") + a
+	s["src"][k] = int(s["src"][k]) + a
+	s["yuyun"] = mini(YUYUN_CAP, I("yuyun") + (v - a))
+
+func add_wu(v: int) -> void:
+	if v <= 0:
+		return
+	var room := maxi(0, WU_SOFTCAP - I("ganwu"))
+	var full := mini(v, room)
+	var half := int((v - full) / 2)
+	s["ganwu"] = I("ganwu") + full + half
+	s["wu_lost"] = I("wu_lost") + (v - full - half)
+	if v - full > 0:
+		notice("思绪繁杂：待炼化已过 %d，新得感悟只计一半。" % WU_SOFTCAP)
+	if not s["flags"].get("tut_wu", false):
+		s["flags"]["tut_wu"] = true
+		notice("感悟要回青庐闭关才能炼化成修为。")
+
+## mode: "road" 路上 | "biguan" 闭关 | "home" 冲关等其他耗日
+func tick(mode: String) -> void:
+	s["day"] = I("day") + 1
+	# ① 日初生产 + ② 收获入库（每块田独立判定，与 sim.py 同序）
+	for f in s["fields"]:
+		f["prog"] = int(f["prog"]) + 1
+		if int(f["prog"]) >= FIELD_DAYS:
+			f["prog"] = 0
+			_store_add("herb_qingzhi", FIELD_YIELD)
+	if s["extra"] == "shuitian":
+		if int(s["lian_prog"]) < 0:
+			s["gu_prog"] = int(s["gu_prog"]) + 1
+			if int(s["gu_prog"]) >= FIELD_DAYS:
+				s["gu_prog"] = 0
+				_store_add("crop_linggu", 2)
+				_store_add("herb_qingzhi", 1)
+		else:
+			s["lian_prog"] = int(s["lian_prog"]) + 1
+			if int(s["lian_prog"]) >= SHUI_LIAN_DAYS:
+				s["lian_prog"] = -1
+				_store_add("herb_hantanlian", 1)
+				_log("水田的寒潭莲开了。")
+				notice("水田的寒潭莲开了：寒潭莲 +1")
+	if not s["queue"].is_empty():
+		var q = s["queue"][0]
+		q[1] = int(q[1]) - 1
+		if int(q[1]) <= 0:
+			s["queue"].pop_front()
+			_pill_done(String(q[0]))
+	# ③ 当日消耗
+	if mode == "road":
+		s["stats"]["trip_days"] = int(s["stats"]["trip_days"]) + 1
+		if I("ration") > 0:
+			s["ration"] = I("ration") - 1
+		else:
+			s["hunger_days"] = I("hunger_days") + 1
+			s["shouyuan"] = I("shouyuan") - 1
+			s["flags"]["hungry"] = true
+	elif mode == "biguan":
+		s["stats"]["biguan_days"] = int(s["stats"]["biguan_days"]) + 1
+		var cap := REFINE_CAP
+		if I("injured") > 0:
+			cap = int(cap / 2)
+			s["injured"] = I("injured") - 1
+		elif I("unstable") > 0:
+			cap = int(cap / 2)
+			s["unstable"] = I("unstable") - 1
+		var r := mini(cap, I("ganwu"))
+		s["ganwu"] = I("ganwu") - r
+		gain(BIGUAN_XW, "biguan")
+		gain(r, "ganwu")
+	if mode == "road" and I("ration") > 0:
+		s["flags"].erase("hungry")
+	s["shouyuan"] = I("shouyuan") - 1
+	# ④ 世事检查
+	if s["flags"].get("world_xiangyang", false) and I("day") > XIANGYANG_DEADLINE and not s["flags"].get("xiangyang_expired", false):
+		s["flags"]["xiangyang_expired"] = true
+		if not s["flags"].get("xiangyang_done", false):
+			_log("向阳坡的赤阳果被采光了。")
+			notice("世事：向阳坡的赤阳果被采光了。")
+	if I("shouyuan") <= 0 and not s["ended"]:
+		s["ended"] = true
+		s["ending"] = "zuohua"
+		s["loc"] = "ending"
+		_log("寿元耗尽，她回到青庐静室坐化。")
+	if on_tick.is_valid():
+		on_tick.call(snapshot(mode))
+
+func _pill_done(name: String) -> void:
+	if name == "zhuji":
+		var ok := true
+		if not s["zhuji_second"]:
+			match String(s.get("debug_zhuji", "")):
+				"succeed": ok = true
+				"fail": ok = false
+				_: ok = rng.randf() < ZHUJI_RATE
+		if not ok:
+			s["zhuji_second"] = true
+			_store_add("herb_hantanlian", 1)
+			_store_add("herb_chiyangguo", 1)
+			s["yuyun"] = mini(YUYUN_CAP, I("yuyun") + ZHAJI_YUYUN)
+			_log("筑基丹成丹失败：主药保留，得筑基药渣（+%d 余韵）；第二炉 %d 日必成。" % [ZHAJI_YUYUN, ZHUJI_SECOND_DAYS])
+			notice("筑基丹没成：主药还在，第二炉 3 日必成。")
+			return
+		_log("筑基丹成了。")
+		notice("筑基丹出炉！")
+	_store_add(RECIPES[name]["out"], 1)
+
+func snapshot(mode: String = "") -> Dictionary:
+	var q := []
+	for x in s["queue"]:
+		q.append([String(x[0]), int(x[1])])
+	return {"day": I("day"), "mode": mode, "xiuwei": I("xiuwei"), "yuyun": I("yuyun"), "ganwu": I("ganwu"),
+		"qingzhi": store_n("herb_qingzhi"), "ganliang": I("ration"), "lingshi": I("lingshi"), "queue": q,
+		"ready": {"juqi": total_n("pill_juqi"), "quzhang": total_n("pill_quzhang"), "zhuji": total_n("pill_zhuji")},
+		"lian": total_n("herb_hantanlian"), "guo": total_n("herb_chiyangguo")}
+
+# ---------------------------------------------------------------- 在家操作（0 日）
+func at_home() -> bool:
+	return s["loc"] == "home" and not s["ended"]
+
+func can_enqueue(name: String) -> String:
+	if not at_home():
+		return "不在家"
+	var r = RECIPES[name]
+	if store_n("herb_qingzhi") < int(r["qz"]):
+		return "青芝不足"
+	if r.has("main"):
+		for k in r["main"]:
+			if store_n(k) < int(r["main"][k]):
+				return "缺%s" % NAMES[k]
+		if zhuji_in_progress():
+			return "筑基丹已在炉中"
+	return ""
+
+func zhuji_in_progress() -> bool:
+	for q in s["queue"]:
+		if q[0] == "zhuji":
+			return true
+	return false
+
+func enqueue(name: String) -> bool:
+	if can_enqueue(name) != "":
+		return false
+	var r = RECIPES[name]
+	_store_add("herb_qingzhi", -int(r["qz"]))
+	var days := int(r["days"])
+	if r.has("main"):
+		for k in r["main"]:
+			_store_add(k, -int(r["main"][k]))
+		if s["zhuji_second"]:
+			days = ZHUJI_SECOND_DAYS
+	if name == "juqi":
+		s["juqi_brewed"] = I("juqi_brewed") + 1
+	s["queue"].append([name, days])   # ⑥ 从下一个日初开始计时
+	return true
+
+## 取消队尾未开始的丹，退回材料
+func dequeue_last() -> bool:
+	if not at_home() or s["queue"].is_empty():
+		return false
+	var q = s["queue"][-1]
+	var r = RECIPES[q[0]]
+	if int(q[1]) < (ZHUJI_SECOND_DAYS if (q[0] == "zhuji" and s["zhuji_second"]) else int(r["days"])):
+		return false  # 已经开炉
+	s["queue"].pop_back()
+	_store_add("herb_qingzhi", int(r["qz"]))
+	if r.has("main"):
+		for k in r["main"]:
+			_store_add(k, int(r["main"][k]))
+	if q[0] == "juqi":
+		s["juqi_brewed"] = I("juqi_brewed") - 1
+	return true
+
+## “按目标排程”：建议队列（玩家可改）——先筑基丹（主药齐），再用余下青芝排聚气丹到 8 颗
+func auto_schedule() -> Array:
+	var added := []
+	if can_enqueue("zhuji") == "":
+		enqueue("zhuji")
+		added.append("zhuji")
+	while I("juqi_brewed") < JUQI_SOFTCAP + int(s["flags"].get("juqi_given", 0)) and can_enqueue("juqi") == "":
+		enqueue("juqi")
+		added.append("juqi")
+	return added
+
+func eat_juqi_one() -> int:
+	s["juqi_eaten"] = I("juqi_eaten") + 1
+	var v := JUQI_XW if I("juqi_eaten") <= JUQI_SOFTCAP else int(JUQI_XW / 2)
+	gain(v, "dan")
+	return v
+
+## 默认留作“钥匙”的数量：老龟还没了结、行囊里又没有聚气丹时，留 1 颗（§8.3）
+func default_reserve() -> int:
+	if s["flags"].get("laogui_done", false) or s["flags"].get("laogui", "") == "A":
+		return 0
+	if pack_n("pill_juqi") > 0:
+		return 0
+	return 1 if store_n("pill_juqi") > 0 else 0
+
+## 服丹预览：[可服数量, 修为变化, 进余韵, 碰到减半线的颗数]
+func eat_preview(reserve: int) -> Dictionary:
+	var n := maxi(0, store_n("pill_juqi") - reserve)
+	var eaten := I("juqi_eaten")
+	var total := 0
+	var halved := 0
+	for i in n:
+		eaten += 1
+		if eaten > JUQI_SOFTCAP:
+			halved += 1
+			total += int(JUQI_XW / 2)
+		else:
+			total += JUQI_XW
+	var to_xw := mini(total, maxi(0, XW_GOAL - I("xiuwei")))
+	return {"n": n, "xw": to_xw, "yuyun": total - to_xw, "halved": halved}
+
+## “全部服下”：只吃仓里的，不动随身行囊（行囊里带“钥匙”标记的更不会动）
+func eat_all(reserve: int) -> int:
+	if not at_home():
+		return 0
+	var n := maxi(0, store_n("pill_juqi") - reserve)
+	for i in n:
+		_store_add("pill_juqi", -1)
+		eat_juqi_one()
+	return n
+
+func choose_extra(kind: String) -> bool:
+	if not at_home() or s["extra"] != "" or not (kind in ["field", "shuitian"]):
+		return false
+	s["extra"] = kind
+	if kind == "field":
+		s["fields"].append({"prog": 0})
+		_log("第五点灵脉：开第三块阳田。")
+	else:
+		s["gu_prog"] = 0
+		_log("第五点灵脉：开水田。")
+	return true
+
+func can_plant_lianzi() -> bool:
+	return at_home() and s["extra"] == "shuitian" and int(s["lian_prog"]) < 0 and store_n("seed_lianzi") > 0
+
+func plant_lianzi() -> bool:
+	if not can_plant_lianzi():
+		return false
+	_store_add("seed_lianzi", -1)
+	s["lian_prog"] = 0
+	s["flags"]["lian_planted_day"] = I("day")
+	_log("水田种下寒潭莲子（%d 日一熟）。" % SHUI_LIAN_DAYS)
+	return true
+
+## 播种当日取消退回种子（§2.5）
+func cancel_lianzi() -> bool:
+	if not at_home() or int(s["lian_prog"]) != 0 or int(s["flags"].get("lian_planted_day", -1)) != I("day"):
+		return false
+	s["lian_prog"] = -1
+	_store_add("seed_lianzi", 1)
+	return true
+
+func buy_rations(n: int) -> int:
+	if not at_home():
+		return 0
+	var k := mini(n, RATION_CAP - I("ration"))
+	k = mini(k, I("lingshi"))
+	k = maxi(k, 0)
+	s["lingshi"] = I("lingshi") - k
+	s["ration"] = I("ration") + k
+	return k
+
+## 仓中灵谷装袋（每 1 灵谷 = 1 日份），超过 12 的留在仓里
+func load_grain() -> int:
+	var k := mini(store_n("crop_linggu"), RATION_CAP - I("ration"))
+	k = maxi(k, 0)
+	_store_add("crop_linggu", -k)
+	s["ration"] = I("ration") + k
+	return k
+
+func pack_put(id: String, key: bool = false) -> bool:
+	if not at_home() or store_n(id) <= 0 or not _is_pack_kind(id):
+		return false
+	if not _pack_add_one(id, key):
+		return false
+	_store_add(id, -1)
+	return true
+
+func pack_take(slot: int) -> bool:
+	if not at_home() or slot < 0 or slot >= s["pack"].size():
+		return false
+	var sl = s["pack"][slot]
+	_store_add(sl["id"], int(sl["n"]))
+	s["pack"].remove_at(slot)
+	return true
+
+func toggle_key(slot: int) -> void:
+	if slot >= 0 and slot < s["pack"].size():
+		s["pack"][slot]["key"] = not bool(s["pack"][slot]["key"])
+
+func gelaosan_fruit_available() -> bool:
+	return at_home() and s["flags"].get("xiangyang_expired", false) and total_n("herb_chiyangguo") == 0 \
+		and not zhuji_in_progress() and total_n("pill_zhuji") == 0 and not s["flags"].get("gelaosan_sent", false)
+
+func buy_gelaosan_fruit() -> bool:
+	if not gelaosan_fruit_available() or I("lingshi") < GELAOSAN_FRUIT_PRICE:
+		return false
+	s["lingshi"] = I("lingshi") - GELAOSAN_FRUIT_PRICE
+	_store_add("herb_chiyangguo", 1)
+	s["flags"]["gelaosan_sent"] = true
+	s["tags"]["利"] = int(s["tags"]["利"]) + 1
+	_log("葛老三托人送来一颗赤阳果（−%d 灵石）。" % GELAOSAN_FRUIT_PRICE)
+	return true
+
+# ---------------------------------------------------------------- 闭关（§8.3 三种预设）
+func biguan_day() -> bool:
+	if not at_home():
+		return false
+	tick("biguan")
+	return true
+
+## preset: "refine" 炼完为止 | "pill" 到丹成（target=丹名）| "days" N 日
+func biguan(preset: String, n: int = 1, target: String = "") -> int:
+	var done := 0
+	var start_cnt := total_n(RECIPES[target]["out"]) if target != "" and RECIPES.has(target) else 0
+	for i in 200:
+		if not at_home():
+			break
+		match preset:
+			"refine":
+				if I("ganwu") <= 0:
+					break
+			"pill":
+				if target == "" or total_n(RECIPES[target]["out"]) > start_cnt:
+					break
+				var inq := false
+				for q in s["queue"]:
+					if q[0] == target:
+						inq = true
+				if not inq:
+					break
+			"days":
+				if done >= n:
+					break
+		biguan_day()
+		done += 1
+	return done
+
+func xw_full_hint() -> String:
+	if I("xiuwei") >= XW_GOAL:
+		return "修为已满，继续闭关只会攒余韵（剩 %d 点到上限）" % (YUYUN_CAP - I("yuyun"))
+	return ""
+
+# ---------------------------------------------------------------- 条件
+func check(c) -> bool:
+	if c == null or not (c is Dictionary):
+		return true
+	for k in c:
+		var v = c[k]
+		match k:
+			"flag":
+				for f in v:
+					if s["flags"].get(f, null) != v[f]:
+						return false
+			"not_flag":
+				for f in v:
+					if s["flags"].get(f, null) == v[f]:
+						return false
+			"has_item":
+				for id in v:
+					if avail_n(id) < int(v[id]):
+						return false
+			"min_layer":
+				if layer() < int(v):
+					return false
+			"day_le":
+				if I("day") > int(v):
+					return false
+			"tag_ge":
+				for t in v:
+					if int(s["tags"].get(t, 0)) < int(v[t]):
+						return false
+			"tag_le":
+				for t in v:
+					if int(s["tags"].get(t, 0)) > int(v[t]):
+						return false
+			"else":
+				pass
+	return true
+
+func cond_reason(c) -> String:
+	if c is Dictionary:
+		if c.has("has_item"):
+			for id in c["has_item"]:
+				if avail_n(id) < int(c["has_item"][id]):
+					return "需%s ×%d（%s）" % [NAMES.get(id, id), int(c["has_item"][id]), "行囊里" if s["loc"] == "trip" else "仓里"]
+		if c.has("min_layer") and layer() < int(c["min_layer"]):
+			return "需炼气%d层" % int(c["min_layer"])
+	return "条件不足"
+
+# ---------------------------------------------------------------- 历练：路线 / 节点状态机
+## trip.stage: "choose" 选下一节点 | "event" 事件卡 | "quick" 快走 | "result" 结果卡
+func start_trip(route_id: String) -> bool:
+	if not at_home() or not routes.has(route_id) or not s["pending_overflow"].is_empty():
+		return false
+	s["loc"] = "trip"
+	s["trip"] = {"route": route_id, "node": "", "walked": 0, "path": [], "stage": "choose",
+		"choices": routes[route_id]["start"].duplicate(), "result": {}, "start_day": I("day")}
+	_log("出发：%s。" % routes[route_id]["name"])
+	return true
+
+func route() -> Dictionary:
+	return routes.get(s["trip"].get("route", ""), {})
+
+func visible_choices() -> Array:
+	var out := []
+	var r := route()
+	for nid in s["trip"].get("choices", []):
+		var nd = r["nodes"].get(nid, {})
+		if check(nd.get("visible_if", null)):
+			out.append(nid)
+	return out
+
+func day_mod() -> int:
+	var add := 0
+	for m in route().get("day_mods", []):
+		if check(m["if"]):
+			add += int(m["add"])
+	return add
+
+func is_revisit(nid: String) -> bool:
+	var ev = events[route()["nodes"][nid]["event"]]
+	return bool(ev.get("once", false)) and s["roadbook"].has(s["trip"]["route"] + ":" + nid)
+
+func enter_node(nid: String) -> bool:
+	if s["loc"] != "trip" or s["trip"]["stage"] != "choose" or not (nid in visible_choices()):
+		return false
+	s["trip"]["node"] = nid
+	s["trip"]["stage"] = "quick" if is_revisit(nid) else "event"
+	return true
+
+## 当前事件（已套用变体），选项带 enabled / reason
+func event_view() -> Dictionary:
+	var nid: String = s["trip"]["node"]
+	var ev: Dictionary = events[route()["nodes"][nid]["event"]].duplicate(true)
+	for vr in ev.get("variants", []):
+		if check(vr["if"]):
+			for k in vr:
+				if k != "if":
+					ev[k] = vr[k]
+			break
+	ev.erase("variants")
+	var base_days := int(ev.get("days", 1))
+	if base_days > 0:
+		base_days += day_mod()
+	ev["base_days"] = base_days
+	var opts := []
+	for o in ev.get("options", []):
+		if not check(o.get("visible_if", null)):
+			continue
+		var oo: Dictionary = o.duplicate(true)
+		oo["enabled"] = check(o.get("requires", null))
+		oo["reason"] = "" if oo["enabled"] else cond_reason(o.get("requires", null))
+		oo["days"] = base_days + int(o.get("cost", {}).get("days", 0))
+		opts.append(oo)
+	ev["options"] = opts
+	return ev
+
+func _apply(e: Dictionary, res: Dictionary) -> void:
+	if e.is_empty():
+		return
+	if e.has("ganwu"):
+		add_wu(int(e["ganwu"]))
+		res["ganwu"] = int(res.get("ganwu", 0)) + int(e["ganwu"])
+	if e.has("items"):
+		for id in e["items"]:
+			add_item(id, int(e["items"][id]))
+			res["items"][id] = int(res["items"].get(id, 0)) + int(e["items"][id])
+	if e.has("lingshi"):
+		s["lingshi"] = I("lingshi") + int(e["lingshi"])
+		res["lingshi"] = int(res.get("lingshi", 0)) + int(e["lingshi"])
+		if int(e["lingshi"]) > 0:
+			s["tags"]["利"] = int(s["tags"]["利"]) + 1
+	if e.has("flags"):
+		for f in e["flags"]:
+			s["flags"][f] = e["flags"][f]
+	if e.has("tags"):
+		for t in e["tags"]:
+			s["tags"][t] = int(s["tags"].get(t, 0)) + 1
+	if e.has("memory"):
+		var m = e["memory"]
+		s["memory"].append({"npc": m["npc"], "text": m["text"], "day": I("day")})
+		res["memory"].append(m["npc"])
+	if e.has("injure"):
+		s["injured"] = maxi(I("injured"), int(e["injure"]))
+		res["lines"].append("受伤：下次闭关前 %d 日炼化减半" % int(e["injure"]))
+	if e.has("log"):
+		_log(e["log"])
+		res["lines"].append(e["log"])
+	if e.has("goto"):
+		res["goto"] = e["goto"]
+	if e.has("end_trip"):
+		res["end_trip"] = true
+
+func resolve(opt_id: String) -> Dictionary:
+	if s["loc"] != "trip" or s["trip"]["stage"] != "event":
+		return {}
+	var ev := event_view()
+	var opt: Dictionary = {}
+	for o in ev["options"]:
+		if o["id"] == opt_id:
+			opt = o
+	if opt.is_empty() or not opt["enabled"]:
+		return {}
+	var res := {"title": ev["title"], "option": opt["label"], "days": int(opt["days"]), "items": {}, "lines": [], "memory": [], "ganwu": 0}
+	var cost: Dictionary = opt.get("cost", {})
+	for id in cost.get("items", {}):
+		consume(id, int(cost["items"][id]))
+		res["items"][id] = -int(cost["items"][id])
+		if id == "pill_juqi":
+			s["flags"]["juqi_given"] = int(s["flags"].get("juqi_given", 0)) + int(cost["items"][id])
+	for i in int(opt["days"]):
+		tick("road")
+		if s["ended"]:
+			break
+	s["trip"]["walked"] = int(s["trip"]["walked"]) + int(opt["days"])
+	# sim.py 顺序：过日 → 节点感悟 → 选项效果
+	var nid: String = s["trip"]["node"]
+	add_wu(int(ev.get("ganwu", 0)))
+	res["ganwu"] = int(ev.get("ganwu", 0))
+	_apply(opt.get("effects", {}), res)
+	if opt.has("roll"):
+		var p := float(opt["roll"]["chance"])
+		if s["flags"].get("hungry", false):
+			p -= 0.2
+		var ok := rng.randf() < p
+		res["roll"] = "成" if ok else "败"
+		_apply(opt["roll"]["success" if ok else "fail"], res)
+	if opt.has("branch"):
+		for b in opt["branch"]:
+			if b.has("else") or check(b["if"]):
+				_apply(b["effects"], res)
+				break
+	if opt.get("key", false):
+		_log("◎ %s：%s" % [ev["title"], opt["label"]])
+	var st := "heavy" if ev.get("heavy", false) else "light"
+	s["stats"][st] = int(s["stats"][st]) + 1
+	s["roadbook"][s["trip"]["route"] + ":" + nid] = true
+	s["trip"]["path"].append(nid)
+	_after_node(nid, res)
+	return res
+
+func quick_walk() -> Dictionary:
+	if s["loc"] != "trip" or s["trip"]["stage"] != "quick":
+		return {}
+	var nid: String = s["trip"]["node"]
+	var ev = events[route()["nodes"][nid]["event"]]
+	var days := 1 + day_mod()
+	for i in days:
+		tick("road")
+	s["trip"]["walked"] = int(s["trip"]["walked"]) + days
+	s["stats"]["revisit"] = int(s["stats"]["revisit"]) + 1
+	s["trip"]["path"].append(nid)
+	var res := {"title": ev["title"], "option": "快走（路书已记）", "days": days, "items": {}, "lines": [], "memory": [], "ganwu": 0}
+	_after_node(nid, res)
+	return res
+
+func _after_node(nid: String, res: Dictionary) -> void:
+	var nd = route()["nodes"][nid]
+	if res.get("goto", "") != "":
+		s["trip"]["choices"] = [res["goto"]]
+	else:
+		s["trip"]["choices"] = nd.get("next", []).duplicate()
+	s["trip"]["result"] = res
+	s["trip"]["stage"] = "result"
+	if res.get("end_trip", false) or nd.get("end", false):
+		res["end_trip"] = true
+
+## 结果卡点“继续”
+func continue_trip() -> void:
+	if s["loc"] != "trip" or s["trip"]["stage"] != "result":
+		return
+	if s["trip"]["result"].get("end_trip", false):
+		come_home(false)
+	else:
+		s["trip"]["stage"] = "choose"
+
+## 半路折返：⌈已走日数 ÷ 2⌉ 日，每日照扣干粮，不触发事件
+func turn_back_days() -> int:
+	return int(ceil(int(s["trip"].get("walked", 0)) / 2.0))
+
+func turn_back() -> int:
+	if s["loc"] != "trip" or not (s["trip"]["stage"] in ["choose", "result"]):
+		return -1
+	var d := turn_back_days()
+	for i in d:
+		tick("road")
+	_log("半路折返，走了 %d 日回家。" % d)
+	come_home(true)
+	return d
+
+func come_home(turned_back: bool) -> Dictionary:
+	if s["ended"]:
+		return {}
+	var route_id: String = s["trip"].get("route", "")
+	s["loc"] = "home"
+	s["trips_done"] = I("trips_done") + 1
+	var sum := {"basket": s["basket"].duplicate(), "ration_before": I("ration")}
+	for id in s["basket"]:
+		_store_add(id, int(s["basket"][id]))
+	s["basket"] = {}
+	# 干粮（§2.4）：仓中灵谷先装袋 → 姑母补到 8 → 家书 / 姑母处寄存的
+	load_grain()
+	if I("ration") < RATION_TOPUP:
+		s["ration"] = RATION_TOPUP
+	var bonus := 0
+	if s["flags"].get("letter_pending", false):
+		bonus += 3
+		s["flags"]["letter_pending"] = false
+	bonus += I("aunt_ration")
+	var put := mini(bonus, RATION_CAP - I("ration"))
+	s["ration"] = I("ration") + put
+	s["aunt_ration"] = bonus - put
+	sum["ration_after"] = I("ration")
+	sum["aunt_ration"] = I("aunt_ration")
+	sum["turned_back"] = turned_back
+	if route_id == "hantan":
+		s["flags"]["hantan_visited"] = true
+	# 世事（灰盒）：第一次从寒潭回来、结算完之后出现
+	if route_id == "hantan" and not turned_back and not s["flags"].get("world_xiangyang", false):
+		s["flags"]["world_xiangyang"] = true
+		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，第 %d 日之前去才有。" % XIANGYANG_DEADLINE
+		_log("世事：向阳坡赤阳果，第 %d 日前去才有。" % XIANGYANG_DEADLINE)
+	s["trip"] = {}
+	s["last_home"] = sum
+	_log("回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
+	return sum
+
+# ---------------------------------------------------------------- 冲关与心魔（§2.6 / §6）
+func can_breakthrough() -> String:
+	if not at_home():
+		return "要在青庐静室"
+	if I("xiuwei") < XW_GOAL:
+		return "修为未满（%d/%d）" % [I("xiuwei"), XW_GOAL]
+	if store_n("pill_zhuji") < 1:
+		return "手上没有筑基丹"
+	if I("unstable") > 0:
+		return "心境不稳：先闭关 %d 日" % I("unstable")
+	return ""
+
+## 选题：第一幕=最舍不得；第二幕=老龟（没遇到就用倾向标签题补）
+func pick_xinmo() -> Array:
+	var qs := []
+	var a1 = xinmo["act1"].get(s["cherish"], null)
+	if a1 != null and check(a1["requires"]):
+		qs.append(a1)
+	var lg = s["flags"].get("laogui", "")
+	if lg != "" and xinmo["act2"].has("laogui_" + lg) and check(xinmo["act2"]["laogui_" + lg]["requires"]):
+		qs.append(xinmo["act2"]["laogui_" + lg])
+	var used := {}
+	for q in qs:
+		used[q["id"]] = true
+	for q in xinmo["tag_pool"]:
+		if qs.size() >= 2:
+			break
+		if not used.has(q["id"]) and check(q["requires"]):
+			qs.append(q)
+	return qs
+
+func start_breakthrough() -> bool:
+	if can_breakthrough() != "":
+		return false
+	tick("home")   # 冲关耗 1 日
+	var ids := []
+	for q in pick_xinmo():
+		ids.append(q["id"])
+	s["xm"] = {"ids": ids, "idx": 0, "ok": true, "answers": []}
+	s["loc"] = "xinmo"
+	return true
+
+func xinmo_question(id: String) -> Dictionary:
+	for k in xinmo["act1"]:
+		if xinmo["act1"][k]["id"] == id:
+			return xinmo["act1"][k]
+	for k in xinmo["act2"]:
+		if xinmo["act2"][k]["id"] == id:
+			return xinmo["act2"][k]
+	for q in xinmo["tag_pool"]:
+		if q["id"] == id:
+			return q
+	return {}
+
+func current_xinmo() -> Dictionary:
+	if s["loc"] != "xinmo":
+		return {}
+	return xinmo_question(s["xm"]["ids"][int(s["xm"]["idx"])])
+
+## 返回 {done, passed}
+func answer_xinmo(i: int) -> Dictionary:
+	var q := current_xinmo()
+	if q.is_empty() or i < 0 or i >= q["answers"].size():
+		return {}
+	var ok := check(q["answers"][i]["consistent_if"])
+	s["xm"]["answers"].append({"id": q["id"], "a": i, "ok": ok})
+	if not ok:
+		s["xm"]["ok"] = false
+	s["xm"]["idx"] = int(s["xm"]["idx"]) + 1
+	if int(s["xm"]["idx"]) < s["xm"]["ids"].size():
+		return {"done": false}
+	if s["xm"]["ok"]:
+		_store_add("pill_zhuji", -1)
+		s["ended"] = true
+		s["ending"] = "zhuji"
+		s["loc"] = "ending"
+		_log("第 %d 日，筑基。" % I("day"))
+		return {"done": true, "passed": true}
+	s["loc"] = "home"
+	s["unstable"] = 3
+	_log("心魔劫未过：回答与她做过的事对不上。筑基丹保留，先闭关 3 日（炼化减半）。")
+	return {"done": true, "passed": false}

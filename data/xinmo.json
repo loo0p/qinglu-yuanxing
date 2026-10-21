@@ -1,0 +1,54 @@
+{
+ "_comment": "候选代码·灰盒：心魔题（design-v3.1 §6）。第一幕=捏人“最舍不得”保底题；第二幕=老龟题，未遇老龟则从倾向标签题池补。每题 requires=题目引用的事必须发生过；答案 consistent_if=与记录一致才算过。",
+ "act1": {
+  "aunt": {"id": "act1_aunt", "requires": {}, "text": "【占位】灯下的姑母问：“你这一路，可曾想过家？”",
+   "answers": [
+    {"label": "我写过信回来", "consistent_if": {"flag": {"letter_ever": true}}},
+    {"label": "想过，只是没写信", "consistent_if": {"not_flag": {"letter_ever": true}}},
+    {"label": "说不清", "consistent_if": {}}]},
+  "town": {"id": "act1_town", "requires": {}, "text": "【占位】小镇的钟声问：“你走后，帮过谁？”",
+   "answers": [
+    {"label": "路上帮过几个人", "consistent_if": {"tag_ge": {"善": 1}}},
+    {"label": "谁也没帮，只顾赶路", "consistent_if": {"tag_le": {"善": 0}}},
+    {"label": "说不清", "consistent_if": {}}]},
+  "book": {"id": "act1_book", "requires": {}, "text": "【占位】那本书自己翻开：“书里学的，用上了吗？”",
+   "answers": [
+    {"label": "读懂了古松下的残碑", "consistent_if": {"flag": {"stele_read": true}}},
+    {"label": "还没用上", "consistent_if": {"not_flag": {"stele_read": true}}},
+    {"label": "说不清", "consistent_if": {}}]}
+ },
+ "act2": {
+  "laogui_A": {"id": "laogui_A", "requires": {"flag": {"laogui": "A"}}, "text": "【占位】潭水里有一双眼睛：“抢来的东西，还算你的吗？”",
+   "answers": [
+    {"label": "算，那是我凭本事", "consistent_if": {}},
+    {"label": "我后来回去赔过罪", "consistent_if": {"flag": {"laogui_apology": true}}},
+    {"label": "我没抢过", "consistent_if": {"not_flag": {"laogui": "A"}}}]},
+  "laogui_B": {"id": "laogui_B", "requires": {"flag": {"laogui": "B"}}, "text": "【占位】“一颗丹换一朵莲，公平吗？”",
+   "answers": [
+    {"label": "公平，各取所需", "consistent_if": {}},
+    {"label": "我其实舍不得那颗丹", "consistent_if": {}},
+    {"label": "我没换过", "consistent_if": {"not_flag": {"laogui": "B"}}}]},
+  "laogui_C": {"id": "laogui_C", "requires": {"flag": {"laogui": "C"}}, "text": "【占位】“那三天，你在等什么？”",
+   "answers": [
+    {"label": "等它开口", "consistent_if": {}},
+    {"label": "等雾散", "consistent_if": {}},
+    {"label": "我没停下过", "consistent_if": {"not_flag": {"laogui": "C"}}}]},
+  "laogui_D": {"id": "laogui_D", "requires": {"flag": {"laogui": "D"}}, "text": "【占位】“你转身的时候，听见它说什么？”",
+   "answers": [
+    {"label": "明年这时候再来", "consistent_if": {}},
+    {"label": "我后来又去过", "consistent_if": {"flag": {"laogui_b_later": true}}},
+    {"label": "我没走，我留下了", "consistent_if": {"not_flag": {"laogui": "D"}}}]}
+ },
+ "tag_pool": [
+  {"id": "tag_li", "requires": {"tag_ge": {"力": 1}}, "text": "【占位】“你硬闯过的那一次，值得吗？”",
+   "answers": [{"label": "值得", "consistent_if": {}}, {"label": "后悔了", "consistent_if": {}}, {"label": "我从不硬来", "consistent_if": {"tag_le": {"力": 0}}}]},
+  {"id": "tag_li2", "requires": {"tag_ge": {"利": 1}}, "text": "【占位】“你拿东西换来的，都还在吗？”",
+   "answers": [{"label": "在", "consistent_if": {}}, {"label": "换出去了", "consistent_if": {}}, {"label": "我从不交换", "consistent_if": {"tag_le": {"利": 0}}}]},
+  {"id": "tag_shan", "requires": {"tag_ge": {"善": 1}}, "text": "【占位】“你帮过的人，记得你吗？”",
+   "answers": [{"label": "也许记得", "consistent_if": {}}, {"label": "不必记得", "consistent_if": {}}, {"label": "我没帮过谁", "consistent_if": {"tag_le": {"善": 0}}}]},
+  {"id": "tag_bi", "requires": {"tag_ge": {"避": 1}}, "text": "【占位】“你绕开的路，后来想过吗？”",
+   "answers": [{"label": "想过", "consistent_if": {}}, {"label": "不想", "consistent_if": {}}, {"label": "我没绕过", "consistent_if": {"tag_le": {"避": 0}}}]},
+  {"id": "tag_why", "requires": {}, "text": "【占位】“你为何离家？”",
+   "answers": [{"label": "为了筑基", "consistent_if": {}}, {"label": "为了看看外面", "consistent_if": {}}, {"label": "不知道", "consistent_if": {}}]}
+ ]
+}
