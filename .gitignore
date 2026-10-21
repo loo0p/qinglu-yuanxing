@@ -15,3 +15,6 @@ docs/design/sim/results.json
 .secrets/
 *.key
 .env
+
+# 立绘部件：有损 WebP 导入设置要进库
+!portrait5/**/*.import

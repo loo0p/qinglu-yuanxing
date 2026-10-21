@@ -22,3 +22,11 @@
 
 ## 音乐与音效
 - Music and sound effects generated with ElevenLabs (elevenlabs.io) by the project owner's account.（2026-10-21；6 首配乐 + 6 个音效，详见制作清单；商业发行前需确认所用 ElevenLabs 套餐允许商用。）
+
+## v0.6 立绘（lib5，`addons/portrait5/` + `portrait5/`）
+- 立绘部件（头、五官开/半/闭眼、发髻与簪钗、衣袍、外氅、胡须、花钿/疤痕/魔纹）：为本项目用 AI 图像生成工具在同一底图上逐项改画生成，再由本项目脚本（yunxiu/portrait/lib5：配准、差分抠图、频率分离贴片、烘焙）拆成分层贴图。未使用第三方图片素材。
+- PuppetStudio（MIT，Wabsa Khadim）：`addons/portrait5/pose_solver.gd` 原样拷入（呼吸与弹簧滞后），眨眼调度照其 runtime/avatar.gd；许可证全文见 `addons/portrait5/third_party/PuppetStudio_LICENSE`。
+- 早期原型（yunxiu/portrait/godot_rig，未并入本仓库）参考过 facesjs（Apache-2.0）与 DiceBear Lorelei（CC0）；lib5 运行时不含它们的代码或美术。
+
+## v0.6 江湖（说书人）
+- `scripts/world.gd` 由本项目的叙事原型 `docs/design/sim/story_sim.py`（design-v4）移植，自写，无第三方代码。

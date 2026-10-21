@@ -6,7 +6,8 @@ var log_lines: PackedStringArray = []
 var steps := 0
 
 func _init() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://qinglu_slot1.json"))
+	for f in ["qinglu_v6_slot1.json", "qinglu_v6_slot1.bak"]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://" + f))
 	main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
 	process_frame.connect(_go, CONNECT_ONE_SHOT)
@@ -25,8 +26,29 @@ func _find(prefix: String):
 	return null
 
 ## 找不到时：先把对话一段段点完（▼），丹炉里的按钮要先点开“丹炉”抽屉
+var stories := 0
+## 江湖事件随时可能弹出（v0.6）：读完对话，点第一个选项，再点“知道了”
+func drain_story() -> void:
+	var guard := 0
+	while main.modal.get("kind", "") == "story" and guard < 40:
+		guard += 1
+		var adv = _find("▼")
+		if adv:
+			adv.pressed.emit()
+			continue
+		var fb := []
+		for b in buttons(main.footer, []):
+			if not b.disabled:
+				fb.append(b)
+		if fb.is_empty():
+			break
+		if main.g.world.pending().get("stage", "") == "ask":
+			stories += 1
+		fb[0].pressed.emit()
+
 func click(prefix: String) -> bool:
 	for attempt in 16:
+		drain_story()
 		var b = _find(prefix)
 		if b:
 			b.pressed.emit()
@@ -63,6 +85,26 @@ func _go() -> void:
 	ok = ok and seq(["冷杉道", "向他打听老龟", "继续", "寒潭野地", "拢紧衣襟", "继续", "潭边石屋", "坐下烤火", "继续", "寒潭老龟", "在石头上坐下", "继续",
 		"冰瀑", "站定", "继续", "猎屋", "点上蜡烛", "继续", "雾林", "掩住口鼻", "继续", "回程野地", "加快脚步", "继续", "归途", "回青庐", "回家", "进屋"])
 	ok = ok and seq(["修炼", "3 日", "历练", "后山", "出发：后山", "溪边", "快走", "继续", "向阳坡", "伏在草里", "继续", "归途", "回青庐", "回家", "进屋"])
+	var jh := true
+	var gw = main.g.world
+	# 江湖页与人物卡能打开
+	main.tab = "jianghu"
+	main.modal = {}
+	main.refresh()
+	jh = jh and _find("她的生平") != null
+	if gw and not gw.acquaintances().is_empty():
+		main.person_id = int(gw.acquaintances()[0]["id"])
+		main.modal = {"kind": "person"}
+		main.refresh()
+		jh = jh and _find("回江湖") != null and _find("生平") != null
+		click("关系")
+		click("记得她")
+		var back := click("回江湖")
+		jh = jh and back
+	log_lines.append("江湖页 / 人物卡：" + ("PASS" if jh else "FAIL"))
+	main.tab = "home"
+	main.refresh()
+	ok = ok and jh
 	var g = main.g
 	log_lines.append("第三趟后：D%d 赤阳果 %d 寒潭莲 %d 修为 %d" % [g.s["day"], g.total_n("herb_chiyangguo"), g.total_n("herb_hantanlian"), g.s["xiuwei"]])
 	# 收尾：反复“全部服下 / 按目标排程 / 1 日”直到可以冲关
@@ -85,7 +127,8 @@ func _go() -> void:
 			if g.check(a["consistent_if"]):
 				click(a["label"])
 				break
-	log_lines.append("结局：%s 第 %d 日；点击 %d 次" % [g.s["ending"], g.s["day"], steps])
+	log_lines.append("结局：%s 第 %d 日；点击 %d 次；江湖事件 %d 件；认识 %d 人" % [g.s["ending"], g.s["day"], steps, stories, g.world.acquaintances().size() if g.world else -1])
+	ok = ok and g.world != null and stories >= 3
 	ok = ok and g.s["ending"] == "zhuji"
 	# 存档存在且能读回
 	var st = load("res://scripts/save_store.gd").new()

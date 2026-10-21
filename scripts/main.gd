@@ -5,7 +5,9 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.5 试玩版"
+const VERSION = "v0.6 试玩版"
+const PBox = preload("res://scripts/portrait_box.gd")
+const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
 const C_TEXT := Color("#2E2A24")
 const C_ACCENT := Color("#34586A")
@@ -56,8 +58,13 @@ class MapLines extends Control:
 
 var g: GS
 var store = Store.new()
+var legacy = Store.new(Store.LEGACY_SLOT)   # v0.5 的存档：只读，用来迁移，永不改写
+var create_portrait = {}
+var create_pseed = 0
+var person_id = 0       # 江湖：正在看的人物卡
+var person_tab = "life" # life | rel | mem
 var screen = "title"     # title | create | game
-var tab = "home"         # home | depart | cult | log
+var tab = "home"         # home | depart | cult | log | jianghu
 var modal: Dictionary = {}
 var sheet = ""           # 底部抽屉：field | furnace | aunt | pack | stats | ""
 var create_name = "苏青禾"
@@ -587,8 +594,8 @@ func _hook_web() -> void:
 			window.addEventListener('pagehide', function(){ if (window.qinglu_save) window.qinglu_save(); });
 		""", true)
 
-func _continue() -> void:
-	var d = store.load_data()
+func _continue(from_legacy: bool = false) -> void:
+	var d = (legacy if from_legacy else store).load_data()
 	if d == null or not g.from_dict(d["state"]):
 		modal = {"kind": "msg", "text": "存档读不出来（版本不符或已损坏）。旧档没有删除。"}
 		return
@@ -599,8 +606,19 @@ func _continue() -> void:
 	if safe_name(nm) != nm:
 		g.s["name"] = safe_name(nm)
 		g.notice("旧存档里的名字有字体缺的字，已改称「%s」。进度不受影响。" % g.s["name"])
+	_migrate()
 	screen = "game"
 	tab = "home"
+	if from_legacy:
+		_save()   # 迁移后的档写进 v0.6 新槽；v0.5 的 qinglu_slot1 不动
+
+## v0.5 → v0.6：补开江湖、补一张立绘（进度、物品、记忆都不动）
+func _migrate() -> void:
+	if not g.s.has("portrait") or not (g.s["portrait"] is Dictionary) or g.s["portrait"].is_empty():
+		g.s["portrait"] = PLib.roll("p%d" % int(g.s.get("rng_seed", 0)), {"sex": "f", "elder": false, "demonic": false})
+	if g.world == null:
+		g.start_world(int(g.s.get("rng_seed", 0)) + int(g.s.get("day", 0)))
+		g.notice("v0.6：山外的江湖开了。认识的人、听来的传闻，都在「江湖」里。")
 
 func safe_name(nm: String) -> String:
 	if nm.strip_edges() == "":
@@ -617,7 +635,8 @@ func safe_name(nm: String) -> String:
 func _start_new() -> void:
 	if store.exists():
 		store.archive()
-	g.new_game(create_name if create_name.strip_edges() != "" else "苏青禾", create_cherish)
+	g.new_game(create_name if create_name.strip_edges() != "" else "苏青禾", create_cherish, -1, true)
+	g.s["portrait"] = create_portrait.duplicate(true) if not create_portrait.is_empty() else PLib.roll("p%d" % randi(), {"sex": "f", "elder": false, "demonic": false})
 	play_ms_base = 0
 	session_start = Time.get_ticks_msec()
 	screen = "game"
@@ -628,7 +647,8 @@ func _start_new() -> void:
 
 # ------------------------------------------------------------ 刷新
 func refresh() -> void:
-	var key = "%s|%s|%s|%s|%s|%s" % [screen, tab, modal.get("kind", ""), g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), String(g.s.get("trip", {}).get("node", ""))]
+	_story_check()
+	var key = "%s|%s|%s|%s|%s|%s|%s" % [screen, tab, modal.get("kind", ""), g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), String(g.s.get("trip", {}).get("node", "")), _story_key()]
 	var changed = key != scene_key
 	var prev_key = scene_key
 	scene_key = key
@@ -651,6 +671,12 @@ func refresh() -> void:
 func _bgm_for_scene() -> String:
 	if screen != "game":
 		return "title"
+	if modal.get("kind", "") == "story" and g.world != null:
+		var tid = String(g.world.pending().get("tid", ""))
+		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险"]:
+			return "xinmo"
+		if tid in ["秘境"]:
+			return "hantan"
 	match String(g.s.get("loc", "home")):
 		"ending":
 			return "ending"
@@ -708,6 +734,7 @@ func _refresh() -> void:
 		"depart": _depart()
 		"cult": _cult()
 		"log": _log_tab()
+		"jianghu": _jianghu()
 	_nav()
 	if sheet != "":
 		_sheet()
@@ -833,9 +860,14 @@ func _hud() -> void:
 
 func _nav() -> void:
 	var r = row(footer, 4)
-	for t in [["home", "青庐", "ico_qingzhi"], ["depart", "历练", "ico_ration"], ["log", "行记", "ico_fu"], ["cult", "修炼", "ico_zhuji"]]:
+	var tabs = [["home", "青庐", "ico_qingzhi"], ["depart", "历练", "ico_ration"], ["log", "行记", "ico_fu"], ["cult", "修炼", "ico_zhuji"]]
+	if g.world != null:
+		tabs.insert(3, ["jianghu", "江湖", "ico_lingshi"])
+	for t in tabs:
 		var b = BI(("● " if tab == t[0] else "") + t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
-		b.add_theme_font_size_override("font_size", 14)
+		b.add_theme_font_size_override("font_size", 13 if tabs.size() > 4 else 14)
+		if tabs.size() > 4:
+			b.add_theme_constant_override("h_separation", 1)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.add_theme_constant_override("icon_max_width", 20)
 
@@ -1086,6 +1118,14 @@ func _title() -> void:
 			cb.add_theme_font_size_override("font_size", 18)
 		else:
 			L("存档读不出来（已保留原文件）。", 13, C_WARN, footer)
+	elif legacy.exists():
+		var ld = legacy.load_data()
+		if ld != null:
+			var lst = ld["state"]
+			var lb = BI("继续 v0.5 旧档 · %s · 第%d日" % [safe_name(String(lst.get("name", ""))), int(lst.get("day", 0))], "ico_ration", func(): _continue(true), true, footer, 60)
+			lb.alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lb.add_theme_font_size_override("font_size", 16)
+			L("旧档会复制一份到新版本继续玩，原档不改。", 12, C_DIM, footer).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var nb = B("新游戏", func(): screen = "create", true, footer, 60)
 	nb.add_theme_font_size_override("font_size", 20)
 	var pad = Control.new()
@@ -1094,16 +1134,18 @@ func _title() -> void:
 
 func _create() -> void:
 	_stage_image("bg_home", 0.25)
-	var pr = TextureRect.new()
-	pr.texture = tex("vn_heroine_smile")
-	pr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if create_portrait.is_empty():
+		_reroll_portrait()
 	var vs = get_viewport_rect().size
-	pr.size = Vector2(vs.x, vs.y * 0.42)
-	pr.position = Vector2(0, vs.y * 0.04)
-	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(pr)
-	_spacer()
+	var ph = clampf(vs.y * 0.36, 180, 330)
+	var pr = _portrait_frame(create_portrait, Vector2(ph * 0.75, ph), body)
+	pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var rr = row()
+	rr.alignment = BoxContainer.ALIGNMENT_CENTER
+	for it in [["换一张脸", "all"], ["发髻", "hair"], ["衣袍", "robe"], ["袍色", "tint"]]:
+		var k: String = it[1]
+		var rb = B(it[0], func(): _reroll_portrait(k), true, rr, 36)
+		rb.add_theme_font_size_override("font_size", 13)
 	var c = card()
 	H("她叫", 22, C_ACCENT, c)
 	var nr = GridContainer.new()
@@ -1131,6 +1173,43 @@ func _create() -> void:
 	bk.size_flags_stretch_ratio = 0.4
 	var go = B("出发", func(): _start_new(), true, r, 56)
 	go.add_theme_font_size_override("font_size", 20)
+
+## 主角立绘：整张重摇，或只换一处（发髻 / 衣袍 / 袍色），其余不动
+func _reroll_portrait(part: String = "all") -> void:
+	create_pseed += 1
+	var fresh = PLib.roll("c%d_%d" % [randi(), create_pseed], {"sex": "f", "elder": false, "demonic": false})
+	if part == "all" or create_portrait.is_empty():
+		create_portrait = fresh
+		return
+	var sp = create_portrait.duplicate(true)
+	match part:
+		"hair":
+			sp["hair"] = fresh["hair"]
+			sp["acc"] = fresh["acc"]
+		"robe":
+			sp["robe"] = fresh["robe"]
+			sp["outer"] = fresh["outer"]
+			sp["outer_tint"] = fresh["outer_tint"]
+		"tint":
+			sp["robe_tint"] = fresh["robe_tint"]
+	create_portrait = sp
+
+## 带描边的立绘框（纸底画像）
+func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = PBox.BUST, motion: float = 1.0) -> Control:
+	var p = PanelContainer.new()
+	p.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.7), 6, 1, 2))
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(p)
+	var pb = PBox.new()
+	pb.custom_minimum_size = sz
+	p.add_child(pb)
+	pb.setup(spec, crop, motion)
+	return p
+
+func npc_spec(c: Dictionary) -> Dictionary:
+	if c.get("player", false):
+		return g.s.get("portrait", {})
+	return PLib.roll(int(c["pseed"]), g.world.portrait_opts(c))
 
 ## 选中态：朱红描边
 func _mark(b: Button) -> void:
@@ -1169,10 +1248,15 @@ func _beats(text: String) -> Array:
 	return out
 
 ## 底部对话框：立绘 + 名字 + 一段一段点出来的台词。返回 true 表示已读完（可以出选项）
-func dialog(speaker: String, portrait: String, text: String, dark: bool = true) -> bool:
+func dialog(speaker: String, portrait: String, text: String, dark: bool = true, spec: Dictionary = {}) -> bool:
 	var bs = _beats(text)
 	var done = beat_i >= bs.size() - 1
-	if portrait != "" and tex(portrait):
+	if spec.is_empty() and portrait.begins_with("vn_heroine") and g.s.get("portrait", {}) is Dictionary and not g.s.get("portrait", {}).is_empty():
+		spec = g.s["portrait"]
+	if not spec.is_empty():
+		var pf = _portrait_frame(spec, Vector2(150, 200), body)
+		pf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	elif portrait != "" and tex(portrait):
 		var pr = TextureRect.new()
 		pr.texture = tex(portrait)
 		pr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1217,6 +1301,10 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true) 
 func _modal() -> void:
 	var k: String = modal["kind"]
 	match k:
+		"story":
+			_story()
+		"person":
+			_person()
 		"msg":
 			_stage_image("bg_home", 0.0)
 			_spacer()
@@ -1779,6 +1867,206 @@ func _fx_breakthrough() -> void:
 	p.emitting = true
 	get_tree().create_timer(3.5).timeout.connect(p.queue_free)
 
+
+# ------------------------------------------------------------ 江湖（v0.6）：说书人事件 / 人物 / 传闻
+## 有待处理的江湖事件、人在青庐、没有别的弹卡时，打开事件对话框
+func _story_check() -> void:
+	if screen != "game" or g.world == null or not modal.is_empty():
+		return
+	if g.s.get("loc", "") != "home" or g.s.get("ended", false):
+		return
+	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
+		return
+	if not g.world.pending().is_empty():
+		modal = {"kind": "story"}
+		sheet = ""
+		sfx("page")
+
+func _story_key() -> String:
+	if g.world == null or modal.get("kind", "") != "story":
+		return ""
+	var ev = g.world.pending()
+	return "%s:%s:%s" % [ev.get("tid", ""), ev.get("day", 0), ev.get("stage", "")]
+
+func _story() -> void:
+	var ev: Dictionary = g.world.pending()
+	if ev.is_empty():
+		modal = {}
+		_refresh()
+		return
+	var tier = int(g.world.T.get(String(ev["tid"]), [0])[0])
+	_stage_image("courtyard" if tier < 2 else "bg_biguan", 0.35 if tier < 2 else 0.2)
+	var tag = PanelContainer.new()
+	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
+	body.add_child(tag)
+	var tr = row(tag)
+	H("江湖 · " + String(ev["tid"]), 22, C_ACCENT, tr)
+	if tier >= 2:
+		chip("要事", tr, "", C_WARN)
+	_spacer()
+	var sid = int(ev.get("speaker", 0))
+	var spk = ""
+	var spec = {}
+	if sid > 0:
+		var c = g.world.C(sid)
+		spec = npc_spec(c)
+		spk = "陌生人" if (ev.get("anon", false) and ev["stage"] == "ask") else String(c["name"])
+	var text = String(ev["text"]) if ev["stage"] == "ask" else String(ev.get("result", ""))
+	if not dialog(spk, "", text, true, spec):
+		return
+	if ev["stage"] == "ask":
+		for o in ev["opts"]:
+			var oid = String(o[0])
+			var b = B(String(o[1]), func(): _story_pick(oid), true, footer, 50)
+			b.add_theme_font_size_override("font_size", 15)
+	else:
+		B("知道了", func(): g.world.close(); modal = {}, true, footer, 50)
+
+func _story_pick(oid: String) -> void:
+	var before = int(g.s.get("injured", 0))
+	var res = g.world.choose(oid)
+	if res == "":
+		modal = {}
+	elif int(g.s.get("injured", 0)) > before:
+		sfx("fail")
+	elif res.contains("感悟 +") or res.contains("灵石"):
+		sfx("success")
+
+func _jianghu() -> void:
+	_stage_image("bg_home", 0.72)
+	var w = g.world
+	var top = row()
+	H("江湖", 26, C_ACCENT, top).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var me = B("她的生平", func(): person_id = 1; person_tab = "life"; modal = {"kind": "person"}, true, top, 36)
+	me.size_flags_horizontal = Control.SIZE_SHRINK_END
+	me.custom_minimum_size = Vector2(96, 36)
+	var ppl: Array = w.acquaintances()
+	L("认识的人（%d）" % ppl.size(), 15, C_INK)
+	if ppl.is_empty():
+		L("还没有认识谁。日子长了，山外的人自会找上门来。", 13, C_DIM)
+	var gw = get_viewport_rect().size.x - 16
+	var cols = 3 if gw < 380 else 4
+	var grid = GridContainer.new()
+	grid.columns = cols
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	body.add_child(grid)
+	var cw = floor((gw - 6 * (cols - 1)) / cols)
+	for c in ppl.slice(0, 24):
+		var id = int(c["id"])
+		var cell = Button.new()
+		cell.custom_minimum_size = Vector2(cw, cw * 1.12 + 40)
+		cell.pressed.connect(func(): _press(func(): person_id = id; person_tab = "life"; modal = {"kind": "person"}))
+		grid.add_child(cell)
+		var v = VBoxContainer.new()
+		v.set_anchors_preset(Control.PRESET_FULL_RECT)
+		v.offset_left = 3; v.offset_top = 3; v.offset_right = -3; v.offset_bottom = -2
+		v.add_theme_constant_override("separation", 0)
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(v)
+		var pb = PBox.new()
+		pb.custom_minimum_size = Vector2(cw - 6, cw * 1.12 - 6)
+		v.add_child(pb)
+		pb.setup(npc_spec(c), PBox.FACE, 0.0)
+		if not c["alive"]:
+			pb.modulate = Color(0.75, 0.75, 0.75, 0.85)
+		var nl = L(String(c["name"]), 14, C_TEXT, v)
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nl.clip_text = true
+		var rw = w.rel_word(c)
+		var col = C_WARN if rw in ["仇", "有隙"] else (Color("#B03A2E") if rw in ["道侣", "金兰", "师父"] else C_DIM)
+		var sl = L(rw + ("" if c["alive"] else " · " + w.status(c)), 11, col, v)
+		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	H("传闻", 22, C_ACCENT)
+	var nc = card()
+	var news: Array = w.recent_news(40)
+	if news.is_empty():
+		L("山里很静，没听见什么。", 13, C_DIM, nc)
+	for i in range(news.size() - 1, maxi(-1, news.size() - 13), -1):
+		L("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nc)
+
+func _person() -> void:
+	var w = g.world
+	var c: Dictionary = w.C(person_id)
+	if c.is_empty():
+		modal = {}
+		_refresh()
+		return
+	_stage_image("bg_home", 0.75)
+	var is_p = c.get("player", false)
+	var hr = row()
+	var vs = get_viewport_rect().size
+	var pw = clampf(vs.x * 0.4, 130, 190)
+	_portrait_frame(npc_spec(c), Vector2(pw, pw * 4.0 / 3.0), hr)
+	var info = VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 3)
+	hr.add_child(info)
+	H(String(c["name"]), 26, C_ACCENT, info)
+	var realm = g.realm_text() if is_p else w.status(c)
+	L("%s · %s" % [String(c["sect"]), realm], 14, C_TEXT, info)
+	if not is_p:
+		L("关系：%s" % w.rel_word(c), 14, C_WARN if w.rel_word(c) in ["仇", "有隙"] else C_TEXT, info)
+	var tf = HFlowContainer.new()
+	tf.add_theme_constant_override("h_separation", 4)
+	info.add_child(tf)
+	if not is_p:
+		for t in c["traits"]:
+			chip(String(t), tf)
+		var r = w.R(c, w.P())
+		var close = int(r["f"]) >= 20 or c.get("known_like", false)
+		L("喜：%s" % ("、".join(c["likes"]) if close else "（还不熟）"), 13, C_DIM, info)
+		L("志：%s" % (String(c["goal"]) if close else "（还不熟）"), 13, C_DIM, info)
+		var bar = ProgressBar.new()
+		bar.min_value = -60
+		bar.max_value = 80
+		bar.value = clampf(float(r["f"]) - float(r["g"]), -60, 80)
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 6)
+		info.add_child(bar)
+		L("好感", 11, C_DIM, info)
+	var tr = row()
+	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["mem", "记得她"]])):
+		var k = String(t[0])
+		var b = B(("● " if person_tab == k else "") + String(t[1]), func(): person_tab = k, true, tr, 38)
+		b.add_theme_font_size_override("font_size", 14)
+	var cc = card()
+	match person_tab:
+		"life":
+			var lg: Array = c["log"]
+			if lg.is_empty():
+				L("（没听说过什么）", 13, C_DIM, cc)
+			for i in range(lg.size() - 1, maxi(-1, lg.size() - 30), -1):
+				L("第%d日  %s" % [int(lg[i][0]), lg[i][1]], 13, C_TEXT, cc)
+		"rel":
+			var ks = c["rel"].keys()
+			ks.sort_custom(func(a, b): return _rel_depth(c["rel"][a]) > _rel_depth(c["rel"][b]))
+			var n = 0
+			for k in ks:
+				var o = w.C(k)
+				var r2 = c["rel"][k]
+				if o.is_empty() or int(r2["m"]) == 0 or _rel_depth(r2) < 8:
+					continue
+				var word = "/".join(r2["t"]) if not r2["t"].is_empty() else ("仇" if int(r2["g"]) >= 30 else ("好友" if int(r2["f"]) >= 30 else "相识"))
+				L("%s · %s（%s）%s" % [String(o["name"]), word, String(o["sect"]), "" if o["alive"] else " · 已故"], 13, C_TEXT, cc)
+				n += 1
+				if n >= 10:
+					break
+			if n == 0:
+				L("（还没有深交的人）", 13, C_DIM, cc)
+		"mem":
+			var ms: Array = w.memories_of_p(c)
+			if ms.is_empty():
+				L("%s对她还没什么印象。" % ("她" if c["sex"] == "女" else "他"), 13, C_DIM, cc)
+			for m in ms:
+				L("第%d日  %s" % [int(m[0]), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
+	B("回江湖", func(): modal = {}; tab = "jianghu", true, footer, 46)
+
+func _rel_depth(r: Dictionary) -> float:
+	return absf(float(r["f"])) + float(r["g"]) + r["t"].size() * 50
+
 # ------------------------------------------------------------ 调试场景（只在调试导出里可用，给验收截图）
 func _dev(cmd: String) -> String:
 	match cmd:
@@ -1792,6 +2080,35 @@ func _dev(cmd: String) -> String:
 			if cmd == "result":
 				g.enter_node("T4"); g.resolve("C")
 			sheet = ""
+			g.notices.clear()
+			_save()
+			refresh()
+		"story", "jianghu", "person", "create_rnd":
+			if cmd == "create_rnd":
+				screen = "create"
+				_reroll_portrait()
+				refresh()
+				return cmd
+			g.new_game("苏青禾", "aunt", 5, true)
+			g.s["portrait"] = PLib.roll("p5", {"sex": "f", "elder": false, "demonic": false})
+			g.s["trips_done"] = 1
+			g.s["extra"] = "field"
+			screen = "game"
+			modal = {}
+			for i in 40:
+				g.tick("biguan")
+				g.world.auto_choose()
+			g.world.close()
+			if cmd == "story":
+				var c = g.world.acquaintances()[0] if not g.world.acquaintances().is_empty() else g.world.npcs()[0]
+				g.world.fire("表白" if c["sex"] == "男" else "访客", {"B": int(c["id"])}, {})
+			if cmd == "jianghu":
+				tab = "jianghu"
+			if cmd == "person":
+				tab = "jianghu"
+				person_id = int(g.world.acquaintances()[0]["id"])
+				person_tab = "life"
+				modal = {"kind": "person"}
 			g.notices.clear()
 			_save()
 			refresh()
@@ -1811,7 +2128,8 @@ func _dev(cmd: String) -> String:
 			modal = {}
 			refresh()
 		"event":
-			g.new_game("苏青禾", "aunt", 3)
+			g.new_game("苏青禾", "aunt", 3, true)
+			g.s["portrait"] = PLib.roll("p3", {"sex": "f", "elder": false, "demonic": false})
 			screen = "game"
 			modal = {}
 			g.start_trip("houshan")
@@ -1839,7 +2157,8 @@ func _dev(cmd: String) -> String:
 			_save()
 			refresh()
 		"laogui", "depart", "home", "cult":
-			g.new_game("苏青禾", "aunt", 3)
+			g.new_game("苏青禾", "aunt", 3, true)
+			g.s["portrait"] = PLib.roll("p3", {"sex": "f", "elder": false, "demonic": false})
 			screen = "game"
 			modal = {}
 			g.start_trip("houshan")

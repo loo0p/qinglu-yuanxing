@@ -6,6 +6,7 @@ G=${GODOT:-/workspace/tools/godot/Godot_v4.7.2-stable_linux.x86_64}
 cd "$(dirname "$0")/.."
 $G --headless --path . --import >/dev/null 2>&1 || true
 timeout 300 $G --headless --path . -s res://tests/run_tests.gd
+timeout 300 $G --headless --path . -s res://tests/world_test.gd
 timeout 300 $G --headless --path . -s res://tests/ui_smoke.gd
 mkdir -p build/web build/web_debug
 $G --headless --path . --export-release "Web" build/web/index.html >/dev/null 2>&1

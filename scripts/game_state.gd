@@ -4,7 +4,8 @@ extends RefCounted
 ## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
 ## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2      # v0.6：加了江湖（world）与主角立绘（portrait）；v1 档读入时迁移
+const World = preload("res://scripts/world.gd")
 const FIELD_DAYS := 6
 const FIELD_YIELD := 2
 const RECIPES := {
@@ -55,6 +56,7 @@ var xinmo: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 var on_tick: Callable = Callable()   # 测试钩子：每日结算后回调 snapshot()
 var notices: Array = []              # 给 UI 的一次性提示
+var world = null                     # 江湖（scripts/world.gd）；没开江湖的档（规则测试）为 null
 
 func _init() -> void:
 	events = _load_json("res://data/events.json")
@@ -70,7 +72,7 @@ static func _load_json(path: String) -> Dictionary:
 	return d if d is Dictionary else {}
 
 # ---------------------------------------------------------------- 开局 / 存读档
-func new_game(name: String, cherish: String, seed: int = -1) -> void:
+func new_game(name: String, cherish: String, seed: int = -1, with_world: bool = false) -> void:
 	if seed < 0:
 		seed = int(Time.get_unix_time_from_system()) ^ randi()
 	rng.seed = seed
@@ -94,6 +96,15 @@ func new_game(name: String, cherish: String, seed: int = -1) -> void:
 		"rng": 0,
 	}
 	_log("%s 背起行囊，离开青庐。" % name)
+	world = null
+	if with_world:
+		start_world(seed)
+
+## 开江湖：程序生成 20 个人物；种子与规则 rng 分开，不影响 v3.2 的数值序列
+func start_world(seed: int) -> void:
+	world = World.new()
+	world.create(seed ^ 0x5EED5, String(s.get("name", "")), self)
+	s["world"] = world.w
 
 func to_dict() -> Dictionary:
 	s["rng"] = rng.state
@@ -101,9 +112,14 @@ func to_dict() -> Dictionary:
 	return s.duplicate(true)
 
 func from_dict(d: Dictionary) -> bool:
-	if not d.has("v") or int(d["v"]) != SAVE_VERSION:
+	if not d.has("v") or not (int(d["v"]) in [1, SAVE_VERSION]):
 		return false
 	s = d.duplicate(true)
+	s["v"] = SAVE_VERSION   # v1 → v2：字段只增不减；江湖由界面层决定是否补开（migrate_world）
+	world = null
+	if s.has("world") and s["world"] is Dictionary:
+		world = World.new()
+		world.attach(self, s["world"])
 	# JSON 读回的数字是 float，关键整数字段归一
 	for k in ["day", "xiuwei", "yuyun", "ganwu", "lingshi", "ration", "shouyuan", "injured", "unstable"]:
 		s[k] = int(s[k])
@@ -338,6 +354,8 @@ func tick(mode: String) -> void:
 		s["ending"] = "zuohua"
 		s["loc"] = "ending"
 		_log("寿元耗尽。她回到青庐静室，在灯下坐化。")
+	if world != null:
+		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"])
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 
