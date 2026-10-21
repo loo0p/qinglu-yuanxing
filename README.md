@@ -4,8 +4,9 @@
 经营青庐的田与丹炉，背上行囊去后山、去寒潭，在路上做几件会被人记住的选择，最后回到静室，过心魔劫，筑基。
 
 - 引擎：Godot 4.7.2（GL Compatibility），导出 H5，竖屏 360×640，优先手机浏览器
-- 当前版本：**v0.3 试玩版**（一局约 40 游戏日、30–60 分钟）
-- 在线试玩：推送到 `main` 后由 GitHub Actions 自动发布到 GitHub Pages（地址见仓库 About / Pages 设置）
+- 当前版本：**v0.4 试玩版**（场景化界面；一局约 40 游戏日、30–60 分钟）
+- 在线试玩：<https://loo0p.github.io/qinglu-yuanxing/>
+- 推送到 `main` 后由 GitHub Actions 自动测试并发布到 GitHub Pages
 
 > 说明：目前只在桌面 Chrome 无头模式（模拟触控、360×640）里验证过，**还没有在真机上测过**。欢迎反馈。
 
@@ -14,13 +15,13 @@
 | 路径 | 内容 |
 |---|---|
 | `scripts/game_state.gd` | 规则层：纯逻辑、无 UI（时间推进、田与丹炉、历练状态机、心魔劫、结局）。测试直接 preload 它 |
-| `scripts/main.gd` | 界面层：全部用代码搭建；背景/立绘/字体/音频/过场也在这里 |
+| `scripts/main.gd` | 界面层（场景优先）：整幅插画舞台 + 热点/路线图路标 + 顶栏 HUD + 底部抽屉 + 视觉小说式对话框；动效、音频也在这里 |
 | `scripts/save_store.gd` | 存档：`user://`（Web 端 IndexedDB）+ localStorage 镜像，rev 版本号防多标签页互相覆盖，写入先写临时文件再改名，保留 .bak |
 | `data/events.json` | 全部事件文本与选项（重事件、轻节点、老龟的各个变体） |
 | `data/routes.json` | 后山 / 寒潭 两条路线的拓扑、风闻 |
 | `data/xinmo.json` | 心魔劫题库 |
 | `assets/img/` | 水墨淡彩背景、立绘、图标（webp，原样打包，运行时解码） |
-| `assets/audio/` | 自合成的五声音阶拨弦 BGM 与音效（ogg） |
+| `assets/audio/` | 音频槽位：`manifest.json` 列出 BGM（title/home/travel_houshan/hantan/xinmo/ending）与音效（tap/page/pickup/success/fail/breakthrough），填文件名即生效，空=静默。目前全部为空 |
 | `art_src/` | 美术原图（未压缩），`tools/make_assets.py` 由此生成 `assets/img/` |
 | `fonts/` | 霞鹜文楷 + 马善政毛笔楷书 的子集（只含游戏用到的字） |
 | `export/templates/` | 瘦身版 Web 导出模板（自编译，见下） |
@@ -45,7 +46,7 @@ GODOT=/path/to/Godot_v4.7.2-stable_linux.x86_64 sh tools/run_tests.sh
 ### 体积
 
 - 官方 Web 模板的 wasm 约 39 MB；`export/templates/web_nothreads_release_slim.zip` 是自编译的瘦身模板（单线程、去掉 3D、正则、SVG、网络等用不到的模块，`optimize=size_extra`），wasm 约 19.5 MB，gzip 后约 5.7 MB。重新编译：`sh tools/build_web_template.sh`。
-- 图片是 webp、音频是低码率单声道 ogg，都用 `importer="keep"` 原样打包；字体只保留用到的字。
+- 图片是 webp，用 `importer="keep"` 原样打包、运行时解码；字体只保留用到的字。音频只支持 .ogg（瘦身模板去掉了 mp3 解码）。
 - **改了文案后要重跑 `python3 tools/make_font.py <WenKai.ttf> <MaShanZheng.ttf>`**，否则新字会缺字形。
 
 ### 发布

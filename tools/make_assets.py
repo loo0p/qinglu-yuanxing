@@ -50,3 +50,30 @@ rgb = np.dstack([v * 246, v * 240, v * 226]).clip(0, 255).astype(np.uint8)
 Image.fromarray(rgb, "RGB").save(os.path.join(D, "paper.webp"), "WEBP", quality=70, method=6)
 for f in sorted(os.listdir(D)):
     print(f, os.path.getsize(os.path.join(D, f)))
+
+# ---- v0.4 场景化 UI：庭院、路线图、立绘表情（带渐隐透明边）、行路小人
+for n in ["courtyard", "map_houshan", "map_hantan"]:
+    im = Image.open(os.path.join(S, n + ".jpg")).convert("RGB").resize((540, 960), Image.LANCZOS)
+    save(im, n + ".webp", 68)
+def vn_portrait(im, name, w=300, h=340):
+    im = im.convert("RGB"); W0, H0 = im.size
+    s = max(w / W0, h / H0); im = im.resize((int(W0 * s), int(H0 * s)), Image.LANCZOS)
+    l = (im.width - w) // 2; im = im.crop((l, 0, l + w, h))
+    a = np.asarray(im).astype(np.float32)
+    lum = a.mean(axis=2); sat = a.max(axis=2) - a.min(axis=2)
+    ink = np.clip(((238 - lum) / 30) + sat / 40, 0, 1)            # 去掉纸底
+    yy, xx = np.mgrid[0:h, 0:w]
+    edge = np.clip(np.minimum.reduce([xx / 30, (w - 1 - xx) / 30, (h - 1 - yy) / 60, np.ones_like(xx, dtype=float)]), 0, 1)
+    al = (np.maximum(edge * 0.97, ink * edge) * 255).astype(np.uint8)   # 画框式：内部不透明，四边羽化
+    Image.fromarray(np.dstack([a.astype(np.uint8), al]), "RGBA").save(os.path.join(D, name + ".webp"), "WEBP", quality=80, method=6)
+ex = Image.open(os.path.join(S, "heroine_expr.jpg")); EW, EH = ex.size
+vn_portrait(ex.crop((0, 0, EW // 2, EH)), "vn_heroine_smile")
+vn_portrait(ex.crop((EW // 2, 0, EW, EH)), "vn_heroine_resolute")
+for n in ["heroine", "aunt", "turtle", "gelaosan"]:
+    vn_portrait(Image.open(os.path.join(S, "por_%s.jpg" % n)), "vn_" + n)
+tk = Image.open(os.path.join(S, "token.jpg")).convert("RGB")
+tk = tk.crop((330, 150, 700, 840)).resize((60, 112), Image.LANCZOS)
+a = np.asarray(tk).astype(np.float32); lum = a.mean(axis=2); sat = a.max(axis=2) - a.min(axis=2)
+al = (np.clip(((246 - lum) / 22) + sat / 30, 0, 1) * 255).astype(np.uint8)
+Image.fromarray(np.dstack([a.astype(np.uint8), al]), "RGBA").save(os.path.join(D, "token.webp"), "WEBP", quality=85, method=6)
+print("v0.4 assets ok")

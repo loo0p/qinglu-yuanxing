@@ -1,5 +1,5 @@
 extends SceneTree
-## 候选代码·灰盒：UI 冒烟测试——无头实例化主场景，按按钮文字点完整条灰盒均衡路线。
+## UI 冒烟测试——无头实例化主场景，按按钮文字点完整条均衡路线（对话框会自动点 ▼ 读完）。
 ## 只证明界面流程能走通、没有脚本错误；不代表任何真机/浏览器表现。
 var main
 var log_lines: PackedStringArray = []
@@ -18,12 +18,28 @@ func buttons(n: Node, out: Array) -> Array:
 		buttons(c, out)
 	return out
 
-func click(prefix: String) -> bool:
+func _find(prefix: String):
 	for b in buttons(main, []):
 		if not b.disabled and b.text.replace("● ", "").begins_with(prefix):
+			return b
+	return null
+
+## 找不到时：先把对话一段段点完（▼），丹炉里的按钮要先点开“丹炉”抽屉
+func click(prefix: String) -> bool:
+	for attempt in 16:
+		var b = _find(prefix)
+		if b:
 			b.pressed.emit()
 			steps += 1
 			return true
+		var adv = _find("▼")
+		if adv:
+			adv.pressed.emit()
+			continue
+		if prefix in ["全部服下", "按目标排程", "撤回队尾"] and main.sheet != "furnace" and _find("丹炉"):
+			_find("丹炉").pressed.emit()
+			continue
+		break
 	var all := []
 	for b in buttons(main, []):
 		all.append(("[x]" if b.disabled else "") + b.text.replace("\n", "/"))
@@ -76,6 +92,10 @@ func _go() -> void:
 	var d = st.load_data()
 	ok = ok and d != null and int(d["state"]["day"]) == g.s["day"]
 	log_lines.append("存档 rev=%s day=%s" % [d["rev"] if d else "?", d["state"]["day"] if d else "?"])
+	# 旧档自由输入的名字若含字体缺的字 → 换成预设名
+	var nm_ok = main.safe_name("鑫𠀀") == "苏青禾" and main.safe_name("林晚照") == "林晚照"
+	log_lines.append("旧档名字兜底：" + ("PASS" if nm_ok else "FAIL"))
+	ok = ok and nm_ok
 	log_lines.append("UI 冒烟：" + ("PASS" if ok else "FAIL"))
 	for l in log_lines:
 		print(l)

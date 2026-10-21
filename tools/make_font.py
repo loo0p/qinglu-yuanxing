@@ -5,7 +5,7 @@
 import glob, os, re, sys, subprocess
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 body = set(chr(c) for c in range(0x20, 0x7f)) | set("◎◉○●·—…×→←↑↓「」『』《》、。，！？：；（）【】％＋－／～✓⚠“”‘’")
-brush = set("0123456789")
+brush = set("0123456789第日炼气一二三四五六七八九十层筑基初期圆满") | set("".join(["苏青禾", "林晚照", "沈知微", "温小满", "田丹炉仓姑母行囊近况"]))
 for f in glob.glob(R + "/data/*.json") + glob.glob(R + "/scripts/*.gd"):
     t = open(f, encoding="utf-8").read(); body |= set(t)
     if f.endswith("main.gd"):
@@ -15,6 +15,8 @@ for f in glob.glob(R + "/data/*.json") + glob.glob(R + "/scripts/*.gd"):
 body = "".join(sorted(c for c in body if c.isprintable()))
 brush = "".join(sorted(c for c in brush if c.isprintable()))
 os.makedirs(R + "/fonts", exist_ok=True)
+open(R + "/fonts/glyphs.txt", "w", encoding="utf-8").write(body)   # 运行时用来判断名字能否显示
+open(R + "/fonts/glyphs_brush.txt", "w", encoding="utf-8").write(brush)   # 标题字缺字时退回正文字体
 for src, dst, chars in [(sys.argv[1], "WenKai-sub.ttf", body), (sys.argv[2], "MaShanZheng-sub.ttf", brush)]:
     tf = "/tmp/_chars.txt"; open(tf, "w", encoding="utf-8").write(chars)
     subprocess.run([sys.executable, "-m", "fontTools.subset", src, "--text-file=" + tf, "--output-file=" + R + "/fonts/" + dst,
