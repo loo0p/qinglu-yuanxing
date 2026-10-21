@@ -91,6 +91,23 @@ func _init() -> void:
 		if int(all.get(k, 0)) == 0:
 			miss.append(k)
 	ok(miss.is_empty(), "v0.7.2 新事件在 8 局 100 日里都出现过（缺：%s）" % "、".join(miss))
+	# v0.7.5：小师弟/小师妹只给看着年轻、比她小或境界比她低的人；没人合适就现生一个年轻的
+	var sd_n := 0
+	var sd_bad := []
+	for sd in range(7, 15):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 100:
+			x.tick(true)
+			var ev = x.pending()
+			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
+				sd_n += 1
+				var c: Dictionary = x.C(ev["roles"]["B"])
+				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.portrait_opts(c)["elder"]:
+					sd_bad.append("%s %.0f岁 lv%d" % [c["name"], float(c["age"]), int(c["lv"])])
+			x.auto_choose()
+	lines.append("师弟惹祸：8 局 100 日 %d 次" % sd_n)
+	ok(sd_bad.is_empty() and sd_n >= 2 and sd_n <= 7, "小师弟/小师妹都年轻、比她小或境界低（%d 次，不合：%s）" % [sd_n, "、".join(sd_bad)])
 	var a = run(3, 80)
 	var b = run(3, 80, 37)
 	var ja := JSON.stringify(JSON.parse_string(JSON.stringify(a.w)))

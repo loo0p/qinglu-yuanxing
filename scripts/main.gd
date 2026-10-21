@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.7.4 试玩版"
+const VERSION = "v0.7.5 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1064,7 +1064,11 @@ func _guide() -> void:
 	b2.add_theme_color_override("font_color", C_DIM)
 
 # ------------------------------------------------------------ 舞台（整幅插画）
-func _stage_image(name: String, dim: float = 0.0, dim_col: Color = Color("#F3EEE2")) -> Rect2:
+## lift_to：>0 时把画面里墨色最重的那一带（BG_INK_Y，按图高的比例）往上挪到这个 y 附近（最多挪图高的 30%），
+## 下面露出的地方铺纸色——选项多时场景不至于全压在对话框和按钮底下（v0.7.5）
+const BG_INK_Y = {"bg_chasi": 0.70, "bg_dongfu": 0.69, "bg_fangshi": 0.72, "bg_leitai": 0.71, "bg_shandao": 0.36, "bg_yeyu": 0.45,
+	"courtyard": 0.57, "bg_biguan": 0.54, "bg_hantan": 0.61, "bg_houshan": 0.69}
+func _stage_image(name: String, dim: float = 0.0, dim_col: Color = Color("#F3EEE2"), lift_to: float = -1.0) -> Rect2:
 	var t = tex(name)
 	var vs = get_viewport_rect().size
 	if t == null:
@@ -1073,6 +1077,16 @@ func _stage_image(name: String, dim: float = 0.0, dim_col: Color = Color("#F3EEE
 	var sc = max(vs.x / ts.x, vs.y / ts.y)
 	var sz = ts * sc
 	var pos = (vs - sz) / 2
+	if lift_to > 0 and BG_INK_Y.has(name):
+		var lift = clampf(pos.y + float(BG_INK_Y[name]) * sz.y - lift_to, 0.0, sz.y * 0.3)
+		if lift > 0:
+			pos.y -= lift
+			var pad = ColorRect.new()
+			pad.color = Color("#F3EEE2")
+			pad.position = Vector2(0, pos.y + sz.y - 2)
+			pad.size = Vector2(vs.x, vs.y - (pos.y + sz.y) + 4)
+			pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			stage.add_child(pad)
 	var tr = TextureRect.new()
 	tr.texture = t
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -2272,7 +2286,12 @@ func _story() -> void:
 		"宗门招徒": "bg_leitai", "入门试炼": "bg_leitai", "秘境请柬": "bg_chasi", "拍卖会": "bg_fangshi", "劫修伏击": "bg_shandao",
 		"师弟惹祸": "bg_fangshi", "天材地宝": "bg_houshan", "宝地相争": "bg_houshan", "对手突破": "bg_biguan", "旧债上门": "courtyard",
 		"节令": "bg_fangshi", "远方来信": "bg_yeyu", "喜帖": "bg_chasi", "落难": "bg_shandao"}
-	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2)
+	# 选项多（节令、拍卖会……）时按钮紧凑些，并把场景往上挪，让画面露在对话框上方
+	var n_opt = ev["opts"].size() if ev["stage"] == "ask" else 1
+	var opt_h = 46 if n_opt >= 3 else 50
+	var vsz = get_viewport_rect().size
+	var free_bot = vsz.y - (n_opt * (opt_h + 6) + 150)
+	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2, Color("#F3EEE2"), maxf(vsz.y * 0.32, (170.0 + free_bot) / 2.0 + 40.0))
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
 	body.add_child(tag)
@@ -2295,7 +2314,7 @@ func _story() -> void:
 		var k = 0
 		for o in ev["opts"]:
 			var oid = String(o[0])
-			var b = B(String(o[1]), func(): _story_pick(oid), true, footer, 50)
+			var b = B(String(o[1]), func(): _story_pick(oid), true, footer, opt_h)
 			b.add_theme_font_size_override("font_size", 15)
 			_reveal(b, k)
 			k += 1

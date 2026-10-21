@@ -44,7 +44,7 @@ const T = {
 	"仇家寻上门": [2, 25, true, 99, 0, 0, 1.0], "再问": [2, -8, true, 99, 0, 0, 1.0],
 	# v0.7.2：江湖再添几味
 	"宗门招徒": [1, 2, false, 2, 6, 20, 1.2], "入门试炼": [1, 6, true, 99, 0, 0, 1.0], "秘境请柬": [1, 4, false, 2, 10, 20, 1.2],
-	"拍卖会": [0, 2, false, 99, 8, 18, 1.2], "劫修伏击": [2, 22, false, 2, 12, 25, 1.5], "师弟惹祸": [1, 6, false, 99, 6, 15, 1.6],
+	"拍卖会": [0, 2, false, 99, 8, 18, 1.2], "劫修伏击": [2, 22, false, 2, 12, 25, 1.5], "师弟惹祸": [1, 6, false, 99, 6, 15, 0.6],
 	"天材地宝": [1, 6, false, 99, 6, 18, 1.2], "宝地相争": [1, 10, true, 99, 0, 0, 1.0], "对手突破": [0, 4, false, 99, 10, 15, 1.2],
 	"旧债上门": [1, 6, false, 99, 6, 18, 1.0], "节令": [0, -4, true, 99, 0, 0, 1.0],
 	# 第三拍：对后话也说“不”的人
@@ -907,8 +907,9 @@ func bind(tid: String) -> Variant:
 			var pl4 := plv()
 			return _r1(_pick(func(c): return side(c) == "魔" and int(c["lv"]) >= pl4))
 		"师弟惹祸":
-			var pl5 := plv()
-			return _r1(_pick(func(c): return known(c) and int(c["lv"]) <= pl5 + 3 and int(R(c, p)["f"]) >= 4 and partner(p) != c and master_of(p) != c))
+			# v0.7.5：“小师弟/小师妹”只给看着年轻、比她小或境界比她低的熟人；没有合适的人，fire 时现生一个年轻的
+			var c5 = _pick(func(c): return _shidi_ok(c))
+			return _r1(c5) if c5 != null else {"new": 1}
 		"天材地宝":
 			return {}
 		"对手突破":
@@ -950,7 +951,33 @@ func fav(c: Dictionary, d: int, mem: String = "", wt: int = 0) -> void:
 func pn() -> String:
 	return String(P()["name"])
 
+## 能当“小师弟/小师妹”的人：认识、看着年轻（不到 36 岁、不是老者立绘）、比她年纪小或境界比她低
+func _shidi_ok(c: Dictionary) -> bool:
+	var p := P()
+	if not known(c) or partner(p) == c or master_of(p) == c or int(R(c, p)["f"]) < 4:
+		return false
+	if float(c["age"]) >= 36.0:
+		return false
+	return float(c["age"]) < float(p["age"]) or int(c["lv"]) < plv()
+
+## 没有合适的熟人时，现生一个年轻、境界不高于她的后辈（早就认识，总喊她“姐姐”）
+func _spawn_shidi() -> Dictionary:
+	var p := P()
+	var pl := plv()
+	var sect: String = _ch(SECT_LIST.filter(func(x): return SECTS.get(x, "中") != "魔"))
+	var c := _new_char(_ch(["男", "男", "女"]), sect, rng.randi_range(0, maxi(0, pl - 1)))
+	c["age"] = float(clampi(int(float(p["age"])) - rng.randi_range(1, 5), 14, 24))
+	c["place"] = p["place"]
+	R(p, c)["m"] = 1   # 早就认识（不记“初识”）
+	R(c, p)["m"] = 1
+	R(c, p)["f"] = 10
+	R(p, c)["f"] = 6
+	chron(c, ("初入仙途，拜入%s。" % sect) if sect != "散修" else "初入仙途，做了散修。")
+	return c
+
 func fire(tid: String, roles: Dictionary, ctx: Dictionary) -> void:
+	if tid == "师弟惹祸" and not roles.has("B"):
+		roles = {"B": int(_spawn_shidi()["id"])}
 	_log_fire(tid)
 	w["last_ev"] = int(w["day"])
 	var ev := present(tid, roles, ctx)
