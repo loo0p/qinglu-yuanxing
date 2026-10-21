@@ -73,6 +73,28 @@ func _init() -> void:
 	ok(ja == jb, "存档往返后继续跑，结果一致（确定性）")
 	# 立绘：每个 NPC 的立绘选项可还原
 	ok(a.portrait_opts(a.npcs()[0]).has("sex"), "NPC 立绘选项")
+	# 故事线：一局 45 日（约 6 成日子在青庐、其余在路上），玩家总选第一个选项（结伴/救人/应下/收殓/去寻）
+	var arcs := {"表白": 0, "道侣遇险": 0, "旧友死讯": 0, "寻凶": 0}
+	var tops := 0.0
+	for sd in range(21, 29):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 45:
+			var home: bool = (d % 10) < 6
+			x.tick(home)
+			var ev = x.pending()
+			if not ev.is_empty():
+				x.choose(String(ev["opts"][0][0]))
+				x.close()
+		var m := metrics(x)
+		tops += m.top / 8.0
+		for k in arcs:
+			if m.cnt.has(k):
+				arcs[k] += 1
+	lines.append("45 日故事线（8 局里出现的局数）：%s；最常见模板占比均值 %.3f" % [JSON.stringify(arcs), tops])
+	ok(arcs["表白"] >= 7 and arcs["旧友死讯"] >= 7, "45 日内：表白、旧友死讯至少 7/8 局出现")
+	ok(arcs["道侣遇险"] >= 6 and arcs["寻凶"] >= 6, "45 日内：道侣遇险、寻凶至少 6/8 局出现（应下/收殓时）")
+	ok(tops < 0.20, "45 日局最常见模板占比 < 0.20（%.3f）" % tops)
 	# 接进青庐规则：v1 旧档迁移 + 世界随日子走 + 存读档
 	var GS = load("res://scripts/game_state.gd")
 	var h = GS.new()

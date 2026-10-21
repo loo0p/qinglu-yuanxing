@@ -711,6 +711,8 @@ func refresh() -> void:
 		beat_key = key
 	_refresh()
 	_set_bgm(_bgm_for_scene())
+	if changed and not key.contains("|ending|"):
+		_clear(fx_layer)   # 离开结局页时把还在飘的灵气粒子收掉
 	if changed:
 		ui.modulate = Color(1, 1, 1, 0.0)
 		create_tween().tween_property(ui, "modulate:a", 1.0, 0.22)
@@ -1887,6 +1889,17 @@ func _ending() -> void:
 	B("收起行记" if show_log else "翻开青庐行记", func(): show_log = not show_log, true, footer, 40)
 	B("回标题", func(): screen = "title", true, footer, 46)
 
+var _dot_tex: Texture2D
+func _soft_dot() -> Texture2D:
+	if _dot_tex == null:
+		var img = Image.create_empty(16, 16, false, Image.FORMAT_RGBA8)
+		for y in 16:
+			for x in 16:
+				var d = Vector2(x + 0.5 - 8.0, y + 0.5 - 8.0).length() / 8.0
+				img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d, 0.0, 1.0)))
+		_dot_tex = ImageTexture.create_from_image(img)
+	return _dot_tex
+
 ## 冲关特效：金光一闪 + 灵气上浮
 func _fx_breakthrough() -> void:
 	var vs = get_viewport_rect().size
@@ -1899,40 +1912,28 @@ func _fx_breakthrough() -> void:
 	tw.tween_property(fl, "color:a", 0.85, 0.25)
 	tw.tween_property(fl, "color:a", 0.0, 1.2)
 	tw.tween_callback(fl.queue_free)
-	var p = CPUParticles2D.new()
-	p.position = Vector2(vs.x / 2, vs.y * 0.75)
-	p.amount = 90
-	p.lifetime = 2.6
-	p.one_shot = true
-	p.explosiveness = 0.6
-	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	p.emission_rect_extents = Vector2(vs.x / 2, 30)
-	p.direction = Vector2(0, -1)
-	p.spread = 25
-	p.gravity = Vector2(0, -30)
-	p.initial_velocity_min = 60
-	p.initial_velocity_max = 180
-	p.scale_amount_min = 0.4
-	p.scale_amount_max = 1.2
-	p.color = Color(1.0, 0.85, 0.45, 0.9)
-	var pt = GradientTexture2D.new()
-	pt.fill = GradientTexture2D.FILL_RADIAL
-	pt.fill_from = Vector2(0.5, 0.5)
-	pt.fill_to = Vector2(1.0, 0.5)
-	var pg = Gradient.new()
-	pg.set_color(0, Color(1, 1, 1, 1))
-	pg.set_color(1, Color(1, 1, 1, 0))
-	pt.gradient = pg
-	pt.width = 16
-	pt.height = 16
-	p.texture = pt
-	var cr = Gradient.new()
-	cr.set_color(0, Color(1, 0.9, 0.6, 1))
-	cr.set_color(1, Color(1, 0.9, 0.6, 0))
-	p.color_ramp = cr
-	fx_layer.add_child(p)
-	p.emitting = true
-	get_tree().create_timer(3.5).timeout.connect(p.queue_free)
+	# 灵气上浮：用几十个小光点 + 补间，不用 CPUParticles2D——
+	# 网页版（Compatibility / 部分 GPU，如 swiftshader）上 CPUParticles2D 的多实例绘制会混进一批黑点，换混合模式也去不掉
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	for i in 70:
+		var d = TextureRect.new()
+		d.texture = _soft_dot()
+		d.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		var sz = rng.randf_range(7.0, 19.0)
+		d.size = Vector2(sz, sz)
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		d.position = Vector2(rng.randf_range(0, vs.x), vs.y * 0.75 + rng.randf_range(-30, 30))
+		d.modulate = Color(1.0, 0.86, 0.5, 0.0)
+		fx_layer.add_child(d)
+		var life = rng.randf_range(1.6, 2.6)
+		var delay = rng.randf_range(0.0, 0.9) if i > 40 else rng.randf_range(0.0, 0.25)
+		var t = d.create_tween()
+		t.tween_interval(delay)
+		t.tween_property(d, "modulate:a", 0.9, 0.2)
+		t.parallel().tween_property(d, "position", d.position + Vector2(rng.randf_range(-40, 40), -rng.randf_range(180, 430)), life).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.parallel().tween_property(d, "modulate:a", 0.0, life * 0.6).set_delay(life * 0.4)
+		t.tween_callback(d.queue_free)
 
 
 # ------------------------------------------------------------ 江湖（v0.6）：说书人事件 / 人物 / 传闻

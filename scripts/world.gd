@@ -96,6 +96,7 @@ func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 			R(a, t)["g"] = 60
 			remember(a, t, "%s害过我的亲人" % t["name"], -30)
 	chron(P(), "自姑母家出来，住进后山脚下的青庐。")
+	_arc_setup()
 	_save_rng()
 
 func attach(gs, d: Dictionary) -> void:
@@ -396,6 +397,7 @@ func tick(home: bool = true) -> void:
 			solo(c)
 	if rng.randf() < 0.04 and npcs().size() < 30:
 		newcomer()
+	_arc_tick()
 	if home and w["pending"].is_empty():
 		storyteller()
 	_save_rng()
@@ -554,11 +556,15 @@ func storyteller() -> void:
 		var ok := true
 		for k in it[2]:
 			var c := C(it[2][k])
-			if c.is_empty() or not c["alive"]:
+			if c.is_empty() or (not c["alive"] and it[1] != "旧友死讯"):
 				ok = false
+		if it[1] == "旧友死讯" and _flag("mourned:%d" % int(it[2]["B"])) > 0:
+			ok = false
 		if ok:
-			fire(String(it[1]), it[2], it[3])
-			return
+			var tid := _arc_adjust(String(it[1]), it[2], it[3])
+			if tid != "":
+				fire(tid, it[2], it[3])
+				return
 	var p_event := 0.35 + int(w["since_major"]) * 0.012
 	if rng.randf() > p_event:
 		w["tension"] = maxi(0, int(w["tension"]) - 2)
@@ -591,6 +597,71 @@ func storyteller() -> void:
 		return
 	var pick: Array = _wch(cands, cws)
 	fire(pick[0], pick[1], {})
+
+# ---------------------------------------------------------------- 故事线（v0.6.4）
+## 一局 40–45 日、其中约一半在青庐，纯随机很难凑齐几条大线。开局给每局定下：
+## ① 一段缘（一个“命里该遇见”的人：偶遇 → 访客 → 表白 → 若应下，道侣遇险）
+## ② 一场离别（第 14–26 日，认识的人被魔修/阴狠之人所害 → 旧友死讯 → 收殓则寻凶）
+## 事件仍走说书人的队列，与随机事件交错；条件不成立（人死了、结了仇、已有道侣）就自然作罢。
+func _arc_setup() -> void:
+	var p := P()
+	var cands := npcs().filter(func(c): return c["sex"] != p["sex"] and side(c) != "魔" and int(c["lv"]) <= 10 and partner(c) == null and not ("报仇" == c["goal"]))
+	var arc := {"death_day": rng.randi_range(14, 20), "death_done": false}
+	if not cands.is_empty():
+		var f: Dictionary = _ch(cands)
+		arc["fated"] = int(f["id"])
+		schedule(rng.randi_range(2, 5), "偶遇", {"B": int(f["id"])}, {"arc": "romance"})
+	w["arc"] = arc
+
+## 队列里的故事线事件到期时再核一遍条件；返回实际要发的模板（"" = 作罢）
+func _arc_adjust(tid: String, roles: Dictionary, ctx: Dictionary) -> String:
+	if ctx.get("arc", "") != "romance":
+		return tid
+	var p := P()
+	var n := C(roles["B"])
+	match tid:
+		"偶遇":
+			if known(n):
+				fav(n, 4)
+				schedule(rng.randi_range(6, 10), "表白", {"B": int(n["id"])}, {"arc": "romance"})
+				return "访客"
+			schedule(rng.randi_range(4, 7), "访客", {"B": int(n["id"])}, {"arc": "romance"})
+			return "偶遇"
+		"访客":
+			if int(R(n, p)["g"]) >= 20:
+				return ""
+			fav(n, 4)
+			schedule(rng.randi_range(6, 10), "表白", {"B": int(n["id"])}, {"arc": "romance"})
+			return "访客"
+		"表白":
+			if partner(p) != null or partner(n) != null or int(R(n, p)["g"]) >= 20 or int(R(n, p)["f"]) < 8:
+				return ""
+			return "表白"
+		"道侣遇险":
+			return "道侣遇险" if partner(p) == n else ""
+	return tid
+
+func _arc_tick() -> void:
+	var arc: Dictionary = w.get("arc", {})
+	if arc.is_empty() or arc.get("death_done", true) or int(w["day"]) < int(arc["death_day"]) or int(w["day"]) > 30:
+		return
+	var p := P()
+	var fated := int(arc.get("fated", 0))
+	var victims := npcs().filter(func(c): return known(c) and int(c["id"]) != fated and partner(c) == null and int(R(p, c)["g"]) < 15 and not ("师" in R(p, c)["t"]))
+	if victims.is_empty():
+		return
+	victims.sort_custom(func(a, b): return int(R(p, a)["f"]) > int(R(p, b)["f"]))
+	var v: Dictionary = victims[0]
+	var killers := npcs().filter(func(c): return c != v and (side(c) == "魔" or tag(c, "阴狠")) and int(c["lv"]) >= int(v["lv"]))
+	if killers.is_empty():
+		return
+	var k: Dictionary = _ch(killers)
+	arc["death_done"] = true
+	if int(R(p, v)["f"]) < 6:
+		R(p, v)["f"] = 6
+	chron(k, "在%s截杀了%s。" % [v["place"], v["name"]])
+	die(v, "死于%s之手" % k["name"])
+	schedule(rng.randi_range(1, 3), "旧友死讯", {"B": int(v["id"])})
 
 func _log_fire(tid: String) -> void:
 	w["fired"][tid] = int(w["fired"].get(tid, 0)) + 1
@@ -987,6 +1058,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				chron(p, "与%s结为道侣。" % nm)
 				chron(n, "与%s结为道侣。" % pn())
 				rumor("%s与%s结为道侣。" % [pn(), nm], [n])
+				schedule(rng.randi_range(7, 12), "道侣遇险", {"B": int(n["id"])}, {"arc": "romance"})
 			else:
 				fav(n, -10, "%s拒了我" % pn(), -5)
 				out = "她说，道还长。%s没再说什么。" % nm
@@ -1002,7 +1074,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				if killer != null:
 					R(p, killer)["g"] = int(R(p, killer)["g"]) + 40
 					remember(p, killer, "%s杀了%s" % [killer["name"], nm], -30)
-					schedule(rng.randi_range(5, 15), "寻凶", {"B": int(killer["id"])})
+					schedule(rng.randi_range(4, 9), "寻凶", {"B": int(killer["id"])})
 					out += "碑前，她记下了一个名字：%s。" % killer["name"]
 			else:
 				out = "她朝那方向拜了三拜。"
