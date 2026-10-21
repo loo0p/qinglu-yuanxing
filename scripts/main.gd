@@ -1908,7 +1908,9 @@ func _story() -> void:
 		_refresh()
 		return
 	var tier = int(g.world.T.get(String(ev["tid"]), [0])[0])
-	_stage_image("courtyard" if tier < 2 else "bg_biguan", 0.35 if tier < 2 else 0.2)
+	var bgs = {"秘境": "bg_houshan", "朱果之争": "bg_houshan", "偶遇": "bg_houshan", "求助": "bg_hantan", "寻凶": "bg_hantan", "道侣遇险": "bg_hantan",
+		"心魔": "bg_biguan", "闭关小成": "bg_biguan", "魔修袭镇": "bg_biguan", "仇人上门": "courtyard", "劫修拦路": "bg_houshan", "师父考验": "bg_hantan"}
+	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2)
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
 	body.add_child(tag)
