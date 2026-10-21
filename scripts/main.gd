@@ -21,6 +21,7 @@ var create_name = "苏青禾"
 var create_cherish = "aunt"
 var selected_route = "houshan"
 var reserve_override = -1
+var preset_save_mode = false
 var play_ms_base = 0
 var session_start = 0
 
@@ -390,6 +391,10 @@ func _home() -> void:
 	L("\n".join(ft), 13, C_TEXT, c)
 	if g.can_plant_lianzi():
 		B("水田种下寒潭莲子（20 日）", func(): g.plant_lianzi(), true, c)
+	if s["extra"] != "":
+		var rb: String = g.can_rebuild_extra()
+		var bb = B("改建第 5 点 → %s（1 日 · 10 灵石）%s" % ["水田" if s["extra"] == "field" else "第三块阳田", "" if rb == "" else "（" + rb + "）"], func(): g.rebuild_extra(), rb == "", c, 34)
+		bb.add_theme_font_size_override("font_size", 12)
 	var f = card()
 	L("丹炉（单队列）：" + _queue_text(), 14, C_ACCENT, f)
 	var r = row(f)
@@ -400,6 +405,12 @@ func _home() -> void:
 	var r2 = row(f)
 	B("按目标排程", _auto_sched, true, r2)
 	B("撤回队尾", func(): g.dequeue_last(), not s["queue"].is_empty(), r2)
+	if s["queue"].size() > 1:
+		var r4 = row(f)
+		for i in s["queue"].size():
+			var qi = i
+			var qb = B("%s%s" % ["↑" if i > 0 else "", GS.RECIPES[s["queue"][i][0]]["name"].substr(0, 2)], func(): g.queue_move(qi, -1), i > 0, r4, 32)
+			qb.add_theme_font_size_override("font_size", 11)
 	var st = card()
 	var items = []
 	for id in s["store"]:
@@ -483,7 +494,7 @@ func _depart() -> void:
 	L("干粮袋 %d/12" % s["ration"], 14, C_TEXT, rr)
 	B("+1（1灵石）", func(): g.buy_rations(1), s["ration"] < 12 and s["lingshi"] > 0, rr, 36)
 	B("装灵谷", func(): g.load_grain(), g.store_n("crop_linggu") > 0 and s["ration"] < 12, rr, 36)
-	L("随身 %d/6 格（点一格放回仓；◎=留作钥匙，不参与批量）" % s["pack"].size(), 12, C_TEXT, pc)
+	L("随身 %d/6 格（点格放回仓；◎=留作钥匙）· 采药篓 0/30" % s["pack"].size(), 12, C_TEXT, pc)
 	var grid = GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 4)
@@ -509,8 +520,27 @@ func _depart() -> void:
 			var idx = i
 			var b3 = B("◎%d" % (i + 1), func(): g.toggle_key(idx), true, rr3, 30)
 			b3.add_theme_font_size_override("font_size", 11)
-	L("采药篓 0/30（路上采的草药，到家自动入仓）", 12, C_DIM, pc)
+	var pr = row(pc)
+	var presets: Array = s.get("presets", [{}, {}, {}])
+	for k in 3:
+		var kk = k
+		var has: bool = not presets[k].is_empty()
+		var lab = ("存入方案%d" % (k + 1)) if (preset_save_mode or not has) else ("装方案%d" % (k + 1))
+		var pb = B(lab, func(): _preset(kk), true, pr, 32)
+		pb.add_theme_font_size_override("font_size", 11)
+	var sm = B("取消" if preset_save_mode else "存…", func(): preset_save_mode = not preset_save_mode, presets.any(func(x): return not x.is_empty()), pr, 32)
+	sm.add_theme_font_size_override("font_size", 11)
 	B("出发：%s" % rt["name"], func(): g.start_trip(selected_route), true, footer, 48)
+
+func _preset(k: int) -> void:
+	var presets: Array = g.s.get("presets", [{}, {}, {}])
+	if presets[k].is_empty() or preset_save_mode:
+		preset_save_mode = false
+		g.preset_save(k)
+		g.notice("已存为方案%d。" % (k + 1))
+	else:
+		var miss: Array = g.preset_apply(k)
+		g.notice("已装好方案%d。" % (k + 1) + ("缺：" + "、".join(miss.map(func(x): return N(x))) if miss.size() > 0 else ""))
 
 func _route_outline(rid: String) -> String:
 	var parts = []
@@ -574,8 +604,8 @@ func _cost_text(o: Dictionary) -> String:
 	var c: Dictionary = o.get("cost", {})
 	for id in c.get("items", {}):
 		parts.append("%s×%d" % [N(id), int(c["items"][id])])
-	if c.has("chance"):
-		var p = float(c["chance"])
+	if c.has("chance") or c.has("chance_by_layer"):
+		var p = g.laogui_a_chance() if c.has("chance_by_layer") else float(c["chance"])
 		if g.s["flags"].get("hungry", false):
 			p -= 0.2
 		parts.append("成 %d%%" % roundi(p * 100))

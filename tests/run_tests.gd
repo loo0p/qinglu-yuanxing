@@ -25,7 +25,7 @@ func _init() -> void:
 	p("=== 青庐远行 灰盒 候选代码 无头测试 ===")
 	var sections = [["#1 灰盒均衡路线逐日对照 sim.py", "t_replay"], ["#2 结算顺序单元测试", "t_settlement"],
 		["#3 防刷", "t_antifarm"], ["#4 老龟四选项改变后续", "t_keychoice"], ["#5 心魔覆盖校验器", "t_xinmo"],
-		["#6 无卡死矩阵", "t_deadlock"], ["存读档往返（中途存档→重载→结果一致）", "t_save"]]
+		["#6 无卡死矩阵", "t_deadlock"], ["存读档往返（中途存档→重载→结果一致）", "t_save"], ["v3.2 新增：老龟 A / 赔罪 / 改建 / 行囊方案 / 丹炉排序", "t_v32"]]
 	var summary = []
 	for sec in sections:
 		var f0 = fails
@@ -434,13 +434,6 @@ func autoplay(laogui: String, extra: String, strat: String) -> Dictionary:
 			g.biguan_day()
 			guard += 1
 		g.pack_put("pill_juqi", true)
-	if laogui.begins_with("A"):
-		var guard = 0
-		while g.layer() < 5 and guard < 60:
-			home_ops(g, {}, 0)
-			g.biguan_day()
-			guard += 1
-		g.s["debug_roll_force"] = laogui == "A成"
 	g.load_grain()
 	g.buy_rations(10 - g.I("ration"))
 	g.start_trip("hantan")
@@ -471,8 +464,11 @@ func autoplay(laogui: String, extra: String, strat: String) -> Dictionary:
 				g.load_grain()
 				g.buy_rations(12 - g.I("ration"))
 				g.start_trip("hantan")
-				var t4 = "S" if want == 2 else "B"
-				walk(g, [["T1", ""], ["T2", "A"], ["T3a", ""], ["T4", t4], ["T5", ""], ["T6", "B"], ["T7", ""], ["T8", ""], ["T9", "A"]])
+				if want == 2:   # A 败：潭下小径 1 日直达，赔罪后折返
+					walk(g, [["Tpath", "A"], ["T4", "S"]])
+				else:
+					walk(g, [["T1", ""], ["T2", "A"], ["T3a", ""], ["T4", "B"]])
+				g.turn_back()
 				trips += 1
 				continue
 			elif g.store_n("herb_qingzhi") >= 2 and g.s["queue"].is_empty():
@@ -482,6 +478,9 @@ func autoplay(laogui: String, extra: String, strat: String) -> Dictionary:
 			pass_xinmo(g)
 			continue
 		g.biguan_day()
+	if OS.get_environment("DEBUG_COMBO") == "%s|%s|%s" % [laogui, extra, strat]:
+		for e in g.s["log"]:
+			p("    D%d %s" % [e["day"], e["text"]])
 	return {"day": g.I("day") if g.s["ending"] == "zhuji" else -1, "ending": g.s["ending"], "hunger": g.I("hunger_days")}
 
 func _force_roll(g, success: bool) -> void:
@@ -495,14 +494,21 @@ func _force_roll(g, success: bool) -> void:
 			return
 
 func t_deadlock() -> void:
+	var simm = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/grey_matrix.json"))
+	var same = 0
 	for lg in ["A成", "A败", "B", "C", "D"]:
 		for ex in ["field", "shuitian"]:
 			for st in ["均衡", "偏闭关"]:
 				var r = autoplay(lg, ex, st)
+				if int(simm.get("%s|%s|%s" % [lg, ex, st], -9)) == int(r["day"]):
+					same += 1
+				else:
+					p("    与 sim 不同：%s|%s|%s 引擎 D%d / sim D%d" % [lg, ex, st, r["day"], int(simm.get("%s|%s|%s" % [lg, ex, st], -9))])
 				var name = "老龟 %s × %s × %s" % [lg, "阳田" if ex == "field" else "水田", st]
 				ok(r["day"] > 0, "%s → %s" % [name, ("D%d 筑基" % r["day"]) if r["day"] > 0 else ("卡死（%s）" % r["ending"])])
 				if r["day"] > 0:
 					p("  %s → D%d 筑基（饥乏 %d 日）" % [name, r["day"], r["hunger"]])
+	ok(same == 20, "20 局筑基日与 sim.py 灰盒矩阵逐局一致（%d/20）" % same)
 
 # ------------------------------------------------------------ 存读档
 func t_save() -> void:
@@ -532,3 +538,78 @@ func t_save() -> void:
 		var rr: Dictionary = b.resolve("A")
 		outcomes[rr.get("roll", "?")] = true
 	ok(outcomes.size() == 1, "同一存档反复读取后判定结果相同（不能靠刷新重掷）")
+
+# ------------------------------------------------------------ v3.2
+func t_v32() -> void:
+	var g = fresh()
+	ok(is_equal_approx(g.laogui_a_chance(), 0.40), "老龟 A 成功率：炼气一层 40%")
+	g.s["xiuwei"] = 300
+	ok(is_equal_approx(g.laogui_a_chance(), 0.60), "炼气五层 60%")
+	g.s["xiuwei"] = 600
+	ok(g.laogui_a_chance() <= 0.8 + 0.0001, "封顶 80%")
+	# A 不再卡境界；潭雾只拖下一个节点
+	g = fresh()
+	g.start_trip("hantan")
+	walk(g, [["T1", "A"], ["T2", "A"], ["T3a", "A"]])
+	g.enter_node("T4")
+	var a_opt = g.event_view()["options"][0]
+	ok(a_opt["id"] == "A" and a_opt["enabled"], "炼气一层也能选 A")
+	_force_roll(g, false)
+	g.resolve("A")
+	g.continue_trip()
+	var d0 = g.I("day")
+	walk(g, [["T5", "A"]])
+	ok(g.I("day") == d0 + 2, "潭雾：A 之后下一个节点 +1 日")
+	var d1 = g.I("day")
+	walk(g, [["T6", "B"]])
+	ok(g.I("day") == d1 + 1, "潭雾只拖一个节点")
+	ok(g.s["flags"].get("tan_path", false), "A 败：路书记下潭下小径")
+	walk(g, [["T7", "A"], ["T8", "A"], ["T9", "A"]])
+	ok(g.s["loc"] == "home", "回家")
+	g.s["store"]["pill_juqi"] = 2
+	g.pack_put("pill_juqi", true)
+	g.pack_put("pill_juqi", true)
+	g.start_trip("hantan")
+	ok("Tpath" in g.visible_choices(), "重访寒潭可走潭下小径")
+	var d2 = g.I("day")
+	walk(g, [["Tpath", "A"]])
+	g.enter_node("T4")
+	var ids = []
+	for o in g.event_view()["options"]:
+		ids.append(o["id"])
+	ok(ids == ["S", "Z"], "记仇后老龟只给“赔罪”（A 败版本）%s" % [ids])
+	g.resolve("S")
+	g.continue_trip()
+	ok(g.total_n("herb_hantanlian") == 1 and not g.s["flags"]["laogui_grudge"], "赔罪：两颗聚气丹 → 寒潭莲，记仇解除")
+	g.turn_back()
+	ok(g.I("day") == d2 + 3, "小径 1 日 + 老龟 1 日 + 折返 1 日 = 3 日（%d）" % (g.I("day") - d2))
+	# 改建
+	g = fresh()
+	g.choose_extra("field")
+	g.s["lingshi"] = 20
+	var day = g.I("day")
+	ok(g.rebuild_extra() and g.s["extra"] == "shuitian" and g.s["fields"].size() == 2 and g.I("lingshi") == 10 and g.I("day") == day + 1, "改建阳田→水田：1 日 + 10 灵石")
+	g.s["store"]["seed_lianzi"] = 1
+	g.plant_lianzi()
+	ok(g.can_rebuild_extra() != "", "水田长莲时不能改建")
+	# 丹炉排序
+	g = fresh()
+	g.s["store"] = {"herb_qingzhi": 3}
+	g.enqueue("juqi"); g.enqueue("quzhang")
+	ok(g.queue_move(1, -1) and g.s["queue"][0][0] == "quzhang", "丹炉上移")
+	g.tick("home")
+	ok(g.store_n("pill_quzhang") == 1, "调到队首的驱瘴丹先出炉")
+	# 行囊方案
+	g = fresh()
+	g.s["store"] = {"pill_juqi": 2, "fu_jingshui": 1}
+	g.pack_put("pill_juqi", true)
+	g.pack_put("fu_jingshui")
+	g.buy_rations(2)
+	g.preset_save(0, "寒潭")
+	while g.s["pack"].size() > 0:
+		g.pack_take(0)
+	g.s["ration"] = 8
+	var miss = g.preset_apply(0)
+	ok(miss.is_empty() and g.pack_n("pill_juqi") == 1 and g.pack_n("fu_bishui") == 1 and g.pack_n("fu_jingshui") == 1 and g.I("ration") == 10, "行囊方案一键装好（含钥匙标记与干粮）")
+	ok(bool(g.s["pack"].filter(func(x): return x["id"] == "pill_juqi")[0]["key"]), "方案保留“留作钥匙”标记")
+	# 寿元：所有矩阵路线都远低于 120

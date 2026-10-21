@@ -30,7 +30,12 @@ const XIANGYANG_DEADLINE := 23
 const ZHUJI_RATE := 0.7
 const ZHUJI_SECOND_DAYS := 3
 const ZHAJI_YUYUN := 20
-const SHOUYUAN_START := 120
+const SHOUYUAN_START := 120   # v3.2：炼气寿元 120 日，正常路线用 31–45%
+const LAOGUI_A_BASE := 0.35
+const LAOGUI_A_PER_LAYER := 0.05
+const LAOGUI_A_MAX := 0.8
+const REBUILD_DAYS := 1
+const REBUILD_LINGSHI := 10
 const GELAOSAN_FRUIT_PRICE := 20
 
 const NAMES := {
@@ -137,6 +142,10 @@ func avail_n(id: String) -> int:
 	if s["loc"] == "trip":
 		return pack_n(id) + basket_n(id)
 	return store_n(id) + pack_n(id)
+
+## v3.2：老龟 A 不再卡境界，成功率随炼气层数上升：35% + 5%×层，封顶 80%
+func laogui_a_chance() -> float:
+	return minf(LAOGUI_A_MAX, LAOGUI_A_BASE + LAOGUI_A_PER_LAYER * layer())
 
 func layer() -> int:
 	return min(9, 1 + int(I("xiuwei") * 9 / XW_GOAL))
@@ -481,6 +490,69 @@ func choose_extra(kind: String) -> bool:
 		_log("第五点灵脉：开水田。")
 	return true
 
+## v3.2：第 5 点改建：耗 1 日（不算闭关）+ 10 灵石；水田正在长莲时不能改
+func can_rebuild_extra() -> String:
+	if not at_home() or s["extra"] == "":
+		return "还没定第 5 点"
+	if int(s["lian_prog"]) >= 0:
+		return "水田正在长莲"
+	if I("lingshi") < REBUILD_LINGSHI:
+		return "灵石不足（需 %d）" % REBUILD_LINGSHI
+	return ""
+
+func rebuild_extra() -> bool:
+	if can_rebuild_extra() != "":
+		return false
+	s["lingshi"] = I("lingshi") - REBUILD_LINGSHI
+	if s["extra"] == "field":
+		s["fields"].pop_back()
+		s["extra"] = "shuitian"
+		s["gu_prog"] = 0
+		_log("把第三块阳田改成了水田（−%d 灵石，1 日）。" % REBUILD_LINGSHI)
+	else:
+		s["extra"] = "field"
+		s["fields"].append({"prog": 0})
+		_log("把水田改成了第三块阳田（−%d 灵石，1 日）。" % REBUILD_LINGSHI)
+	for i in REBUILD_DAYS:
+		tick("home")
+	return true
+
+## v3.2：丹炉上下调整顺序（剩余日数跟着丹走；只有队首在推进）
+func queue_move(i: int, d: int) -> bool:
+	var j := i + d
+	if not at_home() or i < 0 or j < 0 or i >= s["queue"].size() or j >= s["queue"].size():
+		return false
+	var t = s["queue"][i]
+	s["queue"][i] = s["queue"][j]
+	s["queue"][j] = t
+	return true
+
+## v3.2：行囊方案（3 个）：记下随身 6 格 + 干粮目标；一键装好（先把行囊全放回仓，再按方案取，缺的跳过）
+func preset_save(k: int, label: String = "") -> void:
+	if k < 0 or k > 2:
+		return
+	if not s.has("presets"):
+		s["presets"] = [{}, {}, {}]
+	s["presets"][k] = {"label": label if label != "" else "方案%d" % (k + 1), "pack": s["pack"].duplicate(true), "ration": I("ration")}
+
+func preset_apply(k: int) -> Array:
+	var missing := []
+	if not at_home() or not s.has("presets") or s["presets"][k].is_empty():
+		return missing
+	while s["pack"].size() > 0:
+		pack_take(0)
+	for sl in s["presets"][k]["pack"]:
+		for n in int(sl["n"]):
+			if not pack_put(sl["id"], bool(sl["key"])):
+				missing.append(sl["id"])
+	var want := int(s["presets"][k]["ration"])
+	if I("ration") < want:
+		load_grain()
+		buy_rations(want - I("ration"))
+	if I("ration") < want:
+		missing.append("res_ganliang")
+	return missing
+
 func can_plant_lianzi() -> bool:
 	return at_home() and s["extra"] == "shuitian" and int(s["lian_prog"]) < 0 and store_n("seed_lianzi") > 0
 
@@ -617,6 +689,10 @@ func check(c) -> bool:
 			"day_le":
 				if I("day") > int(v):
 					return false
+			"flag_gt":
+				for f in v:
+					if int(s["flags"].get(f, 0)) <= int(v[f]):
+						return false
 			"tag_ge":
 				for t in v:
 					if int(s["tags"].get(t, 0)) < int(v[t]):
@@ -753,7 +829,7 @@ func resolve(opt_id: String) -> Dictionary:
 			opt = o
 	if opt.is_empty() or not opt["enabled"]:
 		return {}
-	var res := {"title": ev["title"], "option": opt["label"], "days": int(opt["days"]), "items": {}, "lines": [], "memory": [], "ganwu": 0}
+	var res := {"title": ev["title"], "option": opt["label"], "days": int(opt["days"]), "items": {}, "lines": [], "memory": [], "ganwu": 0, "fog_used": day_mod() > 0 and int(ev["base_days"]) > 0}
 	var cost: Dictionary = opt.get("cost", {})
 	for id in cost.get("items", {}):
 		consume(id, int(cost["items"][id]))
@@ -771,7 +847,7 @@ func resolve(opt_id: String) -> Dictionary:
 	res["ganwu"] = int(ev.get("ganwu", 0))
 	_apply(opt.get("effects", {}), res)
 	if opt.has("roll"):
-		var p := float(opt["roll"]["chance"])
+		var p := laogui_a_chance() if opt["roll"].get("chance_by_layer", false) else float(opt["roll"]["chance"])
 		if s["flags"].get("hungry", false):
 			p -= 0.2
 		var ok := rng.randf() < p
@@ -802,12 +878,14 @@ func quick_walk() -> Dictionary:
 	s["trip"]["walked"] = int(s["trip"]["walked"]) + days
 	s["stats"]["revisit"] = int(s["stats"]["revisit"]) + 1
 	s["trip"]["path"].append(nid)
-	var res := {"title": ev["title"], "option": "快走（路书已记）", "days": days, "items": {}, "lines": [], "memory": [], "ganwu": 0}
+	var res := {"title": ev["title"], "option": "快走（路书已记）", "days": days, "items": {}, "lines": [], "memory": [], "ganwu": 0, "fog_used": day_mod() > 0}
 	_after_node(nid, res)
 	return res
 
 func _after_node(nid: String, res: Dictionary) -> void:
 	var nd = route()["nodes"][nid]
+	if res.get("fog_used", false):
+		s["flags"]["fog_left"] = maxi(0, int(s["flags"].get("fog_left", 0)) - 1)
 	if res.get("goto", "") != "":
 		s["trip"]["choices"] = [res["goto"]]
 	else:
@@ -867,6 +945,7 @@ func come_home(turned_back: bool) -> Dictionary:
 	sum["turned_back"] = turned_back
 	if route_id == "hantan":
 		s["flags"]["hantan_visited"] = true
+	s["flags"]["fog_left"] = 0   # 潭雾只拖本趟
 	# 世事（灰盒）：第一次从寒潭回来、结算完之后出现
 	if route_id == "hantan" and not turned_back and not s["flags"].get("world_xiangyang", false):
 		s["flags"]["world_xiangyang"] = true

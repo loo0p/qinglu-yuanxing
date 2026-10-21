@@ -1,40 +1,174 @@
 {
  "_comment": "候选代码·灰盒：路线拓扑（design-v3.1 §10.1/10.2）。next 为下一层可选节点；visible_if 不满足则隐藏。",
  "houshan": {
-  "name": "后山", "start": ["H1"],
+  "name": "后山",
+  "start": [
+   "H1"
+  ],
   "rumors": [
-   {"text": "葛老三的腿又犯了，他念叨着溪边的续骨草。"},
-   {"text": "古松下那块残碑，据说有人看出过门道。"}
+   {
+    "text": "葛老三的腿又犯了，他念叨着溪边的续骨草。"
+   },
+   {
+    "text": "古松下那块残碑，据说有人看出过门道。"
+   }
   ],
   "nodes": {
-   "H1":   {"event": "H1_xibian",  "next": ["H2a", "H2b", "Hstar"]},
-   "H2a":  {"event": "H2a_yedi",   "next": ["H3"]},
-   "H2b":  {"event": "H2b_laosong", "next": ["H3"]},
-   "Hstar":{"event": "Hstar_xiangyang", "next": ["H5"], "visible_if": {"flag": {"world_xiangyang": true}}},
-   "H3":   {"event": "H3_gelaosan", "next": ["H4a", "H4b"]},
-   "H4a":  {"event": "H4a_canbei", "next": ["H5"]},
-   "H4b":  {"event": "H4b_pomiao", "next": ["H5"]},
-   "H5":   {"event": "H5_guitu", "next": [], "end": true}
+   "H1": {
+    "event": "H1_xibian",
+    "next": [
+     "H2a",
+     "H2b",
+     "Hstar"
+    ]
+   },
+   "H2a": {
+    "event": "H2a_yedi",
+    "next": [
+     "H3"
+    ]
+   },
+   "H2b": {
+    "event": "H2b_laosong",
+    "next": [
+     "H3"
+    ]
+   },
+   "Hstar": {
+    "event": "Hstar_xiangyang",
+    "next": [
+     "H5"
+    ],
+    "visible_if": {
+     "flag": {
+      "world_xiangyang": true
+     }
+    }
+   },
+   "H3": {
+    "event": "H3_gelaosan",
+    "next": [
+     "H4a",
+     "H4b"
+    ]
+   },
+   "H4a": {
+    "event": "H4a_canbei",
+    "next": [
+     "H5"
+    ]
+   },
+   "H4b": {
+    "event": "H4b_pomiao",
+    "next": [
+     "H5"
+    ]
+   },
+   "H5": {
+    "event": "H5_guitu",
+    "next": [],
+    "end": true
+   }
   }
  },
  "hantan": {
-  "name": "寒潭", "start": ["T1"],
-  "rumors": [
-   {"text": "葛老三：“潭里那老物嘴馋……揣上一颗丹再去。”", "key": true},
-   {"text": "寒潭来回要走十来天，干粮多备些。"}
+  "name": "寒潭",
+  "start": [
+   "T1",
+   "Tpath"
   ],
-  "day_mods": [{"if": {"flag": {"laogui_grudge": true}}, "add": 1, "text": "老龟记仇：寒潭每个节点 +1 日"}],
+  "rumors": [
+   {
+    "text": "葛老三：“潭里那老物嘴馋……揣上一颗丹再去。”",
+    "key": true
+   },
+   {
+    "text": "寒潭来回要走十来天，干粮多备些。"
+   }
+  ],
+  "day_mods": [
+   {
+    "if": {
+     "flag_gt": {
+      "fog_left": 0
+     }
+    },
+    "add": 1,
+    "text": "潭雾：下一个寒潭节点 +1 日"
+   }
+  ],
   "nodes": {
-   "T1":  {"event": "T1_lengshan", "next": ["T2"]},
-   "T2":  {"event": "T2_yedi", "next": ["T3a", "T3b"]},
-   "T3a": {"event": "T3a_shiwu", "next": ["T4"]},
-   "T3b": {"event": "T3b_bingxi", "next": ["T4"]},
-   "T4":  {"event": "T4_laogui", "next": ["T5"]},
-   "T5":  {"event": "T5_bingpu", "next": ["T6"]},
-   "T6":  {"event": "T6_liewu", "next": ["T7"]},
-   "T7":  {"event": "T7_wulin", "next": ["T8"]},
-   "T8":  {"event": "T8_huicheng", "next": ["T9"]},
-   "T9":  {"event": "T9_guitu", "next": [], "end": true}
+   "T1": {
+    "event": "T1_lengshan",
+    "next": [
+     "T2"
+    ]
+   },
+   "T2": {
+    "event": "T2_yedi",
+    "next": [
+     "T3a",
+     "T3b"
+    ]
+   },
+   "T3a": {
+    "event": "T3a_shiwu",
+    "next": [
+     "T4"
+    ]
+   },
+   "T3b": {
+    "event": "T3b_bingxi",
+    "next": [
+     "T4"
+    ]
+   },
+   "T4": {
+    "event": "T4_laogui",
+    "next": [
+     "T5"
+    ]
+   },
+   "T5": {
+    "event": "T5_bingpu",
+    "next": [
+     "T6"
+    ]
+   },
+   "T6": {
+    "event": "T6_liewu",
+    "next": [
+     "T7"
+    ]
+   },
+   "T7": {
+    "event": "T7_wulin",
+    "next": [
+     "T8"
+    ]
+   },
+   "T8": {
+    "event": "T8_huicheng",
+    "next": [
+     "T9"
+    ]
+   },
+   "T9": {
+    "event": "T9_guitu",
+    "next": [],
+    "end": true
+   },
+   "Tpath": {
+    "event": "Tpath_xiaojing",
+    "next": [
+     "T4"
+    ],
+    "visible_if": {
+     "flag": {
+      "tan_path": true
+     }
+    }
+   }
   }
  }
 }
