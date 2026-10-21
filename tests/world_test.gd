@@ -45,6 +45,31 @@ func metrics(x) -> Dictionary:
 	return {"n": ev.size(), "tpl": cnt.size(), "top": float(top) / maxf(1, ev.size()), "tri": float(tri.size()) / maxf(1, ev.size() - 2),
 		"skel": float(sk.size()) / maxf(1, lg.size()), "met": x.acquaintances().size(), "cnt": cnt}
 
+## 把一段文字切成句子：去掉（…）数值提示，人名换“某”，数字换 N；句末引号跟着前一句
+func _sents(x, t: String) -> Array:
+	var re := RegEx.new()
+	re.compile("（[^）]*）")
+	t = re.sub(t, "", true)
+	for c in x.w["C"].values():
+		t = t.replace(String(c["name"]), "某")
+	var rn := RegEx.new()
+	rn.compile("[0-9]+")
+	t = rn.sub(t, "N", true)
+	var out := []
+	var cur := ""
+	for i in t.length():
+		cur += t[i]
+		var end := t[i] in ["。", "！", "？"] and not (i + 1 < t.length() and t[i + 1] in ["”", "」"])
+		if t[i] in ["”", "」"] and i > 0 and t[i - 1] in ["。", "！", "？"]:
+			end = true
+		if end:
+			if cur.strip_edges() != "":
+				out.append(cur.strip_edges())
+			cur = ""
+	if cur.strip_edges() != "":
+		out.append(cur.strip_edges())
+	return out
+
 func _init() -> void:
 	var agg := {"top": 0.0, "tri": 0.0, "skel": 0.0, "n": 0.0, "tpl": 0.0, "met": 0.0}
 	var all := {}
@@ -73,6 +98,38 @@ func _init() -> void:
 	ok(ja == jb, "存档往返后继续跑，结果一致（确定性）")
 	# 立绘：每个 NPC 的立绘选项可还原
 	ok(a.portrait_opts(a.npcs()[0]).has("sex"), "NPC 立绘选项")
+	# 文字重复度：玩家 100 日里读到的事件文字、结果、自己的生平，按句切开（人名换成“某”、数字换成 N、去掉括号里的数值提示），不同句子占比
+	var ur := 0.0
+	var worst := ""
+	for sd in range(51, 59):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		var sents := []
+		for d in 100:
+			x.tick(true)
+			var ev = x.pending()
+			if ev.is_empty():
+				continue
+			sents.append_array(_sents(x, String(ev["text"])))
+			var o: Array = x._ch(ev["opts"])
+			sents.append_array(_sents(x, x.choose(String(o[0]))))
+			x.close()
+		for l in x.P()["log"]:
+			sents.append_array(_sents(x, String(l[1])))
+		var uq := {}
+		var cnt := {}
+		for t in sents:
+			uq[t] = 1
+			cnt[t] = int(cnt.get(t, 0)) + 1
+		ur += float(uq.size()) / maxf(1, sents.size()) / 8.0
+		if sd == 51:
+			var top := []
+			for t in cnt:
+				if cnt[t] >= 3:
+					top.append("%d×%s" % [cnt[t], t])
+			worst = "；".join(top)
+	lines.append("100 日不同句子占比 %.3f（种子 51 里出现 ≥3 次的：%s）" % [ur, worst])
+	ok(ur >= 0.80, "100 日内玩家读到的句子不同句占比 ≥ 0.80（%.3f）" % ur)
 	# 故事线：一局 45 日（约 6 成日子在青庐、其余在路上），玩家总选第一个选项（结伴/救人/应下/收殓/去寻）
 	var arcs := {"表白": 0, "道侣遇险": 0, "旧友死讯": 0, "寻凶": 0}
 	var tops := 0.0
