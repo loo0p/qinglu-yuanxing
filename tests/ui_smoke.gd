@@ -137,6 +137,13 @@ func _go() -> void:
 				click(a["label"])
 				break
 	log_lines.append("结局：%s 第 %d 日；点击 %d 次；江湖事件 %d 件；认识 %d 人" % [g.s["ending"], g.s["day"], steps, stories, g.world.acquaintances().size() if g.world else -1])
+	var ups := []
+	if g.world:
+		for l in g.world.P()["log"]:
+			if String(l[1]).begins_with("修为精进"):
+				ups.append("D%d%s" % [int(l[0]), String(l[1]).substr(6, 4)])
+	log_lines.append("修为精进提示 %d 次：%s" % [ups.size(), " ".join(ups)])
+	ok = ok and ups.size() >= 6
 	ok = ok and g.world != null and stories >= 3
 	ok = ok and g.s["ending"] == "zhuji"
 	# 存档存在且能读回

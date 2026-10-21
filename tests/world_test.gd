@@ -187,6 +187,32 @@ func _init() -> void:
 	ok(arcs2["婉拒后"] >= 7 and arcs2["旧友托梦"] >= 7, "拒绝型：婉拒后有暗恋不舍/怨偶、不收殓有旧友托梦，至少 7/8 局")
 	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
 	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
+	# 节奏（v0.7.3）：50 日局、约 6 成日子在青庐，16 局均值——既要有事，也别天天有人敲门
+	var pt := 0.0
+	var phd := 0.0
+	var pst := 0.0
+	for sd in range(500, 516):
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		var st := 0
+		var smax := 0
+		for d in 50:
+			var home: bool = (d % 10) < 6
+			x.tick(home)
+			if home:
+				phd += 1
+			var ev = x.pending()
+			if ev.is_empty():
+				st = 0
+				continue
+			pt += 1
+			st += 1
+			smax = maxi(smax, st)
+			x.choose(String(ev["opts"][d % ev["opts"].size()][0]))
+			x.close()
+		pst += smax / 16.0
+	lines.append("50 日节奏：%.1f 件/局，%.2f 件/在家日，最长连续有事 %.1f 日" % [pt / 16.0, pt / phd, pst])
+	ok(pt / phd >= 0.35 and pt / phd <= 0.55 and pst <= 3.2, "50 日局：每个在家日 0.35–0.55 件事，最长连着有事 ≤3.2 日（%.2f，%.1f）" % [pt / phd, pst])
 	# 节令只在历法上的日子出现（第 1 日 = 正月初一，30 日一月）
 	var fest_bad := []
 	var fest_n := 0

@@ -646,6 +646,9 @@ func storyteller() -> void:
 		fire("节令", {}, {})
 		return
 	var p_event := 0.35 + int(w["since_major"]) * 0.012
+	# 喘口气（v0.7.3）：昨天刚出过事，今天随机事件的机会减半多（故事线、节令不受影响），免得回到青庐天天有人敲门
+	if int(w.get("last_ev", -9)) >= day - 1:
+		p_event *= 0.45
 	if rng.randf() > p_event:
 		w["tension"] = maxi(0, int(w["tension"]) - 2)
 		return
@@ -937,6 +940,7 @@ func pn() -> String:
 
 func fire(tid: String, roles: Dictionary, ctx: Dictionary) -> void:
 	_log_fire(tid)
+	w["last_ev"] = int(w["day"])
 	var ev := present(tid, roles, ctx)
 	ev["tid"] = tid
 	ev["roles"] = roles

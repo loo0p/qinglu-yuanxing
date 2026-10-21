@@ -549,7 +549,7 @@ func _settings() -> void:
 		var gd: Dictionary = g.s["guide"]
 		var off: bool = gd.get("off", false)
 		B("新手提示：" + ("已关闭（点此重新打开）" if off else "开着（点此关闭）"), func(): gd["off"] = not off; _save(), true, c, 44)
-	L("静音可点标题页的 ♪。设置存在这台设备的浏览器里，与存档分开。", 13, C_DIM, c)
+	L("设置只存在这台设备的浏览器里，与存档分开。", 13, C_DIM, c)
 	B("回去", func(): show_settings = false, true, footer, 52)
 
 func _sb(bg: Color, border: Color = Color(0, 0, 0, 0), radius: int = 6, bw: int = 0, pad: int = 8) -> StyleBoxFlat:
@@ -726,10 +726,18 @@ func _press(cb: Callable) -> void:
 	sfx("tap")
 	var before = [g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), g.s.get("ending", "")]
 	var items_before = _inventory()
+	var in_game: bool = screen == "game" and g.s.has("xiuwei")
+	var lay0: int = g.layer() if in_game else 0
+	var full0: bool = in_game and int(g.s["xiuwei"]) >= GS.XW_GOAL
 	cb.call()
 	var after = [g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), g.s.get("ending", "")]
+	var grew := false
+	if in_game and screen == "game" and g.s.has("xiuwei") and not g.s.get("ended", false):
+		grew = _layer_up(lay0, full0)
 	if after[2] == "zhuji" and before[2] == "":
 		sfx("breakthrough")
+	elif grew:
+		sfx("success")
 	elif after[1] == "event" and before[1] != "event":
 		sfx("page")
 	elif after[1] == "result" and before[1] != "result":
@@ -737,6 +745,27 @@ func _press(cb: Callable) -> void:
 		sfx("fail" if r == "败" else ("success" if r != "" else "pickup"))
 	_after_action()
 	_fly_gains(items_before)
+
+## 修为过了一层（每 1/9 的修为）：提示一句，记进生平；圆满时提醒可以冲关（v0.7.3：以前层数悄悄变，没有一点动静）
+func _layer_up(lay0: int, full0: bool) -> bool:
+	var lay: int = g.layer()
+	var full: bool = int(g.s["xiuwei"]) >= GS.XW_GOAL
+	var line := ""
+	if full and not full0:
+		line = "修为圆满。丹田里的灵气满得发胀——可以冲关筑基了。"
+	elif lay > lay0:
+		line = pv_layer(lay)
+	if line == "":
+		return false
+	g.notice(line)
+	if g.world != null:
+		g.world.chron(g.world.P(), "修为精进，入%s。" % g.realm_text())
+	return true
+
+func pv_layer(lay: int) -> String:
+	var t := ["炼气%s层。经脉里那股气又粗了一圈。", "炼气%s层。闭眼时，能听见灵田里青芝抽芽的声音。", "炼气%s层。剑气走到指尖，不再发涩。", "炼气%s层。这一夜她睡得很沉，醒来手脚都是暖的。"]
+	var cn: String = ["一", "二", "三", "四", "五", "六", "七", "八", "九"][clampi(lay - 1, 0, 8)]
+	return "修为精进——" + t[lay % t.size()] % cn
 
 func N(id: String) -> String:
 	return GS.NAMES.get(id, id)
@@ -1121,9 +1150,11 @@ func _hud() -> void:
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_child(mid)
 	L(g.realm_text(), 12, C_TEXT, mid)
+	# 进度条只看这一层（每层 1/9 修为），一层满一次，比整条 600 慢慢挪看得见（总数在行囊页的环里）
 	var pb = ProgressBar.new()
-	pb.max_value = GS.XW_GOAL
-	pb.value = int(s["xiuwei"])
+	var per := float(GS.XW_GOAL) / 9.0
+	pb.max_value = per
+	pb.value = per if int(s["xiuwei"]) >= GS.XW_GOAL else float(int(s["xiuwei"])) - per * (g.layer() - 1)
 	pb.show_percentage = false
 	pb.custom_minimum_size = Vector2(0, 7)
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
