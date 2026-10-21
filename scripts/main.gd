@@ -196,9 +196,44 @@ func _font(path: String) -> Font:
 	return fv
 
 # ------------------------------------------------------------ 资源
+## 江湖事件背景（v0.6.5）不进 pck：网页版从 portrait/bg/ 按需下载，下好前先用院子图顶着
+const LAZY_BG = ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai"]
+var bg_want := {}
+
+func _bg_fetch(name: String) -> void:
+	if bg_want.has(name):
+		return
+	bg_want[name] = true
+	if pf_base == "":
+		var b = JavaScriptBridge.eval("new URL('portrait/', location.href).href", true)
+		pf_base = String(b) if b is String and b != "" else "portrait/"
+	var req = HTTPRequest.new()
+	add_child(req)
+	req.request_completed.connect(func(result, code, _h, body):
+		req.queue_free()
+		var img = Image.new()
+		if result == HTTPRequest.RESULT_SUCCESS and code == 200 and img.load_webp_from_buffer(body) == OK:
+			tex_cache[name] = ImageTexture.create_from_image(img)
+			refresh()
+		else:
+			bg_want.erase(name))
+	if req.request(pf_base + "bg/%s.webp" % name) != OK:
+		req.queue_free()
+		bg_want.erase(name)
+
 func tex(name: String) -> Texture2D:
 	if tex_cache.has(name):
 		return tex_cache[name]
+	if name in LAZY_BG:
+		if OS.has_feature("web"):
+			_bg_fetch(name)
+			return tex("courtyard")
+		var lb = FileAccess.get_file_as_bytes("res://web_portrait/bg/%s.webp" % name)
+		var li = Image.new()
+		if lb.size() > 0 and li.load_webp_from_buffer(lb) == OK:
+			tex_cache[name] = ImageTexture.create_from_image(li)
+			return tex_cache[name]
+		return tex("courtyard")
 	var t: Texture2D = null
 	var bytes = FileAccess.get_file_as_bytes("res://assets/img/%s.webp" % name)
 	if bytes.size() > 0:
@@ -280,6 +315,8 @@ func _pf_fetch(rel: String) -> void:
 	_pf_pump()
 
 func _pf_prefetch_all() -> void:
+	for n in LAZY_BG:
+		_bg_fetch(n)
 	var t = FileAccess.get_file_as_string("res://data/portrait_files.json")
 	var lst = JSON.parse_string(t) if t != "" else null
 	if not (lst is Array):
@@ -1963,8 +2000,11 @@ func _story() -> void:
 		_refresh()
 		return
 	var tier = int(g.world.T.get(String(ev["tid"]), [0])[0])
-	var bgs = {"秘境": "bg_houshan", "朱果之争": "bg_houshan", "偶遇": "bg_houshan", "求助": "bg_hantan", "寻凶": "bg_hantan", "道侣遇险": "bg_hantan",
-		"心魔": "bg_biguan", "闭关小成": "bg_biguan", "魔修袭镇": "bg_biguan", "仇人上门": "courtyard", "劫修拦路": "bg_houshan", "师父考验": "bg_hantan"}
+	var bgs = {"秘境": "bg_dongfu", "朱果之争": "bg_houshan", "偶遇": "bg_shandao", "求助": "bg_hantan", "寻凶": "bg_shandao", "道侣遇险": "bg_hantan",
+		"心魔": "bg_biguan", "闭关小成": "bg_biguan", "魔修袭镇": "bg_fangshi", "仇人上门": "courtyard", "劫修拦路": "bg_shandao", "师父考验": "bg_dongfu",
+		"夜雨": "bg_yeyu", "旧友死讯": "bg_yeyu", "表白": "bg_chasi", "访客": "bg_chasi", "论道": "bg_chasi", "义结金兰": "bg_chasi",
+		"坊市传闻": "bg_fangshi", "坊市欺客": "bg_fangshi", "赠礼": "bg_fangshi", "宗门大比": "bg_leitai", "站队": "bg_leitai", "拜师": "bg_dongfu",
+		"旧物": "bg_yeyu", "报恩": "bg_chasi", "飞升异象": "bg_houshan"}
 	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2)
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
@@ -2180,6 +2220,18 @@ func _dev(cmd: String) -> String:
 				person_tab = "life"
 				modal = {"kind": "person"}
 			g.notices.clear()
+			_save()
+			refresh()
+		_ when cmd.begins_with("story:"):
+			# 调试：直接弹某个江湖事件（截背景用）；绑不上角色就退回表白/访客
+			_dev("jianghu")
+			tab = "home"
+			var tid = cmd.substr(6)
+			var r = g.world.bind(tid)
+			if r == null:
+				var c = g.world.acquaintances()[0] if not g.world.acquaintances().is_empty() else g.world.npcs()[0]
+				r = {"B": int(c["id"])}
+			g.world.fire(tid, r, {})
 			_save()
 			refresh()
 		"reveal":

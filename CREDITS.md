@@ -30,3 +30,5 @@
 
 ## v0.6 江湖（说书人）
 - `scripts/world.gd` 由本项目的叙事原型 `docs/design/sim/story_sim.py`（design-v4）移植，自写，无第三方代码。
+
+- 江湖事件背景（茶肆/山道/坊市/夜雨/洞府/擂台，art_src/bg_*.jpg → web_portrait/bg/）：AI 生成，以 bg_houshan 为风格参考，v0.6.5
