@@ -103,6 +103,7 @@ var audio_unlocked = false
 var muted = false
 var vol_music := 0.8     # 设置：音乐音量 0–1
 var vol_sfx := 0.9       # 设置：音效音量 0–1
+var dlg_opts := 0         # 下一个对话框读完后要出几个选项（矮屏时据此缩小立绘）
 var text_speed := 1      # 设置：文字速度 0 慢 · 1 中 · 2 快 · 3 立即
 const TEXT_CHAR_S = [0.045, 0.025, 0.012, 0.0]
 var show_settings := false
@@ -654,6 +655,15 @@ func B(text: String, cb: Callable, enabled: bool = true, parent: Node = null, h:
 	(parent if parent else body).add_child(b)
 	return b
 
+## 选项依次淡入（每个晚 60ms），读完对话后不至于一下子全砸出来
+func _reveal(n: CanvasItem, k: int) -> void:
+	if text_speed == 3:
+		return
+	n.modulate.a = 0.0
+	var tw = n.create_tween()
+	tw.tween_interval(0.04 + 0.06 * k)
+	tw.tween_property(n, "modulate:a", 1.0, 0.16)
+
 ## 带图标的按钮（图标在左）
 func BI(text: String, icon_name: String, cb: Callable, enabled: bool = true, parent: Node = null, h: int = 44) -> Button:
 	var b = B(text, cb, enabled, parent, h)
@@ -941,9 +951,9 @@ func _bgm_for_scene() -> String:
 		return "title"
 	if modal.get("kind", "") == "story" and g.world != null:
 		var tid = String(g.world.pending().get("tid", ""))
-		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险"]:
+		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险", "劫修伏击", "仇家寻上门", "落难"]:
 			return "xinmo"
-		if tid in ["秘境"]:
+		if tid in ["秘境", "旧友托梦", "宝地相争"]:
 			return "hantan"
 	match String(g.s.get("loc", "home")):
 		"ending":
@@ -1584,17 +1594,20 @@ func _beats(text: String) -> Array:
 func dialog(speaker: String, portrait: String, text: String, dark: bool = true, spec: Dictionary = {}) -> bool:
 	var bs = _beats(text)
 	var done = beat_i >= bs.size() - 1
+	# 矮屏（360×640）上选项多时，读完后把立绘缩小些，免得最后一个选项被挤出屏
+	var ps = 0.68 if done and dlg_opts >= 4 and get_viewport_rect().size.y < 700 else 1.0
+	dlg_opts = 0
 	if spec.is_empty() and portrait.begins_with("vn_heroine") and g.s.get("portrait", {}) is Dictionary and not g.s.get("portrait", {}).is_empty():
 		spec = g.s["portrait"]
 	if not spec.is_empty():
-		var pf = _portrait_frame(spec, Vector2(168, 224), body)
+		var pf = _portrait_frame(spec, Vector2(168, 224) * ps, body)
 		pf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	elif portrait != "" and tex(portrait):
 		var pr = TextureRect.new()
 		pr.texture = tex(portrait)
 		pr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-		pr.custom_minimum_size = Vector2(180, 204)
+		pr.custom_minimum_size = Vector2(180, 204) * ps
 		pr.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(pr)
@@ -2022,6 +2035,7 @@ func _trip_event() -> void:
 	if ev.get("heavy", false):
 		chip("要事", tr, "", C_WARN)
 	_spacer()
+	dlg_opts = ev["options"].size()
 	var done = dialog(SPEAKER.get(pk, ""), ("vn_" + pk) if pk != "" else "", ev["text"])
 	if not done:
 		return
@@ -2041,6 +2055,7 @@ func _trip_event() -> void:
 			ic = "ico_lingshi" if ic == "" else ic
 		var b = BI(txt, ic, func(): _choose(oid), o["enabled"], r, 50) if ic != "" else B(txt, func(): _choose(oid), o["enabled"], r, 50)
 		b.add_theme_font_size_override("font_size", 14)
+		_reveal(r, ev["options"].find(o))
 		if o.get("key", false):
 			var th = String(o.get("thought", ""))
 			var kb = B("◎", func(): modal = {"kind": "thought", "text": th}, true, r, 50)
@@ -2277,10 +2292,13 @@ func _story() -> void:
 	if not dialog(spk, "", text, true, spec):
 		return
 	if ev["stage"] == "ask":
+		var k = 0
 		for o in ev["opts"]:
 			var oid = String(o[0])
 			var b = B(String(o[1]), func(): _story_pick(oid), true, footer, 50)
 			b.add_theme_font_size_override("font_size", 15)
+			_reveal(b, k)
+			k += 1
 	else:
 		B("知道了", func(): g.world.close(); modal = {}, true, footer, 50)
 
@@ -2559,6 +2577,17 @@ func _dev(cmd: String) -> String:
 			g.notices.clear()
 			_save()
 			refresh()
+		_ when cmd.begins_with("npcsheet"):
+			# 调试：12 个随机新人物（种子 npcsheet:<n>）一屏排开，看彼此是否够不同、有没有贴歪的部件
+			var base := int(cmd.substr(9)) if cmd.length() > 9 else 1
+			var specs2 := []
+			for k in 12:
+				var sect: String = g.world.SECT_LIST[(base + k) % g.world.SECT_LIST.size()] if g.world != null else "散修"
+				var o := {"sex": "m" if k % 3 == 2 else "f", "elder": k == 11, "demonic": sect in ["血煞门", "阴骨教"]}
+				if g.world != null and g.world.SECT_TINT.has(sect):
+					o["robe_tint"] = g.world.SECT_TINT[sect]
+				specs2.append(PLib.roll((base * 7919 + k * 104729) % 1000000000, o))
+			return _dev("psheet:" + JSON.stringify(specs2))
 		_ when cmd.begins_with("psheet:"):
 			# 调试：一屏摆一组立绘（静止，可指定 eye_state），验部件和闭眼帧
 			var specs = JSON.parse_string(cmd.substr(7))
