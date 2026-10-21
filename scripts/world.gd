@@ -368,7 +368,7 @@ func _new_char(sex: String = "", sect: String = "", lv: int = -1, player: bool =
 	var c := {"id": id, "player": player, "sex": sex, "name": nm, "sect": sect, "lv": lv, "xp": 0.0,
 		"age": float(rng.randi_range(16, 30) + lv * 6), "traits": traits, "likes": likes, "dislikes": [_ch(rest)],
 		"goal": _ch(GOALS), "gt": 0, "place": SECT_HOME[sect] if rng.randf() < 0.6 else _ch(PLACES.slice(1)),
-		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "pv": 7, "born": int(w["day"])}
+		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "pv": 8, "born": int(w["day"])}
 	w["C"][str(id)] = c
 	return c
 
@@ -380,6 +380,8 @@ func portrait_opts(c: Dictionary) -> Dictionary:
 	var o := {"sex": "f" if c["sex"] == "女" else "m", "elder": float(c["age"]) >= 75.0, "demonic": side(c) == "魔"}
 	if int(c.get("pv", 0)) < 7:
 		o["exclude"] = PV7_NEW
+	if int(c.get("pv", 0)) >= 8:
+		o["demon_mix"] = true   # v0.7.4 起的新人物：魔门中人不再一律穿同一件黑袍（旧人物不变）
 	if SECT_TINT.has(c["sect"]):
 		o["robe_tint"] = SECT_TINT[c["sect"]]
 	return o
@@ -1278,7 +1280,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				chron(p, pv("偶遇记", ["与%s同行到岔路口。", "和%s一起避了场雨。", "路上结识%s，同行了一程。", "与%s结伴走过一段山路。"]) % nm)
 			else:
 				out = "%s。%s" % [pv("偶遇别", ["各自赶路", "她拱了拱手，没多停", "彼此点头，擦肩而过", "她侧身让了路"]), pv("偶遇别名", ["后来才知道，那人叫%s。", "后来在坊市听人提起，才知那是%s。", "那人走远了，她才想起腰牌上的字：%s。"]) % nm]
-				chron(p, pv("偶遇别记", ["路上与%s擦肩而过。", "在路上见过%s一面，没有搭话。", "与%s点头而过。"]) % nm)
+				chron(p, pv("偶遇别记", ["路上与%s擦肩而过。", "在路上见过%s一面，没有搭话。", "与%s点头而过。", "山道上遇见%s，各走各的路。", "同%s打了个照面，没有多留。"]) % nm)
 		"求助":
 			meet(n)
 			if oid == "help":
@@ -1492,7 +1494,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			var b := C(roles["B"])
 			if oid == "none":
 				out = pv("站队避", ["她绕路走了。", "她只当没看见。", "她在远处站了一会儿，走了。"])
-				chron(p, "撞见%s与%s相争，没有掺和。" % [a["name"], b["name"]])
+				chron(p, pv("站队避记", ["撞见%s与%s相争，没有掺和。", "%s和%s起了争执，她绕开了。", "%s与%s的事，她没有插手。"]) % [a["name"], b["name"]])
 			else:
 				var x: Dictionary = a if oid == "a" else b
 				var y: Dictionary = b if oid == "a" else a
@@ -1502,7 +1504,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				R(y, p)["g"] = int(R(y, p)["g"]) + 25
 				remember(y, p, "%s帮%s对付我" % [pn(), x["name"]], -20)
 				out = pv("站队选", ["她站到了%s身边。", "她替%s挡了一剑。", "她开口替%s说了句话。", "她把剑横在了%s身前。", "她只往%s那边站了一步，局面就变了。"]) % x["name"] + "%s记住了她。" % y["name"]
-				chron(p, "%s与%s相争，她帮了%s。" % [a["name"], b["name"], x["name"]])
+				chron(p, pv("站队选记", ["{a}与{b}相争，她帮了{x}。", "{a}和{b}起了争执，她站在{x}一边。", "替{x}出头，与{y}结下了梁子。"]).format({"a": a["name"], "b": b["name"], "x": x["name"], "y": y["name"]}))
 		"拜师":
 			meet(n)
 			if oid == "yes":

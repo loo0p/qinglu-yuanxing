@@ -2583,7 +2583,7 @@ func _dev(cmd: String) -> String:
 			var specs2 := []
 			for k in 12:
 				var sect: String = g.world.SECT_LIST[(base + k) % g.world.SECT_LIST.size()] if g.world != null else "散修"
-				var o := {"sex": "m" if k % 3 == 2 else "f", "elder": k == 11, "demonic": sect in ["血煞门", "阴骨教"]}
+				var o := {"sex": "m" if k % 3 == 2 else "f", "elder": k == 11, "demonic": sect in ["血煞门", "阴骨教"], "demon_mix": true}
 				if g.world != null and g.world.SECT_TINT.has(sect):
 					o["robe_tint"] = g.world.SECT_TINT[sect]
 				specs2.append(PLib.roll((base * 7919 + k * 104729) % 1000000000, o))

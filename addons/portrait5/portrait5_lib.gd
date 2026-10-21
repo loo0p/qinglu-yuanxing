@@ -84,7 +84,11 @@ static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 				if lib.marks[id].forehead != lib.marks[a].forehead: other.append(id)
 			if other.size() > 0: sp.marks.append(_pick(r, other))
 	var demon_robe := "robe_f3@base_f" if sex == "f" else "robe_m3@base_m"
-	if opts.get("demonic", false) or (not opts.has("demonic") and r.randf() < 0.06):
+	var use_demon: bool = opts.get("demonic", false) or (not opts.has("demonic") and r.randf() < 0.06)
+	# demon_mix（v0.7.4 新人物）：魔门里约六成换穿别的袍子，仍染宗门色；旧人物没有这个键，抽签顺序不变
+	if use_demon and opts.get("demon_mix", false) and r.randf() < 0.6:
+		use_demon = false
+	if use_demon:
 		sp.robe = demon_robe
 	else:
 		var pool := []
