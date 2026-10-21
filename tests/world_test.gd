@@ -86,6 +86,11 @@ func _init() -> void:
 	ok(agg.tri > 0.95, "三连序列去重率 > 95%%（%.3f）" % agg.tri)
 	ok(agg.skel > 0.65, "生平句骨架去重率 > 65%%（%.3f）" % agg.skel)
 	ok(agg.n >= 25, "每 100 日至少 25 件玩家事件（%.1f）" % agg.n)
+	var miss := []
+	for k in ["宗门招徒", "入门试炼", "秘境请柬", "拍卖会", "劫修伏击", "师弟惹祸", "天材地宝", "宝地相争", "对手突破", "旧债上门", "节令"]:
+		if int(all.get(k, 0)) == 0:
+			miss.append(k)
+	ok(miss.is_empty(), "v0.7.2 新事件在 8 局 100 日里都出现过（缺：%s）" % "、".join(miss))
 	var a = run(3, 80)
 	var b = run(3, 80, 37)
 	var ja := JSON.stringify(JSON.parse_string(JSON.stringify(a.w)))
@@ -135,7 +140,7 @@ func _init() -> void:
 					top.append("%d×%s" % [cnt[t], t])
 			worst = "；".join(top)
 	lines.append("100 日不同句子占比 %.3f（种子 51 里出现 ≥3 次的：%s）" % [ur, worst])
-	ok(ur >= 0.80, "100 日内玩家读到的句子不同句占比 ≥ 0.80（%.3f）" % ur)
+	ok(ur >= 0.85, "100 日内玩家读到的句子不同句占比 ≥ 0.85（%.3f）" % ur)
 	# 故事线：一局 45 日（约 6 成日子在青庐、其余在路上），玩家总选第一个选项（结伴/救人/应下/收殓/去寻）
 	var arcs := {"表白": 0, "道侣遇险": 0, "旧友死讯": 0, "寻凶": 0}
 	var tops := 0.0
@@ -182,6 +187,63 @@ func _init() -> void:
 	ok(arcs2["婉拒后"] >= 7 and arcs2["旧友托梦"] >= 7, "拒绝型：婉拒后有暗恋不舍/怨偶、不收殓有旧友托梦，至少 7/8 局")
 	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
 	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
+	# 第三拍：对后话也说不（总挑“拒绝”那一项）→ 远方来信/落难；总选第二项（收下心意→再问→仍婉拒）→ 喜帖
+	var REFUSE := ["no", "bye", "cut", "let", "bow", "wait", "pass", "shrug", "hide", "keep_no"]
+	var third := {"拒绝到底": 0, "再问又拒": 0, "喜帖": 0}
+	for sd in range(31, 39):
+		for mode in ["refuse", "second"]:
+			var x = W.new()
+			x.create(sd, "苏青禾")
+			for d in 100:
+				x.tick((d % 10) < 6)
+				var ev = x.pending()
+				if not ev.is_empty():
+					var pick: Array = ev["opts"][1] if ev["opts"].size() > 1 else ev["opts"][0]
+					if mode == "refuse":
+						for o in ev["opts"]:
+							if String(o[0]) in REFUSE:
+								pick = o
+					x.choose(String(pick[0]))
+					x.close()
+			var cnt: Dictionary = metrics(x).cnt
+			if mode == "refuse" and (cnt.has("远方来信") or cnt.has("落难") or cnt.has("喜帖")):
+				third["拒绝到底"] += 1
+			if mode == "second" and cnt.has("再问"):
+				third["再问又拒"] += 1
+				if cnt.has("喜帖"):
+					third["喜帖"] += 1
+	lines.append("第三拍（8 局 100 日里出现的局数）：%s" % JSON.stringify(third))
+	ok(third["拒绝到底"] >= 6, "拒绝到底的玩家也有第三拍（远方来信/落难/喜帖），至少 6/8 局")
+	ok(third["喜帖"] == third["再问又拒"] and third["再问又拒"] >= 1, "再问仍婉拒的局都有喜帖/辞行（%d/%d）" % [third["喜帖"], third["再问又拒"]])
+	# 像真人一样乱点：3 个种子 × 120 日，每件事随机挑一项；检查文字没有漏网的占位符、选项不空、事件不卡住
+	var bad := []
+	var seen := {}
+	for sd in [101, 202, 303]:
+		var x = W.new()
+		x.create(sd, "苏青禾")
+		for d in 120:
+			x.tick((d % 9) < 6)
+			var ev = x.pending()
+			if ev.is_empty():
+				continue
+			seen[String(ev["tid"])] = 1
+			var txt := String(ev["text"])
+			if txt.strip_edges() == "" or ev["opts"].is_empty():
+				bad.append("%s 空文字/无选项" % ev["tid"])
+			var o: Array = x._ch(ev["opts"])
+			var res: String = x.choose(String(o[0]))
+			for t in [txt, res, String(o[1])]:
+				if "%s" in t or "%d" in t or "{n}" in t or "{p}" in t or "{m}" in t or "<null>" in t or "Nil" in t:
+					bad.append("%s：%s" % [ev["tid"], t.substr(0, 40)])
+			x.close()
+			if not x.pending().is_empty():
+				bad.append("%s 关不掉" % ev["tid"])
+		for l in x.P()["log"]:
+			var t2 := String(l[1])
+			if "%s" in t2 or "%d" in t2 or "<null>" in t2:
+				bad.append("生平：" + t2.substr(0, 40))
+	lines.append("乱点 3 局 × 120 日：见过 %d 种事件；问题 %s" % [seen.size(), JSON.stringify(bad.slice(0, 8))])
+	ok(bad.is_empty(), "乱点 3 局：没有空文字、漏网占位符或关不掉的事件")
 	# 旧档补种故事线
 	var y = W.new()
 	y.create(41, "苏青禾")
