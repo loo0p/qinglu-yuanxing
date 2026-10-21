@@ -12,6 +12,11 @@ for f in glob.glob(R + "/data/*.json") + glob.glob(R + "/scripts/*.gd"):
         for m in re.findall(r'H\("([^"]*)"', t): brush |= set(m)
     if f.endswith(".json"):
         for m in re.findall(r'"(?:title|name)":\s*"([^"]*)"', t): brush |= set(m)
+from fontTools.ttLib import TTFont
+_has = lambda path: set(chr(k) for k in TTFont(path).getBestCmap())
+_hb, _hm = _has(sys.argv[1]), _has(sys.argv[2])
+body = set(c for c in body if c in _hb or c in " \n")
+brush = set(c for c in brush if c in _hm)   # 毛笔字体缺的字（如“·”）不列入，标题自动退回正文字体
 body = "".join(sorted(c for c in body if c.isprintable()))
 brush = "".join(sorted(c for c in brush if c.isprintable()))
 os.makedirs(R + "/fonts", exist_ok=True)

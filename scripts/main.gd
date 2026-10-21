@@ -178,7 +178,8 @@ func _ready() -> void:
 		var sp = AudioStreamPlayer.new()
 		add_child(sp)
 		sfx_players.append(sp)
-	get_viewport().size_changed.connect(func(): refresh())
+	get_viewport().size_changed.connect(func(): _apply_safe_area(); refresh())
+	_apply_safe_area()
 	_hook_web()
 	if OS.has_feature("web"):
 		PLib.fetch = _pf_fetch
@@ -186,6 +187,22 @@ func _ready() -> void:
 		get_tree().create_timer(2.5).timeout.connect(_pf_prefetch_all)
 	session_start = Time.get_ticks_msec()
 	refresh()
+
+## 刘海/底部横条：读 CSS env(safe-area-inset-*)（页面已设 viewport-fit=cover），换算成画面像素加到四边留白上
+func _apply_safe_area() -> void:
+	var ins = [0.0, 0.0, 0.0, 0.0]
+	if OS.has_feature("web"):
+		var js = JavaScriptBridge.eval("""(function(){var d=document.getElementById('qsafe');if(!d){d=document.createElement('div');d.id='qsafe';d.style.cssText='position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';document.body.appendChild(d);}var c=getComputedStyle(d);return JSON.stringify([parseFloat(c.paddingTop)||0,parseFloat(c.paddingRight)||0,parseFloat(c.paddingBottom)||0,parseFloat(c.paddingLeft)||0,window.innerHeight||0]);})()""", true)
+		var a = JSON.parse_string(String(js)) if js is String else null
+		if a is Array and a.size() == 5 and float(a[4]) > 0:
+			var k = get_viewport_rect().size.y / float(a[4])
+			ins = [a[0] * k, a[1] * k, a[2] * k, a[3] * k]
+	safe_inset = ins
+	var sides = ["top", "right", "bottom", "left"]
+	for i in 4:
+		ui.add_theme_constant_override("margin_" + sides[i], 8 + int(ceil(ins[i])))
+
+var safe_inset = [0.0, 0.0, 0.0, 0.0]
 
 func _font(path: String) -> Font:
 	var f = load(path)
@@ -464,7 +481,11 @@ func _clear(n: Node) -> void:
 		n.remove_child(c)
 		c.queue_free()
 
+const MIN_TAP := 44      # 可点控件最小边长（px，≈ CSS px）
+const MIN_FONT := 13     # 最小字号：360×640 下 11–12px 太小
+
 func L(text: String, size: int = 16, color: Color = C_TEXT, parent: Node = null) -> Label:
+	size = maxi(size, MIN_FONT)
 	var l = Label.new()
 	l.text = text
 	var par: Node = parent if parent else body
@@ -503,7 +524,7 @@ func B(text: String, cb: Callable, enabled: bool = true, parent: Node = null, h:
 	var b = Button.new()
 	b.text = text
 	b.disabled = not enabled
-	b.custom_minimum_size = Vector2(0, h)
+	b.custom_minimum_size = Vector2(44, maxi(h, MIN_TAP))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.pressed.connect(func(): _press(cb))
@@ -577,7 +598,13 @@ func ring(parent: Node, value: float, maxv: float, size: int, col: Color = C_ACC
 		s2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return r
 
+var last_press_ms := -1000
 func _press(cb: Callable) -> void:
+	# 防误触：手机上一次点按可能同时来触摸 + 模拟鼠标，或手抖连点；240ms 内的第二下不算（无头测试不限）
+	var now = Time.get_ticks_msec()
+	if DisplayServer.get_name() != "headless" and now - last_press_ms < 240:
+		return
+	last_press_ms = now
 	sfx("tap")
 	var before = [g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), g.s.get("ending", "")]
 	var items_before = _inventory()
@@ -876,9 +903,9 @@ func hotspot(text: String, icon_name: String, at: Vector2, cb: Callable, w: int 
 	b.add_theme_stylebox_override("normal", sb)
 	b.add_theme_stylebox_override("hover", sb)
 	b.add_theme_stylebox_override("focus", sb)
-	b.custom_minimum_size = Vector2(w, 38)
-	b.size = Vector2(w, 38)
-	b.position = at - Vector2(w / 2.0, 19)
+	b.custom_minimum_size = Vector2(w, MIN_TAP)
+	b.size = Vector2(w, MIN_TAP)
+	b.position = at - Vector2(w / 2.0, MIN_TAP / 2.0)
 	b.pressed.connect(func(): _press(cb))
 	stage.add_child(b)
 	# 呼吸：轻轻上下浮动，提示可点
@@ -945,7 +972,7 @@ func _hud() -> void:
 	var bb = Button.new()
 	bb.icon = tex("ico_juqi")
 	bb.expand_icon = true
-	bb.custom_minimum_size = Vector2(38, 34)
+	bb.custom_minimum_size = Vector2(MIN_TAP, MIN_TAP)
 	bb.add_theme_constant_override("icon_max_width", 24)
 	bb.pressed.connect(func(): _press(func(): sheet = "" if sheet == "stats" else "stats"))
 	r.add_child(bb)
@@ -957,7 +984,11 @@ func _nav() -> void:
 	if g.world != null:
 		tabs.insert(3, ["jianghu", "江湖", "ico_lingshi"])
 	for t in tabs:
-		var b = BI(("● " if tab == t[0] else "") + t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
+		# 选中的页签不再加“● ”（5 个页签时会把“青庐”挤成两行），改用底色 + 主色字
+		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
+		if tab == t[0]:
+			b.add_theme_stylebox_override("normal", _sb(Color(C_ACCENT.r, C_ACCENT.g, C_ACCENT.b, 0.16), C_ACCENT, 8, 1, 4))
+			b.add_theme_color_override("font_color", C_ACCENT)
 		b.add_theme_font_size_override("font_size", 13 if tabs.size() > 4 else 14)
 		if tabs.size() > 4:
 			b.add_theme_constant_override("h_separation", 1)
@@ -990,7 +1021,7 @@ func _sheet() -> void:
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
 	cb.size_flags_horizontal = Control.SIZE_SHRINK_END
-	cb.custom_minimum_size = Vector2(64, 34)
+	cb.custom_minimum_size = Vector2(64, MIN_TAP)
 	cb.add_theme_font_size_override("font_size", 13)
 	match sheet:
 		"field": _sheet_field(v)
@@ -1060,7 +1091,7 @@ func _sheet_furnace(v: Node) -> void:
 		for i in s["queue"].size():
 			var qi = i
 			var qb = B("%s%s" % ["↑" if i > 0 else "", GS.RECIPES[s["queue"][i][0]]["name"].substr(0, 2)], func(): g.queue_move(qi, -1), i > 0, r4, 30)
-			qb.add_theme_font_size_override("font_size", 11)
+			qb.add_theme_font_size_override("font_size", 13)
 	var grid = GridContainer.new()
 	grid.columns = 5
 	grid.add_theme_constant_override("h_separation", 6)
@@ -1108,21 +1139,21 @@ func _sheet_pack(v: Node) -> void:
 			var sl = s["pack"][i]
 			var idx = i
 			var b = BI("%s%s×%d" % ["◎" if sl["key"] else "", N(sl["id"]), int(sl["n"])], ICON.get(sl["id"], "ico_fu"), func(): g.pack_take(idx), true, grid, 42)
-			b.add_theme_font_size_override("font_size", 12)
+			b.add_theme_font_size_override("font_size", 13)
 		else:
 			var e = B("空", func(): pass, false, grid, 42)
-			e.add_theme_font_size_override("font_size", 12)
+			e.add_theme_font_size_override("font_size", 13)
 	var rr2 = row(v, 4)
 	for id in ["pill_juqi", "fu_bishui", "fu_jingshui", "pill_quzhang"]:
 		if g.store_n(id) > 0:
 			var b2 = BI("带%s" % N(id), ICON[id], func(): g.pack_put(id, id == "pill_juqi"), s["pack"].size() < 6 or g.pack_n(id) > 0, rr2, 38)
-			b2.add_theme_font_size_override("font_size", 12)
+			b2.add_theme_font_size_override("font_size", 13)
 	if s["pack"].size() > 0:
 		var rr3 = row(v, 4)
 		for i in s["pack"].size():
 			var idx = i
 			var b3 = B("◎%d" % (i + 1), func(): g.toggle_key(idx), true, rr3, 30)
-			b3.add_theme_font_size_override("font_size", 11)
+			b3.add_theme_font_size_override("font_size", 13)
 	var pr = row(v, 4)
 	var presets: Array = s.get("presets", [{}, {}, {}])
 	for k in 3:
@@ -1130,9 +1161,9 @@ func _sheet_pack(v: Node) -> void:
 		var has: bool = not presets[k].is_empty()
 		var lab = ("存入方案%d" % (k + 1)) if (preset_save_mode or not has) else ("装方案%d" % (k + 1))
 		var pb = B(lab, func(): _preset(kk), true, pr, 32)
-		pb.add_theme_font_size_override("font_size", 11)
+		pb.add_theme_font_size_override("font_size", 13)
 	var sm = B("取消" if preset_save_mode else "存…", func(): preset_save_mode = not preset_save_mode, presets.any(func(x): return not x.is_empty()), pr, 32)
-	sm.add_theme_font_size_override("font_size", 11)
+	sm.add_theme_font_size_override("font_size", 13)
 
 func _sheet_stats(v: Node) -> void:
 	var s = g.s
@@ -1192,7 +1223,7 @@ func _title() -> void:
 	vtag.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mb = B("♪" if not muted else "♪×", func(): _toggle_mute(), true, top, 34)
 	mb.size_flags_horizontal = Control.SIZE_SHRINK_END
-	mb.custom_minimum_size = Vector2(44, 34)
+	mb.custom_minimum_size = Vector2(MIN_TAP, MIN_TAP)
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, get_viewport_rect().size.y * 0.09)
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1387,16 +1418,29 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 		tl.visible_characters = total - last_len
 		var tw = tl.create_tween()
 		tw.tween_property(tl, "visible_characters", total, last_len * 0.025)
+		type_tw = tw
+		type_label = tl
 	if not done:
-		var adv = B("▼", func(): beat_i += 1, true, v, 30)
+		var adv = B("▼", func(): _advance(), true, v, 44)
 		adv.flat = true
 		adv.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		adv.add_theme_color_override("font_color", C_GOLD)
 		adv.add_theme_color_override("font_hover_color", C_GOLD)
+		# 点对话框任意处：字还在走就先一下子显完，再点才翻页（触摸会被模拟成鼠标，只认鼠标左键，免得一下翻两页）
 		p.gui_input.connect(func(e):
-			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
-				_press(func(): beat_i += 1))
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				_advance())
 	return done
+
+var type_tw: Tween
+var type_label: Label
+func _advance() -> void:
+	if DisplayServer.get_name() != "headless" and type_tw != null and type_tw.is_valid() and type_tw.is_running():
+		type_tw.kill()
+		if is_instance_valid(type_label):
+			type_label.visible_characters = -1
+		return
+	_press(func(): beat_i += 1)
 
 # ------------------------------------------------------------ 弹卡
 func _modal() -> void:
@@ -1621,7 +1665,7 @@ func _map_markers(rid: String, r: Rect2, interactive: Array, done_path: Array, c
 		var at = _at(r, pos.get(nid, pos["_start"]))
 		var dot = Label.new()
 		dot.text = ("● " if nid in done_path else "○ ") + g.events[nd["event"]]["title"]
-		dot.add_theme_font_size_override("font_size", 12)
+		dot.add_theme_font_size_override("font_size", 13)
 		dot.add_theme_color_override("font_color", Color("#8A3A22") if nid in done_path else Color("#3A332B"))
 		dot.add_theme_stylebox_override("normal", _sb(Color(0.985, 0.97, 0.935, 0.75), Color(0, 0, 0, 0), 8, 0, 3))
 		dot.position = at - Vector2(30, 10)
@@ -2050,7 +2094,7 @@ func _jianghu() -> void:
 	H("江湖", 26, C_ACCENT, top).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var me = B("她的生平", func(): person_id = 1; person_tab = "life"; modal = {"kind": "person"}, true, top, 36)
 	me.size_flags_horizontal = Control.SIZE_SHRINK_END
-	me.custom_minimum_size = Vector2(96, 36)
+	me.custom_minimum_size = Vector2(96, MIN_TAP)
 	var ppl: Array = w.acquaintances()
 	L("认识的人（%d）" % ppl.size(), 15, C_INK)
 	if ppl.is_empty():
@@ -2235,6 +2279,29 @@ func _dev(cmd: String) -> String:
 			g.world.fire(tid, r, {})
 			_save()
 			refresh()
+		"beat":
+			if OS.has_feature("web"):
+				JavaScriptBridge.get_interface("window").qinglu_beat = beat_i
+			return str(beat_i)
+		"audit":
+			# 调试：列出当前画面里小于 44px 的可点控件、小于 13px 的字
+			var small := []
+			var tiny := []
+			var st := [self]
+			while not st.is_empty():
+				var n: Node = st.pop_back()
+				for c in n.get_children():
+					st.append(c)
+				if n is Control and n.is_visible_in_tree():
+					var r: Rect2 = n.get_global_rect()
+					if n is BaseButton and (r.size.y < 44 or r.size.x < 44):
+						small.append("%s %dx%d" % [String(n.text) if n is Button else n.get_class(), int(r.size.x), int(r.size.y)])
+					if n is Label and n.text.strip_edges() != "" and n.get_theme_font_size("font_size") < 13:
+						tiny.append("%s %d" % [n.text.substr(0, 10), n.get_theme_font_size("font_size")])
+			var js = JSON.stringify({"small": small, "tiny": tiny})
+			if OS.has_feature("web"):
+				JavaScriptBridge.get_interface("window").qinglu_audit = js
+			return js
 		"reveal":
 			beat_i = 99
 			refresh()
