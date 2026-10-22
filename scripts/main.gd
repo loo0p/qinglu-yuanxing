@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.8.0 试玩版"
+const VERSION = "v0.8.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -615,6 +615,39 @@ func L(text: String, size: int = 16, color: Color = C_TEXT, parent: Node = null)
 	par.add_child(l)
 	return l
 
+## 图标旁边的换行文字：放在 HBox 里也要占满剩下的宽度，不然会被挤成一字一行
+func LW(text: String, size: int = 16, color: Color = C_TEXT, parent: Node = null) -> Label:
+	var l = L(text, size, color, parent)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size.x = maxf(l.custom_minimum_size.x, 96)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
+
+## 兜底：任何会换行的 Label，只要它（或它所在的竖排）是某个 HBox 的直接子节点，
+## 就让那一格占满剩余宽度，并给 Label 一个最小宽度。换行 Label 的最小宽度是 0，
+## HBox 不给它地方时就会一字一行（手机上灵脉第五点就是这样）。
+func _fix_wraps(root: Node) -> void:
+	if root == null:
+		return
+	for l in root.find_children("*", "Label", true, false):
+		if (l as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
+			continue
+		var n: Node = l
+		var in_row := false
+		while n != null and n != root:
+			var par = n.get_parent()
+			if par is HBoxContainer and n is Control:
+				in_row = true
+				if not ((n as Control).size_flags_horizontal & Control.SIZE_EXPAND):
+					(n as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			n = par
+		if in_row:
+			var fs := (l as Label).get_theme_font_size("font_size")
+			var want := minf(96.0, float(fs * (l as Label).text.length()))
+			if (l as Label).custom_minimum_size.x < want:
+				(l as Label).custom_minimum_size.x = want
+
 var brush_glyphs = ""
 func H(text: String, size: int = 22, color: Color = C_ACCENT, parent: Node = null) -> Label:
 	var l = L(text, size, color, parent)
@@ -932,6 +965,8 @@ func refresh() -> void:
 		beat_i = 0
 		beat_key = key
 	_refresh()
+	for n in [hud, body, footer, sheet_layer]:
+		_fix_wraps(n)
 	_set_bgm(_bgm_for_scene())
 	if changed and not key.contains("|ending|"):
 		_clear(fx_layer)   # 离开结局页时把还在飘的灵气粒子收掉
@@ -1734,6 +1769,7 @@ func _modal() -> void:
 			var r = row(c)
 			IC("ico_juqi", 56, r)
 			var vv = VBoxContainer.new()
+			vv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			r.add_child(vv)
 			H("服下 %d 颗聚气丹" % pv["n"], 22, C_ACCENT, vv)
 			L("修为 +%d%s" % [pv["xw"], ("，余韵 +%d" % pv["yuyun"]) if pv["yuyun"] > 0 else ""], 15, C_TEXT, vv)
@@ -1753,10 +1789,10 @@ func _extra_choice() -> void:
 	L("青庐的灵脉多通了一处，只够开一块地。", 15, C_TEXT, c)
 	var r1 = row(c)
 	IC("ico_qingzhi", 44, r1)
-	L("第三块阳田：青芝多一半，快。", 14, C_TEXT, r1)
+	LW("第三块阳田：青芝多一半，快。", 14, C_TEXT, r1)
 	var r2 = row(c)
 	IC("ico_lian", 44, r2)
-	L("水田：出灵谷当干粮，还能种寒潭莲子，是后路。", 14, C_TEXT, r2).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	LW("水田：出灵谷当干粮，还能种寒潭莲子，是后路。", 14, C_TEXT, r2)
 	BI("开第三块阳田", "ico_qingzhi", func(): g.choose_extra("field"), true, footer, 50)
 	BI("开水田", "ico_lian", func(): g.choose_extra("shuitian"), true, footer, 50)
 
@@ -1859,7 +1895,7 @@ func _log_tab() -> void:
 	for m in g.s["memory"]:
 		var r = row(card())
 		IC(pk.get(m["npc"], "por_heroine"), 40, r)
-		L("第%d日 · %s：%s" % [int(m["day"]), m["npc"], m["text"]], 14, C_TEXT, r).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		LW("第%d日 · %s：%s" % [int(m["day"]), m["npc"], m["text"]], 14, C_TEXT, r)
 	H("青庐行记", 24)
 	var lc = card()
 	var lg: Array = g.s["log"]
@@ -2625,6 +2661,18 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"settings":
 			show_settings = true
+			refresh()
+		"extra":
+			# 调试：灵脉第五点的二选一（第一次历练回来后）
+			g.new_game("苏青禾", "aunt", 5, true)
+			g.s["portrait"] = _hero_roll("p5")
+			g.s["trips_done"] = 1
+			g.s["extra"] = ""
+			screen = "game"
+			modal = {}
+			sheet = ""
+			tab = "home"
+			g.notices.clear()
 			refresh()
 		"story", "jianghu", "person", "create_rnd", "life", "guide", "guide_depart":
 			if cmd == "create_rnd":
