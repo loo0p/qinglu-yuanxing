@@ -11,7 +11,13 @@ SCENES = [('title', 'title'), ('create', 'create'), ('home', 'home'), ('sheet_fu
           ('create_rnd', 'create_portrait'), ('story', 'story'), ('reveal', 'story_choices'), ('jianghu', 'jianghu'), ('person', 'person'),
           ('story:表白', 'bg_chasi'), ('story:偶遇', 'bg_shandao'), ('story:坊市传闻', 'bg_fangshi'), ('story:夜雨', 'bg_yeyu'), ('story:秘境', 'bg_dongfu'), ('story:宗门大比', 'bg_leitai'), ('story:暗恋不舍', 'anlian'), ('life', 'life'),
           ('story:宗门招徒', 'zongmen'), ('story:秘境请柬', 'qingjian'), ('story:拍卖会', 'paimai'), ('story:劫修伏击', 'jiexiu'), ('story:师弟惹祸', 'shidi'),
-          ('story:天材地宝', 'tiancai'), ('story:对手突破', 'tupo'), ('story:旧债上门', 'jiuzhai'), ('story:节令', 'jieling'), ('guide', 'guide_home'), ('guide_depart', 'guide_depart'), ('settings', 'settings'), ('title', 'title_after')]
+          ('story:天材地宝', 'tiancai'), ('story:对手突破', 'tupo'), ('story:旧债上门', 'jiuzhai'), ('story:节令', 'jieling'), ('guide', 'guide_home'), ('guide_depart', 'guide_depart'), ('settings', 'settings'), ('title', 'title_after'),
+          ('story:两难', 'liangnan'), ('reveal', 'liangnan_choices'), ('story:暗涌', 'anyong'), ('story:坊市认物', 'renwu'), ('reveal', 'renwu_choices'),
+          ('story:借庐', 'jielu'), ('story:点化', 'dianhua'), ('story:白首', 'baishou'), ('story:重逢', 'chongfeng'), ('story:灵田', 'light_home')]
+# 可选第 4 个参数：只截名字里含这些词的场景（逗号分隔），例如 liangnan,jianghu
+if len(sys.argv) > 4:
+    keep = sys.argv[4].split(',')
+    SCENES = [x for x in SCENES if any(k in x[1] for k in keep)]
 res = {}
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', headless=True, args=ARGS)

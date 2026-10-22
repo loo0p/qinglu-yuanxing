@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.7.8 试玩版"
+const VERSION = "v0.8.0 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -951,9 +951,9 @@ func _bgm_for_scene() -> String:
 		return "title"
 	if modal.get("kind", "") == "story" and g.world != null:
 		var tid = String(g.world.pending().get("tid", ""))
-		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险", "劫修伏击", "仇家寻上门", "落难"]:
+		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险", "劫修伏击", "仇家寻上门", "落难", "两难"]:
 			return "xinmo"
-		if tid in ["秘境", "旧友托梦", "宝地相争"]:
+		if tid in ["秘境", "旧友托梦", "宝地相争", "道途殊归", "坊市认物"]:
 			return "hantan"
 	match String(g.s.get("loc", "home")):
 		"ending":
@@ -1795,6 +1795,7 @@ func _home() -> void:
 	hotspot("静室", "ico_zhuji", _at(r, HOT["room"]) + Vector2(0, -30), func(): tab = "cult")
 	hotspot("姑母", "ico_ration", _at(r, HOT["aunt"]) + Vector2(10, -40), func(): sheet = "aunt")
 	_spacer()
+	_light_notes()
 	if g.can_breakthrough() == "":
 		var bb = B("◎ 冲关（筑基，耗 1 日）", func(): g.start_breakthrough(), true, footer, 52)
 		bb.add_theme_color_override("font_color", C_WARN)
@@ -2259,10 +2260,47 @@ func _story_check() -> void:
 		return
 	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
 		return
-	if not g.world.pending().is_empty():
+	var pe: Dictionary = g.world.pending()
+	if not pe.is_empty():
+		# v0.8：低频的日常小事（灵田、家书、夜雨……只有“知道了”）不再弹整屏对话，收进院里的一行小字，点开才看
+		if pe.get("stage", "") == "ask" and String(pe.get("tid", "")) in LIGHT_TIDS and pe["opts"].size() == 1:
+			g.world.choose(String(pe["opts"][0][0]))
+			g.world.close()
+			var lt: Array = g.world.w.get("light", [])
+			lt.append([int(g.world.w["day"]), String(pe["tid"]), String(pe["text"])])
+			g.world.w["light"] = lt.slice(-3)
+			return
 		modal = {"kind": "story"}
 		sheet = ""
 		sfx("page")
+
+const LIGHT_TIDS = ["灵田", "闭关小成", "姑母来信", "夜雨", "旧物", "宗门大比", "飞升异象", "师门书信", "坊市传闻"]
+
+## 院里的小字：最近收进来的日常小事（最多 3 条），点一下展开看全文
+func _light_notes() -> void:
+	if g.world == null:
+		return
+	var lt: Array = g.world.w.get("light", [])
+	if lt.is_empty():
+		return
+	var it: Array = lt[-1]
+	var txt := String(it[2])
+	var short := txt.substr(0, 16) + ("…" if txt.length() > 16 else "")
+	var lb = B("【%s】%s%s" % [String(it[1]), short, ("  +%d" % (lt.size() - 1)) if lt.size() > 1 else ""], _open_light, true, footer, 44)
+	lb.add_theme_font_size_override("font_size", 14)
+	lb.add_theme_color_override("font_color", C_INK)
+	lb.add_theme_stylebox_override("normal", _sb(Color(0.985, 0.97, 0.935, 0.80), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.5), 18, 1, 6))
+	lb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	lb.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lb.clip_text = true
+
+func _open_light() -> void:
+	var lt: Array = g.world.w.get("light", [])
+	if lt.is_empty():
+		return
+	var it: Array = lt.pop_back()
+	g.world.w["light"] = lt
+	g.notice("【%s】%s" % [String(it[1]), String(it[2])])
 
 func _story_key() -> String:
 	if g.world == null or modal.get("kind", "") != "story":
@@ -2285,7 +2323,9 @@ func _story() -> void:
 		"暗恋不舍": "bg_chasi", "再问": "bg_chasi", "怨偶": "bg_fangshi", "旧友托梦": "bg_yeyu", "仇家寻上门": "courtyard",
 		"宗门招徒": "bg_leitai", "入门试炼": "bg_leitai", "秘境请柬": "bg_chasi", "拍卖会": "bg_fangshi", "劫修伏击": "bg_shandao",
 		"师弟惹祸": "bg_fangshi", "天材地宝": "bg_houshan", "宝地相争": "bg_houshan", "对手突破": "bg_biguan", "旧债上门": "courtyard",
-		"节令": "bg_fangshi", "远方来信": "bg_yeyu", "喜帖": "bg_chasi", "落难": "bg_shandao"}
+		"节令": "bg_fangshi", "远方来信": "bg_yeyu", "喜帖": "bg_chasi", "落难": "bg_shandao",
+		"坊市认物": "bg_fangshi", "两难": "courtyard", "暗涌": "bg_yeyu", "道途殊归": "bg_yeyu", "重逢": "bg_shandao", "白首": "courtyard",
+		"借庐": "courtyard", "点化": "courtyard", "点化回响": "courtyard"}
 	# 选项多（节令、拍卖会……）时按钮紧凑些，并把场景往上挪，让画面露在对话框上方
 	var n_opt = ev["opts"].size() if ev["stage"] == "ask" else 1
 	var opt_h = 46 if n_opt >= 3 else 50
@@ -2415,9 +2455,13 @@ func _person() -> void:
 		for t in c["traits"]:
 			chip(String(t), tf)
 		var r = w.R(c, w.P())
-		var close = int(r["f"]) >= 20 or c.get("known_like", false)
+		var close = int(r["f"]) >= 20 or c.get("known_like", false) or not w.R(w.P(), c)["t"].is_empty()
 		L("喜：%s" % ("、".join(c["likes"]) if close else "（还不熟）"), 13, C_DIM, info)
 		L("志：%s" % (String(c["goal"]) if close else "（还不熟）"), 13, C_DIM, info)
+		if w.known(c):
+			L("记得：%s" % String(w.sig(c)[1]), 13, C_DIM, info).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if w.R(w.P(), c).has("ks"):
+			L("信物：%s" % String(w.R(w.P(), c)["ks"]), 13, C_GOLD, info).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var bar = ProgressBar.new()
 		bar.min_value = -60
 		bar.max_value = 80
@@ -2445,7 +2489,33 @@ func _person() -> void:
 				if o.is_empty() or int(r2["m"]) == 0 or _rel_depth(r2) < 8:
 					continue
 				var word = "/".join(r2["t"]) if not r2["t"].is_empty() else ("仇" if int(r2["g"]) >= 30 else ("好友" if int(r2["f"]) >= 30 else "相识"))
-				L("%s · %s（%s）%s" % [String(o["name"]), word, String(o["sect"]), "" if o["alive"] else " · 已故"], 13, C_TEXT, cc)
+				# v0.8：竖向卡片（小头像 + 关系 + 最近一件共同的事），手机窄屏不挤
+				var oid2 := int(o["id"])
+				var rr = row(cc, 8)
+				var tb2 = Button.new()
+				tb2.custom_minimum_size = Vector2(44, 50)
+				tb2.flat = true
+				tb2.pressed.connect(func(): _press(func(): person_id = oid2; person_tab = "life"; life_all = false))
+				rr.add_child(tb2)
+				var pb2 = PBox.new()
+				pb2.set_anchors_preset(Control.PRESET_FULL_RECT)
+				pb2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				tb2.add_child(pb2)
+				pb2.setup(npc_spec(o), PBox.FACE, 0.0)
+				if not o["alive"]:
+					pb2.modulate = Color(0.75, 0.75, 0.75, 0.85)
+				var rv = VBoxContainer.new()
+				rv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				rv.add_theme_constant_override("separation", 0)
+				rr.add_child(rv)
+				var wcol = C_WARN if int(r2["g"]) >= 30 else (Color("#B03A2E") if not r2["t"].is_empty() else C_TEXT)
+				L("%s · %s%s" % [String(o["name"]), word, "" if o["alive"] else " · 已故"], 14, wcol, rv)
+				var lastm = ""
+				for m in c["mem"]:
+					if int(m[1]) == oid2:
+						lastm = String(m[2])
+				var ml = L(("“%s”" % lastm) if lastm != "" else String(o["sect"]), 13, C_DIM, rv)
+				ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				n += 1
 				if n >= 10:
 					break
@@ -2626,6 +2696,7 @@ func _dev(cmd: String) -> String:
 				var pb = PBox.new()
 				pb.custom_minimum_size = Vector2(118, 158)
 				grid.add_child(pb)
+				pb.no_bake = true   # 对照图要看闭眼帧，不烘焙
 				pb.setup(sp, PBox.BUST, 0.0)
 				pb.view.eye_state = String(sp.get("eye_state", "open"))
 				pb.view._apply_eyes(pb.view.eye_state)
@@ -2637,11 +2708,29 @@ func _dev(cmd: String) -> String:
 			var tid = cmd.substr(6)
 			var r = g.world.bind(tid)
 			if r == null:
-				var c = g.world.acquaintances()[0] if not g.world.acquaintances().is_empty() else g.world.npcs()[0]
+				var acq: Array = g.world.acquaintances().filter(func(x): return x["alive"])
+				var c = acq[0] if not acq.is_empty() else g.world.npcs()[0]
+				var c2 = acq[1] if acq.size() > 1 else g.world.npcs()[1]
 				r = {"B": int(c["id"])}
+				match tid:
+					"两难":
+						r = {"A": int(c["id"]), "B": int(c2["id"]), "made": 1}
+					"借庐":
+						r["H"] = int(g.world.npcs()[-1]["id"])
+					"重逢":
+						g.world.R(g.world.P(), c)["lv0"] = [int(c["lv"]) + 3, 0]
+					"坊市认物":
+						g.world._swap_ks(c)
+						g.world.die(c, "死于无名劫修之手")
 			g.world.fire(tid, r, {})
 			_save()
 			refresh()
+		"bakestat":
+			# 调试：缩略图烘焙缓存了几张、这台设备能不能烘焙
+			var bs := "%d %s" % [PBox._cache.size(), str(PBox.bake_ok)]
+			if OS.has_feature("web"):
+				JavaScriptBridge.get_interface("window").qinglu_bake = bs
+			return bs
 		"beat":
 			if OS.has_feature("web"):
 				JavaScriptBridge.get_interface("window").qinglu_beat = beat_i

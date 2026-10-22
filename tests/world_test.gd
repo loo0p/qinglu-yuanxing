@@ -400,6 +400,145 @@ func _init() -> void:
 	var m2 = GS.new()
 	ok(m2.from_dict(JSON.parse_string(JSON.stringify(m.to_dict()))) and m2.world != null and int(m2.world.w["day"]) == 33, "带江湖的 v2 存档往返")
 	ok(int(m2.s["v"]) == GS.SAVE_VERSION, "存档版本号 = %d" % GS.SAVE_VERSION)
+	# ---------------------------------------------------------------- v0.8（Gemini 评审 v4 后的修正）
+	var q = W.new()
+	q.create(5, "苏青禾")
+	var qp: Dictionary = q.P()
+	var qn: Dictionary = q.npcs()[0]
+	var op0: float = q.opinion(qn, qp)
+	for k in 4:
+		q.fav(qn, 0, "救命之恩", 30)
+	ok(q.opinion(qn, qp) - op0 <= 25.01, "记忆加成封顶 ±25（4 条 +30 的记忆只加 %.0f）" % (q.opinion(qn, qp) - op0))
+	# 硬锁：好感 > 25 或结义/道侣/师徒的人不当劫修、欺客、争果的施害者
+	for c in q.npcs():
+		q.R(c, qp)["f"] = 40
+		q.R(c, qp)["m"] = 1
+		q.R(qp, c)["m"] = 1
+	var bad_cast := 0
+	for k in 40:
+		for tid in ["劫修拦路", "坊市欺客", "朱果之争", "劫修伏击", "旧债上门", "魔修袭镇"]:
+			if q.bind(tid) != null:
+				bad_cast += 1
+	ok(bad_cast == 0, "亲近的人从不被选进日常恶意模板（%d 次）" % bad_cast)
+	var q2 = W.new()
+	q2.create(6, "苏青禾")
+	var sworn: Dictionary = q2.npcs()[1]
+	q2.R(q2.P(), sworn)["t"].append("结义")
+	ok(q2._close_p(sworn), "结义的人算亲近（好感再低也一样）")
+	# 慢热：一面之缘救了命，也够不上表白的门槛（要好感 > 45 且同历 ≥ 3 件事）
+	var q3 = W.new()
+	q3.create(8, "苏青禾")
+	var tg8: Dictionary = q3.npcs().filter(func(c): return c["sex"] == "男")[0]
+	q3.fire("求助", {"B": int(tg8["id"])}, {})
+	q3.choose("help"); q3.close()
+	var conf = q3.bind("表白")
+	ok(conf == null or int(conf["B"]) != int(tg8["id"]), "救过一回命的人不会立刻来表白")
+	# 焦点社交圈
+	var q4 = W.new()
+	q4.create(9, "苏青禾")
+	var ns8: Array = q4.npcs()
+	for i in 4:
+		q4.R(q4.P(), ns8[i])["m"] = 1
+		q4.R(ns8[i], q4.P())["m"] = 1
+		q4.R(ns8[i], q4.P())["f"] = 30
+		q4.R(q4.P(), ns8[i])["d"] = 0
+	ok(q4.active_bonds() == 4, "活跃羁绊计数（%d）" % q4.active_bonds())
+	var met_a := 0.0
+	var met_b := 0.0
+	for sd in range(30, 36):
+		var xa = W.new(); xa.create(sd, "苏青禾")
+		for d in 80:
+			xa.tick(true); xa.auto_choose()
+		met_a += xa.acquaintances().size() / 6.0
+	lines.append("v0.8 焦点社交圈：80 日平均结识 %.1f 人" % met_a)
+	ok(met_a <= 14.0, "80 日内结识的人不再无限增长（%.1f ≤ 14）" % met_a)
+	# 骨龄比：新人物（pv 9）金丹百岁不显老；旧人物（pv 8）仍按 75 岁
+	var jd := {"sex": "男", "age": 100.0, "lv": 12, "sect": "散修", "pv": 9}
+	var jd8 := jd.duplicate(); jd8["pv"] = 8
+	ok(not q.portrait_opts(jd)["elder"] and q.portrait_opts(jd8)["elder"], "衰老按寿元剩余比例（pv9），旧人物不变")
+	var lq := {"sex": "女", "age": 80.0, "lv": 4, "sect": "散修", "pv": 9}
+	ok(q.portrait_opts(lq)["elder"], "炼气八十岁（骨龄比 0.8）白发")
+	# 信物：报恩留茶会换信物；人没了，坊市能认出来
+	var q5 = W.new()
+	q5.create(12, "苏青禾")
+	var fr8: Dictionary = q5.npcs()[2]
+	q5.fire("报恩", {"B": int(fr8["id"])}, {})
+	var r5: String = q5.choose("tea"); q5.close()
+	ok(q5.R(q5.P(), fr8).has("ks") and q5.R(fr8, q5.P()).has("ks") and r5.contains(String(q5.R(q5.P(), fr8)["ks"])), "报恩留茶：交换信物（%s）" % r5.split("\n")[-1])
+	q5.R(q5.P(), fr8)["m"] = 1
+	q5.die(fr8, "死于无名劫修之手")
+	var rb5 = q5.bind("坊市认物")
+	ok(rb5 != null and int(rb5["B"]) == int(fr8["id"]), "故人死后，坊市能认出当年送的信物")
+	q5.fire("坊市认物", rb5, {})
+	ok(String(q5.pending()["text"]).contains(String(q5.R(fr8, q5.P())["ks"])), "认物文字里是她送出的那件")
+	ok(q5.choose("buy") != "", "认物有结果")
+	q5.close()
+	# 新模板随机点：都有文字、没有漏网占位符
+	var nb := []
+	for tid in ["两难", "暗涌", "道途殊归", "重逢", "白首", "借庐", "点化"]:
+		for sd in range(40, 46):
+			var z = W.new(); z.create(sd, "苏青禾")
+			for c in z.npcs():
+				z.R(c, z.P())["m"] = 1; z.R(z.P(), c)["m"] = 1
+				z.R(c, z.P())["f"] = 30; z.R(z.P(), c)["f"] = 30
+				c["age"] = 80.0 if int(c["lv"]) < 9 else float(c["age"])
+				z.R(z.P(), c)["lv0"] = [int(c["lv"]) + 3, 0]
+				c["lv"] = 0
+			var ptn: Dictionary = z.npcs().filter(func(c): return c["sex"] == "男")[0]
+			ptn["traits"] = ["淡泊", "温柔"]
+			if tid == "道途殊归":
+				z.R(z.P(), ptn)["t"].append("道侣"); z.R(ptn, z.P())["t"].append("道侣")
+			if tid == "借庐":
+				for c in z.npcs().slice(-6):
+					z.R(c, z.P())["f"] = 0; z.R(z.P(), c)["f"] = 0
+			z.w["day"] = 40
+			var rl = z.bind(tid)
+			if rl == null:
+				nb.append(tid + ":无人")
+				continue
+			z.fire(tid, rl, {})
+			var ev8: Dictionary = z.pending()
+			var o8: Array = ev8["opts"][sd % ev8["opts"].size()]
+			var res: String = z.choose(String(o8[0]))
+			for t2 in [String(ev8["text"]), res]:
+				if t2.contains("%") or t2.contains("{") or t2.length() > 170:
+					nb.append("%s:%s" % [tid, t2])
+			if String(ev8["text"]).strip_edges() == "":
+				nb.append(tid + ":空")
+			z.close()
+	ok(nb.is_empty(), "v0.8 新事件：都能选上人、有文字、无占位符、正文 ≤170 字（%s）" % "；".join(nb.slice(0, 4)))
+	# 家里的产出接进事件：有驱瘴丹时，求助多一条“喂丹”，不伤经脉
+	var hh = GS.new()
+	hh.new_game("苏青禾", "aunt", 21, true)
+	hh.s["store"]["pill_quzhang"] = 1
+	var hw = hh.world
+	var vic: Dictionary = hw.npcs()[0]
+	hw.fire("求助", {"B": int(vic["id"])}, {})
+	var has_pill := false
+	for o in hw.pending()["opts"]:
+		if String(o[0]) == "pill":
+			has_pill = true
+	var inj0 := int(hh.s.get("injured", 0))
+	var rp: String = hw.choose("pill"); hw.close()
+	ok(has_pill and hh.store_n("pill_quzhang") == 0 and int(hh.s.get("injured", 0)) == inj0 and rp.contains("驱瘴丹"), "求助：喂一粒自炼的驱瘴丹（丹用掉、不受伤）")
+	hh.s["store"]["pill_juqi"] = 2
+	var cr: Dictionary = hw.npcs()[3]
+	hw.fire("旧债上门", {"B": int(cr["id"])}, {})
+	var rj: String = hw.choose("dan"); hw.close()
+	ok(hh.store_n("pill_juqi") == 1 and int(hh.s["flags"].get("juqi_given", 0)) == 1 and rj.contains("聚气丹"), "旧债：拿自炼的聚气丹抵债（计入 juqi_given）")
+	hh.s["store"]["herb_qingzhi"] = 4
+	hw.fire("赠礼", {"B": int(cr["id"])}, {})
+	var rq: String = hw.choose("qz"); hw.close()
+	ok(hh.store_n("herb_qingzhi") == 2 and rq.contains("青芝"), "赠礼：送自家灵田的青芝")
+	# 境界差重逢（要青庐的修为）：初见时对方高三层以上，如今她追平了
+	hh.s["xiuwei"] = 400
+	var up: Dictionary = hw.npcs()[4]
+	up["lv"] = 3
+	hw.R(hw.P(), up)["m"] = 1; hw.R(up, hw.P())["m"] = 1
+	hw.R(hw.P(), up)["lv0"] = [3, 0]
+	hw.w["last"].erase("重逢")
+	var rr2 = hw.bind("重逢")
+	ok(rr2 != null and hw.C(rr2["B"])["lv"] <= hw.plv(), "昔日仰望，今日平视：能选上当年高她三层的人")
 	for l in lines:
 		print(l)
 	print("江湖测试：%d 失败" % fails)
