@@ -13,6 +13,9 @@ try:
     import portrait_fixes as FX          # 个别部件的修补（裘的白点等）
 except ImportError:
     FX = None
+lib = json.load(open(os.path.join(src, 'lib5.json')))
+if FX:
+    FX.LIB, FX.SRC = lib, src
 rels = []
 only = sys.argv[2:]                     # 可选：只重做文件名含这些子串的
 for f in sorted(glob.glob(src + '/*/*')):
@@ -27,7 +30,6 @@ for f in sorted(glob.glob(src + '/*/*')):
         im.save(out, 'WEBP', lossless=True, quality=100, method=6)
     else:
         im.save(out, 'WEBP', quality=80, method=6)
-lib = json.load(open(os.path.join(src, 'lib5.json')))
 if FX and hasattr(FX, 'fix_lib'): lib = FX.fix_lib(lib)
 json.dump(lib, open(os.path.join(R, 'data/lib5.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 json.dump(rels, open(os.path.join(R, 'data/portrait_files.json'), 'w'), ensure_ascii=False)

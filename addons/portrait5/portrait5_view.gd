@@ -56,10 +56,34 @@ func _mat(s: Sprite2D, origin: Vector2, scale_f: float) -> ShaderMaterial:
 static func _col(a) -> Vector3:
 	return Vector3(float(a[0]) / 255.0, float(a[1]) / 255.0, float(a[2]) / 255.0)
 
-func setup(sp: Dictionary) -> void:
+## v0.8.1：画的时候把几种“看着变形”的组合换掉（只换画法，不改存档里的 spec、也不改抽签，所以所有人照旧认得出）：
+## - 女修方脸底模 base_f5：下颌宽、原生浓眉、肩比衣袍宽，配女式发型像戴了假发 → 换成 f/f2/f4 之一（按五官签定）
+## - 眼片里带进来的别人的眉：eyes:base_f5（叠出双眉）、eyes:fx_m2（眉成 X 形）；fx_f2 只在圆脸 f3 上叠双眉
+## - 本身就怪的：eyes:fx_m4（一只眼耷拉）、eyes:fx_m5（瞪圆）、brows:fx_m4（一高一低）、brows:fx_m2（断眉）、
+##   brows:fx_m5（八字愁眉）、brows:base_f5（女修的浓直男眉）
+const FEAT_SWAP := {"eyes:base_f5": "eyes:base_f4", "eyes:fx_m2@base_m": "eyes:fx_m3@base_m", "eyes:fx_m4@base_m": "eyes:fx_m1@base_m",
+	"eyes:fx_m5@base_m": "eyes:base_m2", "brows:fx_m4@base_m": "brows:fx_m1@base_m", "brows:fx_m2@base_m": "brows:base_m2",
+	"brows:fx_m5@base_m": "brows:base_m4", "brows:base_f5": "brows:base_f4"}
+const F5_TO := ["base_f", "base_f2", "base_f4"]
+
+static func render_spec(sp: Dictionary) -> Dictionary:
+	var out: Dictionary = sp.duplicate(true)
+	if out.get("base", "") == "base_f5":
+		var f: Dictionary = out.get("feats", {})
+		out.base = F5_TO[absi(hash(str(f.get("eyes", "")) + str(f.get("mouth", "")))) % F5_TO.size()]
+	var feats: Dictionary = out.get("feats", {})
+	for reg in feats.keys():
+		var v = feats[reg]
+		if v == null: continue
+		if FEAT_SWAP.has(v): feats[reg] = FEAT_SWAP[v]
+		if feats[reg] == "eyes:fx_f2@base_f" and out.base == "base_f3": feats[reg] = "eyes:fx_f4@base_f"
+	return out
+
+func setup(sp_in: Dictionary) -> void:
 	Portrait5Lib.ensure()
 	var L: Dictionary = Portrait5Lib.lib
-	spec = sp
+	spec = sp_in
+	var sp := render_spec(sp_in)
 	rng.seed = hash(JSON.stringify(sp) + ":blink")
 	for c in get_children(): c.queue_free()
 	layers.clear(); nodes.clear(); eye_frames.clear(); sway_mats.clear(); solver.clear()

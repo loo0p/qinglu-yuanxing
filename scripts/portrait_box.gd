@@ -27,6 +27,7 @@ var no_bake := false
 func setup(spec: Dictionary, crop_rect: Rect2 = BUST, motion: float = 1.0) -> void:
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS   # 缩小时不起锯齿（贴图带 mipmap，见 Portrait5Lib.put）
 	crop = crop_rect
 	self.spec = spec
 	if motion <= 0.0 and bake_ok and not no_bake:
@@ -78,6 +79,7 @@ func _start_bake() -> void:
 	_sv.disable_3d = true
 	_sv.size = Vector2i(ceili(size.x * _k), ceili(size.y * _k))
 	_sv.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_sv.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS   # 部件缩小拍照时不起锯齿
 	var v2 = View.new()
 	v2.motion = 0.0
 	_sv.add_child(v2)
@@ -97,6 +99,7 @@ func _finish_bake() -> void:
 		bake_ok = false   # 这台设备拍不到：以后都照旧分层画
 		set_process(false)
 		return
+	img.generate_mipmaps()   # 烘的是 1–2 倍大小，贴回去时再缩小
 	var t := ImageTexture.create_from_image(img)
 	if _cache.size() > 160:
 		_cache.clear()

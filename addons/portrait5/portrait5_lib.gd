@@ -28,6 +28,8 @@ static func has(rel: String) -> bool:
 static func put(rel: String, bytes: PackedByteArray) -> void:
 	var img := Image.new()
 	if bytes.size() > 0 and img.load_webp_from_buffer(bytes) == OK:
+		# v0.8.1：带 mipmap。立绘常缩到 0.3–0.6 倍（缩略图、桌面浏览器），没有 mipmap 时细墨线会断、发毛，呼吸时还会闪
+		img.generate_mipmaps()
 		_tex[rel] = ImageTexture.create_from_image(img)
 		gen += 1
 
