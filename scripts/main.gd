@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.9.0 试玩版"
+const VERSION = "v0.9.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2365,7 +2365,8 @@ func _story() -> void:
 		"借庐": "courtyard", "点化": "courtyard", "点化回响": "courtyard",
 		"寻仇": "bg_shandao", "截道": "bg_shandao", "失窃": "courtyard", "示好": "bg_chasi", "馈赠": "bg_chasi", "结伴": "bg_shandao",
 		"交易": "bg_fangshi", "讨债": "bg_fangshi", "求援": "bg_yeyu", "示警": "bg_yeyu", "求教": "bg_chasi", "还情": "bg_chasi",
-		"挑战": "bg_leitai", "流言": "bg_fangshi", "叛门": "bg_yeyu", "劝和": "bg_chasi", "夺宝": "bg_houshan", "邀游": "bg_dongfu", "撞见": "bg_shandao"}
+		"挑战": "bg_leitai", "流言": "bg_fangshi", "叛门": "bg_yeyu", "劝和": "bg_chasi", "夺宝": "bg_houshan", "邀游": "bg_dongfu", "撞见": "bg_shandao",
+		"求药": "courtyard", "赔罪": "bg_chasi", "托付": "bg_yeyu", "问道": "bg_chasi"}
 	# 选项多（节令、拍卖会……）时按钮紧凑些，并把场景往上挪，让画面露在对话框上方
 	var n_opt = ev["opts"].size() if ev["stage"] == "ask" else 1
 	var opt_h = 46 if n_opt >= 3 else 50

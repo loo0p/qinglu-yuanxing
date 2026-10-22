@@ -24,20 +24,22 @@ const TRAIT_AX = {
 }
 ## 动机 → 可做的事
 const DRIVE_VERBS = {
-	"破境": ["闭关", "探秘", "夺宝", "求教"], "复仇": ["寻仇", "造谣", "截杀"], "求偶": ["示好", "馈赠", "结伴"],
+	"破境": ["闭关", "探秘", "夺宝", "求教", "论道"], "复仇": ["寻仇", "造谣", "截杀"], "求偶": ["示好", "馈赠", "结伴"],
 	"求财": ["交易", "截杀", "偷窃", "探秘", "讨债", "夺宝"], "护人": ["求援", "寻仇", "示警"], "拜师": ["求教"],
 	"报恩": ["还情", "馈赠", "示警"], "扬名": ["挑战", "夺宝"], "叛门": ["叛门"], "探秘": ["探秘", "结伴", "夺宝"],
-	"收徒": ["收徒"], "压人": ["造谣", "挑战"], "交游": ["结伴", "交易", "劝和", "馈赠"],
+	"收徒": ["收徒"], "压人": ["造谣", "挑战"], "交游": ["结伴", "交易", "劝和", "馈赠", "论道"],
+	"疗伤": ["求药", "闭关"], "赎过": ["赔罪", "馈赠"], "后事": ["托付"],
 }
 const DRIVE_WORD = {"破境": "想破境", "复仇": "要报仇", "求偶": "动了心", "求财": "缺灵石", "护人": "要护着一个人", "拜师": "想拜个师父",
-	"报恩": "想还一份情", "扬名": "想争个名头", "叛门": "想离开师门", "探秘": "想去探一处秘地", "收徒": "想收个徒弟", "压人": "心里不服一个人", "交游": "四处走动"}
+	"报恩": "想还一份情", "扬名": "想争个名头", "叛门": "想离开师门", "探秘": "想去探一处秘地", "收徒": "想收个徒弟", "压人": "心里不服一个人", "交游": "四处走动", "疗伤": "想把伤养好", "赎过": "想赔一个不是", "后事": "在想身后事"}
 ## 冲着她来时，动词 → 她面前的事件
 const VERB_TID = {"寻仇": "寻仇", "截杀": "截道", "偷窃": "失窃", "示好": "示好", "馈赠": "馈赠", "结伴": "结伴", "交易": "交易",
 	"讨债": "讨债", "求援": "求援", "示警": "示警", "求教": "求教", "还情": "还情", "挑战": "挑战", "造谣": "流言", "叛门": "叛门",
-	"劝和": "劝和", "夺宝": "夺宝", "探秘": "邀游"}
-const TIDS = ["寻仇", "截道", "失窃", "示好", "馈赠", "结伴", "交易", "讨债", "求援", "示警", "求教", "还情", "挑战", "流言", "叛门", "劝和", "夺宝", "邀游", "撞见"]
+	"劝和": "劝和", "夺宝": "夺宝", "探秘": "邀游", "求药": "求药", "赔罪": "赔罪", "托付": "托付", "论道": "问道"}
+const TIDS = ["寻仇", "截道", "失窃", "示好", "馈赠", "结伴", "交易", "讨债", "求援", "示警", "求教", "还情", "挑战", "流言", "叛门", "劝和", "夺宝", "邀游", "撞见", "求药", "赔罪", "托付", "问道"]
 ## 需要对象的动词：动机里有对象就只对着那个人
-const AIMED = ["寻仇", "示好", "馈赠", "还情", "讨债", "求援", "造谣", "示警"]
+const AIMED = ["寻仇", "示好", "馈赠", "还情", "讨债", "求援", "造谣", "示警", "赔罪", "托付"]
+const HURT_K = ["伤", "夺", "窃", "谣", "负", "辱", "拒"]
 const SOLO_V = ["闭关", "叛门"]
 const TREASURE = ["一株刚开花的七叶灵芝", "一窝赤血灵芝", "半块天外陨铁", "一眼刚冒头的地火灵泉", "一株月下昙", "崖缝里一枚朱果"]
 const GOODS = [["herb_qingzhi", 2, "两株年份不浅的青芝"], ["pill_quzhang", 1, "一粒驱瘴丹"], ["herb_xugucao", 1, "一株续骨草"], ["pill_juqi", 1, "一粒聚气丹"]]
@@ -135,6 +137,22 @@ static func top_mem(W, c: Dictionary, t: Dictionary, sign: int) -> Array:
 				bv = sv
 				best = m
 	return best
+
+## t 心里记着 c 的多少不是（t 是她时看她对 c 的怨 g）：[分量, 那条记忆]
+static func wronged(W, c: Dictionary, t: Dictionary) -> Array:
+	if t["player"]:
+		return [clampf(float(W._rel(t, c)["g"]) / 40.0, 0.0, 1.5), []]
+	var sum := 0.0
+	var best: Array = []
+	var bv := 0.0
+	for m in t["mem"]:
+		if int(m[1]) == int(c["id"]) and float(m[3]) < 0 and mkind(m) in HURT_K:
+			var sv := sal(W, t, m)
+			sum += sv
+			if sv > bv:
+				bv = sv
+				best = m
+	return [sum, best]
 
 static func _src(m: Array) -> int:
 	return int(m[5]) if m.size() > 5 else -1
@@ -251,6 +269,40 @@ static func rethink(W, c: Dictionary) -> void:
 		if not has_d:
 			push.call("收徒", 0, 0.08 + 0.4 * px(c, "善"), "一身本事没人接", -1)
 	push.call("交游", 0, 0.2 + 0.25 * px(c, "善") + 0.1 * px(c, "奇"), "", -1)
+	# 疗伤：伤重就想先把伤养好（谨慎的人更是）
+	if int(c["inj"]) > 8:
+		var hm: Array = []
+		for m in c["mem"]:
+			if mkind(m) == "伤" and (hm.is_empty() or int(m[0]) >= int(hm[0])):
+				hm = m
+		push.call("疗伤", 0, 0.3 + float(c["inj"]) / 40.0 + 0.2 * px(c, "慎"), String(hm[2]) + "，伤还没好" if not hm.is_empty() else "伤还没好", _src(hm))
+	# 赎过：心善/讲义气的人，记得自己亏欠过谁
+	if (px(c, "善") + px(c, "侠")) / 2.0 > 0.45 and px(c, "傲") < 0.7:
+		var bw := [0.0, null, []]
+		for k in W._ids(c["rel"]):
+			var t4: Dictionary = W.C(k)
+			if t4.is_empty() or not t4["alive"] or t4 == c:
+				continue
+			var wr: Array = wronged(W, c, t4)
+			if float(wr[0]) > float(bw[0]):
+				bw = [float(wr[0]), t4, wr[1]]
+		if float(bw[0]) > 0.25:
+			var wm: Array = bw[2]
+			var wy := ("当年%s，是我对不住%s" % [String(wm[2]).replace("我", W.ta(bw[1])).replace(c["name"], "我"), W.ta(bw[1])]) if not wm.is_empty() else "当年对不住%s" % bw[1]["name"]
+			push.call("赎过", int(bw[1]["id"]), minf(1.0, float(bw[0])) * (0.3 + 0.6 * (px(c, "善") + px(c, "侠")) / 2.0), wy, _src(wm))
+	# 后事：自知寿元将尽，想把东西托给信得过的人
+	if _lifefrac(W, c) > 0.85 and not c.has("tf"):
+		var bt: Array = [10.0, null]
+		for k in W._ids(c["rel"]):
+			var t5: Dictionary = W.C(k)
+			if t5.is_empty() or not t5["alive"] or t5 == c:
+				continue
+			var o5: float = W.opinion(c, t5)
+			if o5 > float(bt[0]):
+				bt = [o5, t5]
+		if bt[1] != null:
+			var tm := top_mem(W, c, bt[1], 1)
+			push.call("后事", int(bt[1]["id"]), 0.45 + 0.4 * px(c, "善"), "自知时日无多，" + (String(tm[2]) if not tm.is_empty() else "信得过%s" % bt[1]["name"]), _src(tm))
 	var cur: Dictionary = c.get("dr", {})
 	var bi := 0
 	var bv := -1.0
@@ -294,7 +346,7 @@ static func daily(W) -> void:
 	for c in W.npcs():
 		if acted >= 5:
 			break
-		if int(c["inj"]) > 12 and W.rng.randf() < 0.8:
+		if int(c["inj"]) > 12 and String(c["dr"]["k"]) != "疗伤" and W.rng.randf() < 0.8:
 			continue
 		var p := 0.05 + 0.14 * float(c["dr"]["u"])
 		if W.rng.randf() < p:
@@ -419,6 +471,25 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 			if t.is_empty():
 				return 0.0
 			s = [UC.consider(op, "log", 0.0), 1.0 if not isp else opp + 0.3]
+		"求药":
+			if t.is_empty() or int(c["inj"]) <= 0:
+				return 0.0
+			s = [UC.consider(op, "log", -0.05), UC.consider(1.0 - px(c, "傲") * 0.6, "lin"), UC.consider(float(c["inj"]) / 20.0, "lin", 0.0, 0.2), opp * (1.3 if isp else 1.0)]
+		"赔罪":
+			if t.is_empty():
+				return 0.0
+			var wr2 := float(wronged(W, c, t)[0])
+			if wr2 < 0.2:
+				return 0.0
+			s = [clampf(wr2, 0.0, 1.0), UC.consider((px(c, "善") + px(c, "侠")) / 2.0, "lin"), UC.consider(1.0 - px(c, "傲"), "lin", 0.0, 0.2), opp if isp else 1.0]
+		"托付":
+			if t.is_empty() or _lifefrac(W, c) < 0.85 or c.has("tf") or W.opinion(c, t) < 10:
+				return 0.0
+			s = [UC.consider(op, "log", 0.0), 1.0 if not isp else opp + 0.2]
+		"论道":
+			if t.is_empty() or op < 0.4:
+				return 0.0
+			s = [UC.consider((px(c, "奇") + px(c, "野")) / 2.0, "lin", 0.0, 0.3), UC.consider(1.0 - absf(pw - 0.5) * 1.2, "lin"), UC.consider(op, "log", 0.0), opp, 0.6]
 		"示警":
 			if t.is_empty():
 				return 0.0
@@ -600,8 +671,12 @@ static func crossing(W) -> Array:
 		var dr: Dictionary = c["dr"]
 		var opts := []
 		var scs := []
-		for v in DRIVE_VERBS.get(String(dr["k"]), []) + ["结伴", "交易", "挑战", "示好", "求教"]:
-			if not VERB_TID.has(v) or v in ["讨债", "求援", "示警", "还情", "劝和", "叛门"] and not _aimed_ok(W, c, v):
+		# 心里装着别人（要报仇的对象、想赔罪的人……）时，路过她只会做些寻常事
+		var own: Array = DRIVE_VERBS.get(String(dr["k"]), [])
+		if String(dr["k"]) in ["复仇", "压人", "求偶", "报恩", "赎过", "后事", "护人"] and int(dr["t"]) != 1:
+			own = []
+		for v in own + ["结伴", "交易", "挑战", "示好", "求教", "论道"]:
+			if not VERB_TID.has(v) or v in ["讨债", "求援", "示警", "还情", "劝和", "叛门", "赔罪", "托付"] and not _aimed_ok(W, c, v):
 				continue
 			var s := score(W, c, v, W.P(), dr)
 			if VERB_TID.has(v) and W.w["last"].has(VERB_TID[v]) and int(W.w["day"]) - int(W.w["last"][VERB_TID[v]]) < 8:
@@ -627,6 +702,10 @@ static func _aimed_ok(W, c: Dictionary, v: String) -> bool:
 			return int(W._rel(c, W.P()).get("owe", 0)) > 0
 		"还情":
 			return float(debt(W, c, W.P())[0]) > 0.15
+		"赔罪":
+			return float(wronged(W, c, W.P())[0]) > 0.2
+		"托付":
+			return int(c["dr"]["t"]) == 1
 	return false
 
 # ================================================================ 幕后结算（NPC 对 NPC）
@@ -827,6 +906,61 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			else:
 				mem(W, a, b, "求%s的时候，%s推了" % [bn, W.ta(b)], -6, "拒", aid)
 				W.chron(a, "去求%s，碰了一鼻子灰。" % bn)
+		"求药":
+			if b.is_empty():
+				return
+			if W.opinion(b, a) >= 0 and (_ls(b) > 3 or px(b, "善") > 0.5):
+				a["inj"] = maxi(0, int(a["inj"]) - 10)
+				mem(W, a, b, "%s在我伤重时给过药" % bn, 14, "救", aid)
+				W.chron(a, W.pv("求药记", ["伤重，去%s那里讨了药。", "托人向%s求来一剂药，伤好了大半。"]) % bn)
+				W.chron(b, "给负伤的%s送了药。" % an)
+				drift(b, "善", 0.01)
+			else:
+				mem(W, a, b, "伤重时去求%s，%s没给" % [bn, W.ta(b)], -6, "拒", aid)
+				W.chron(a, "带伤去求%s，空手而回。" % bn)
+		"赔罪":
+			if b.is_empty():
+				return
+			if px(b, "仇") < 0.55 or W.rng.randf() < 0.3 + 0.5 * px(b, "善"):
+				for m in b["mem"]:
+					if int(m[1]) == int(a["id"]) and float(m[3]) < 0 and mkind(m) in HURT_K:
+						if m.size() > 4:
+							m[4] = "了"
+				b["rt"] = 1
+				W.R(b, a)["g"] = maxi(0, int(W.R(b, a)["g"]) - 25)
+				mem(W, b, a, "%s登门赔过不是" % an, 6, "恩", aid)
+				a["rt"] = 1
+				W.chron(a, W.pv("赔罪成", ["登门向%s赔了不是，对方收下了。", "提着礼去见%s，把当年的事说开了。"]) % bn)
+				W.chron(b, "%s上门赔罪，旧事揭过。" % an)
+				drift(a, "善", 0.02)
+			else:
+				mem(W, a, b, "去赔罪，%s把门关了" % bn, -4, "拒", aid)
+				W.chron(a, "去向%s赔罪，吃了闭门羹。" % bn)
+				W.chron(b, "%s来赔罪，被挡在门外。" % an)
+		"托付":
+			if b.is_empty():
+				return
+			a["tf"] = 1
+			var half := _ls(a) / 2
+			_add_ls(a, -half)
+			_add_ls(b, half)
+			mem(W, b, a, "%s把身后事托给了我" % an, 16, "托", aid)
+			W.chron(a, W.pv("托付记", ["把一生的积蓄和一卷手札托给了%s。", "把身后事托给了%s。"]) % bn)
+			W.chron(b, "%s把身后事托给了自己。" % an)
+		"论道":
+			if b.is_empty():
+				return
+			a["xp"] = qz(float(a["xp"]) + 2.0, 10000.0)
+			b["xp"] = qz(float(b["xp"]) + 2.0, 10000.0)
+			W.chron(a, String(W._ch(W.VAR["论道"])).format({"p": pl, "o": bn}))
+			W.chron(b, String(W._ch(W.VAR["论道"])).format({"p": pl, "o": an}))
+			if (px(a, "傲") > 0.7 or px(b, "傲") > 0.7) and W.rng.randf() < 0.35:
+				var lo: Dictionary = a if px(a, "傲") > px(b, "傲") else b
+				var hi: Dictionary = b if lo == a else a
+				mem(W, lo, hi, "论道时被%s驳得说不出话" % hi["name"], -6, "辱", aid)
+			else:
+				mem(W, a, b, "与%s论过道" % bn, 5, "论", aid)
+				mem(W, b, a, "与%s论过道" % an, 5, "论", aid)
 		"示警":
 			if b.is_empty():
 				return
@@ -1046,16 +1180,50 @@ static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dicti
 				"傲": ["{n}在{at}站了半天，才低头：“我从不求人。{v}" + trouble + "——帮我一回。”"],
 				"侠": ["“{v}" + trouble + "。”{n}说，“我一个人护不住，你肯不肯来？”"],
 				"平": ["{at}，{n}拉住她：“{v}" + trouble + "，你那里可有法子？”"]}).format(f)
-			var o9 := []
+			var o9 := [_o("go", "跟%s去一趟" % f["tb"])]   # 用家里东西的选项从不放第一个
 			if W._has("pill_quzhang"):
 				o9.append(_o("pill", "给一粒驱瘴丹"))
 			elif W._has("pill_juqi"):
 				o9.append(_o("pill", "给一粒聚气丹"))
-			o9.append(_o("go", "跟%s去一趟" % f["tb"]))
 			if W.lingshi() >= 8:
 				o9.append(_o("ls", "给 8 块灵石买药"))
 			o9.append(_o("no", "爱莫能助"))
 			return {"speaker": int(n["id"]), "text": t9, "opts": o9}
+		"求药":
+			var t21 := fl(W, "求药开", n, {
+				"傲": ["{n}扶着{at}的门框，脸白得像纸，偏不肯坐：“听说你种药。卖我一株，价钱好说。”"],
+				"慎": ["{n}在{at}犹豫了很久才开口：“伤口一直不收。我信不过镇上的郎中。”"],
+				"痴": ["{n}在{at}笑得很勉强：“又伤了。你别骂，先给我点药。”"],
+				"善": ["{n}在{at}站着，袖口渗出血来：“不好意思开口……你那里有止血的草么？”"],
+				"平": ["{at}，{n}带着一身伤来了：“听说你种着灵草，能不能匀我一点？”", "{n}在{at}坐下，半边衣裳都是血：“有药么？”"]}).format(f)
+			var o21 := [_o("look", "替%s看看伤，开个方子" % f["tb"])]
+			if W._has("herb_xugucao"):
+				o21.append(_o("herb", "给一株续骨草"))
+			if W._has("herb_qingzhi"):
+				o21.append(_o("sell", "卖一株青芝（6 灵石）"))
+			o21.append(_o("no", "说手头没有"))
+			return {"speaker": int(n["id"]), "text": t21, "opts": o21}
+		"赔罪":
+			var t22 := fl(W, "赔罪开", n, {
+				"侠": ["{n}在{at}抱拳，深深一揖：“{why}。今天来，任打任罚。”"],
+				"善": ["{n}在{at}提着一盒点心，站了很久才进来：“{why}……一直睡不安稳。”"],
+				"慎": ["{n}先托人递了话，第二日才到{at}：“{why}。我想当面说清楚。”"],
+				"平": ["{at}，{n}低着头：“{why}。这些东西，你收下吧。”", "{n}在{at}放下一只布包：“{why}。”"]}).format(f)
+			return {"speaker": int(n["id"]), "text": t22, "opts": [_o("forgive", "让%s起来，事情过去了" % f["tb"]), _o("take", "收下赔礼，各不相欠"), _o("refuse", "不受")]}
+		"托付":
+			var t23 := fl(W, "托付开", n, {
+				"侠": ["{n}在{at}坐下，咳了几声：“我这辈子不欠谁。只是有件事，想托给你。”"],
+				"善": ["{n}老了许多，在{at}把一只旧木匣推到她面前：“{why}。别推。”"],
+				"傲": ["“我的事，从不求人。”{n}在{at}沉默半晌，“这一件例外。”"],
+				"平": ["{at}，{n}拄着杖来了：“{why}。这些东西，留给你。”", "{n}在{at}说起了身后事，说得很平静。"]}).format(f)
+			return {"speaker": int(n["id"]), "text": t23, "opts": [_o("take", "收下"), _o("deliver", "答应替%s把东西送回%s" % [f["tb"], n["sect"]]), _o("comfort", "劝%s别说这样的话" % f["tb"])]}
+		"问道":
+			var t24 := fl(W, "问道开", n, {
+				"奇": ["{n}在{at}拉住她：“我昨夜想到一个怪念头——灵气走经脉，为什么非得是顺的？”"],
+				"野": ["{at}，{n}开门见山：“我卡在这一层半年了。你怎么看‘破境’两个字？”"],
+				"傲": ["{n}在{at}背着手：“听说你也悟了些东西。说来听听，我看对不对。”"],
+				"平": ["{at}，{n}提了一壶茶来：“闲着，论论道？”", "{n}在{at}坐下，说起这阵子修行上的几处疑难。"]}).format(f)
+			return {"speaker": int(n["id"]), "text": t24, "opts": [_o("long", "论到天明"), _o("listen", "听多说少"), _o("no", "推说累了")]}
 		"示警":
 			var h2: Dictionary = W.C(roles["H"])
 			f["h"] = h2["name"]
@@ -1457,6 +1625,91 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				_:
 					mem(W, n, p, "求%s的时候，她推了" % W.pn(), -8, "拒", aid)
 					out = W.pv("求援拒", ["{n}点点头，什么也没说，走得很快。", "“……也是，与你何干。”{n}走了。"]).format({"n": nm})
+		"求药":
+			match oid:
+				"herb":
+					W._use("herb_xugucao")
+					n["inj"] = 0
+					mem(W, n, p, "我伤重时%s给过续骨草" % W.pn(), 16, "救", aid)
+					W.fav(n, 8)
+					out = W.pv("求药草", ["{n}嚼碎了敷上，疼得直吸气，第三日就能提剑了。", "续骨草熬成一碗黑汤。{n}一口喝干，皱着眉道了声谢。"]).format({"n": nm})
+				"look":
+					n["inj"] = maxi(0, int(n["inj"]) - 6)
+					mem(W, n, p, "%s替我看过伤" % W.pn(), 8, "助", aid)
+					W.fav(n, 4)
+					out = "她替%s清了伤口，写了张方子，又嘱咐了三件忌口的事。%s听得很认真。" % [nm, tb]
+				"sell":
+					W._use("herb_qingzhi")
+					var got = W._ling(6)
+					n["inj"] = maxi(0, int(n["inj"]) - 8)
+					_add_ls(n, -6)
+					mem(W, n, p, "从%s那里买过药" % W.pn(), 4, "交", aid)
+					out = "%s数了 %d 块灵石放在桌上，接过青芝，没多说什么。" % [nm, got]
+				_:
+					if px(n, "傲") > 0.55 or px(n, "仇") > 0.55:
+						mem(W, n, p, "伤重时去求%s，%s说没有" % [W.pn(), "她"], -5, "拒", aid)
+					out = W.pv("求药拒", ["{n}点点头，扶着墙走了。", "“……打扰了。”{n}没再看她。"]).format({"n": nm})
+			W.chron(n, "带伤去青庐求药。" if not on_road(W) else "带伤路上遇见%s，求了药。" % W.pn())
+		"赔罪":
+			match oid:
+				"forgive":
+					W.R(p, n)["g"] = 0
+					mem(W, n, p, "%s原谅了我" % W.pn(), 14, "恩", aid)
+					W.fav(n, 8)
+					drift(n, "善", 0.02)
+					out = W.pv("赔罪恕", ["{n}直起身，眼圈有点红。两人坐着喝完了一壶茶，谁也没再提那件事。", "她把{n}扶起来。{n}走的时候，脚步轻了许多。"]).format({"n": nm})
+				"take":
+					var got2 = W._ling(W.rng.randi_range(6, 12))
+					W.R(p, n)["g"] = maxi(0, int(W.R(p, n)["g"]) - 20)
+					mem(W, n, p, "去向%s赔过罪" % W.pn(), 4, "了", aid)
+					out = "她收下了 %d 块灵石。%s松了口气：“那就……两清了。”" % [got2, nm]
+				_:
+					mem(W, n, p, "去赔罪，%s不受" % W.pn(), -5, "拒", aid)
+					if px(n, "傲") > 0.5:
+						drift(n, "仇", 0.02)
+					out = W.pv("赔罪拒", ["{n}站了一会儿，把东西收回去，走了。", "“我明白了。”{n}说完，再没回头。"]).format({"n": nm})
+			n["rt"] = 1
+			W.chron(p, "%s登门赔罪。" % nm)
+			W.chron(n, "向%s赔了不是。" % W.pn())
+		"托付":
+			n["tf"] = 1
+			match oid:
+				"take":
+					var got3 = W._ling(maxi(8, _ls(n) / 2))
+					_add_ls(n, -got3)
+					W._wu(2)
+					mem(W, n, p, "把身后事托给了%s" % W.pn(), 12, "托", aid)
+					W.fav(n, 6)
+					out = "木匣里是 %d 块灵石，一卷写满批注的手札。%s看着她收好，才放心似的闭了闭眼。\n（感悟 +2）" % [got3, nm]
+				"deliver":
+					W._wu(3)
+					mem(W, n, p, "%s答应替我把东西送回%s" % [W.pn(), n["sect"]], 16, "托", aid)
+					W.fav(n, 10)
+					out = "%s把匣子交给她，说了地方和名字。临走时，又塞给她半页心得。\n（感悟 +3）" % nm
+				_:
+					W.fav(n, 8, "%s劝我别想身后事" % W.pn(), 8)
+					out = W.pv("托付劝", ["{n}笑了：“好，不说。”可那只木匣还是留在了桌上。", "{n}摇摇头，没再坚持，只说：“记得常去看看我。”"]).format({"n": nm})
+			W.chron(p, "%s把身后事托给了她。" % nm)
+			W.chron(n, "把身后事托给了%s。" % W.pn())
+		"问道":
+			match oid:
+				"long":
+					W._wu(3)
+					n["xp"] = qz(float(n["xp"]) + 2.0, 10000.0)
+					if px(n, "傲") > 0.7 and W.rng.randf() < 0.4:
+						mem(W, n, p, "论道时被%s驳得说不出话" % W.pn(), -6, "辱", aid)
+						out = "天亮时，%s还在争最后一处。末了一甩袖子：“我回去再想想。”\n（感悟 +3）" % nm
+					else:
+						mem(W, n, p, "与%s论道到天明" % W.pn(), 8, "论", aid)
+						W.fav(n, 6)
+						out = W.pv("问道长", ["灯芯剪了三回。{n}走时说，这一夜抵得上半年苦修。", "两人从灵气说到人心，又从人心说回剑。天亮了，谁都没觉得困。"]).format({"n": nm}) + "\n（感悟 +3）"
+				"listen":
+					W._wu(2)
+					W.fav(n, 3)
+					out = "她多半在听。%s说得兴起，临走时有点不好意思：“尽是我在说。”\n（感悟 +2）" % nm
+				_:
+					out = "%s愣了一下，说改日再来。" % nm
+			W.chron(n, "与%s论道。" % W.pn())
 		"示警":
 			var h2: Dictionary = W.C(roles["H"])
 			match oid:

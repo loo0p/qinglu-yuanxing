@@ -164,7 +164,7 @@ func _init() -> void:
 		all_seen[k] = 1
 	for k in tids_road:
 		all_seen[k] = 1
-	ok(all_seen.size() >= 10 and flav_pairs.size() >= 35, "她遇到的“找上门的事”≥10 种（共 19 种，其余要靠结仇/赊账等前情才会冒出来）、（事件, 口吻）组合 ≥35（%d，%d）" % [all_seen.size(), flav_pairs.size()])
+	ok(all_seen.size() >= 10 and flav_pairs.size() >= 35, "她遇到的“找上门的事”≥10 种（共 %d 种，其余要靠结仇/赊账等前情才会冒出来）、（事件, 口吻）组合 ≥35（%d，%d）" % [AG.TIDS.size(), all_seen.size(), flav_pairs.size()])
 	ok(float(player_texts.size()) / maxf(1.0, player_n) >= 0.9, "找上门的事开场去重率 ≥0.9（%.3f）" % (float(player_texts.size()) / maxf(1.0, player_n)))
 	ok(trace_bad.is_empty(), "每个动作都追得到缘由：寻仇/为报仇做的事都冲着有旧怨的人、侠义之人不劫不偷（除非对方先害过他）、示好不对同性（%s）" % "；".join(trace_bad.slice(0, 5)))
 	# 心事页：说得出“眼下想什么、为什么”
