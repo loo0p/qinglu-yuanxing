@@ -86,11 +86,16 @@ func _init() -> void:
 	ok(agg.tri > 0.95, "三连序列去重率 > 95%%（%.3f）" % agg.tri)
 	ok(agg.skel > 0.65, "生平句骨架去重率 > 65%%（%.3f）" % agg.skel)
 	ok(agg.n >= 25, "每 100 日至少 25 件玩家事件（%.1f）" % agg.n)
+	# v0.9：模板与人物自主的事分着出，稀有模板少了一半——出现与否改看 16 局（种子 7–22）
+	for sd in range(15, 23):
+		var m2 := metrics(run(sd, 100))
+		for k in m2.cnt:
+			all[k] = int(all.get(k, 0)) + m2.cnt[k]
 	var miss := []
 	for k in ["宗门招徒", "入门试炼", "秘境请柬", "拍卖会", "劫修伏击", "师弟惹祸", "天材地宝", "宝地相争", "对手突破", "旧债上门", "节令"]:
 		if int(all.get(k, 0)) == 0:
 			miss.append(k)
-	ok(miss.is_empty(), "v0.7.2 新事件在 8 局 100 日里都出现过（缺：%s）" % "、".join(miss))
+	ok(miss.is_empty(), "v0.7.2 新事件在 16 局 100 日里都出现过（缺：%s）" % "、".join(miss))
 	# v0.7.6：从后窗躲仇人——再上门的开场换一套；躲满三回，对方不再找来（不会每 20 日一字不差地重来）
 	var xr = W.new()
 	xr.create(77, "苏青禾")
@@ -112,7 +117,7 @@ func _init() -> void:
 	# v0.7.5：小师弟/小师妹只给看着年轻、比她小或境界比她低的人；没人合适就现生一个年轻的
 	var sd_n := 0
 	var sd_bad := []
-	for sd in range(7, 15):
+	for sd in range(7, 23):   # v0.9：16 局（模板份额减半后，8 局样本太少）
 		var x = W.new()
 		x.create(sd, "苏青禾")
 		for d in 100:
@@ -124,8 +129,8 @@ func _init() -> void:
 				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.portrait_opts(c)["elder"] or Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c))["beard"] != null:
 					sd_bad.append("%s %.0f岁 lv%d" % [c["name"], float(c["age"]), int(c["lv"])])
 			x.auto_choose()
-	lines.append("师弟惹祸：8 局 100 日 %d 次" % sd_n)
-	ok(sd_bad.is_empty() and sd_n >= 2 and sd_n <= 7, "小师弟/小师妹都年轻、比她小或境界低（%d 次，不合：%s）" % [sd_n, "、".join(sd_bad)])
+	lines.append("师弟惹祸：16 局 100 日 %d 次" % sd_n)
+	ok(sd_bad.is_empty() and sd_n >= 3 and sd_n <= 14, "小师弟/小师妹都年轻、比她小或境界低（16 局 %d 次，不合：%s）" % [sd_n, "、".join(sd_bad)])
 	# v0.7.7：小师弟不带胡子（选人时看立绘；现生的后辈不抽胡子）。旧人物（无 young 键）立绘逐项不变
 	var bd_n := 0
 	var bd_bad := []
@@ -264,8 +269,12 @@ func _init() -> void:
 	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
 	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
 	# 节奏（v0.7.3）：50 日局、约 6 成日子在青庐，16 局均值——既要有事，也别天天有人敲门
+	# v0.9：路上也会碰上事（人物自主 + 路上的旧模板），在家与路上分开量
 	var pt := 0.0
 	var phd := 0.0
+	var prd := 0.0
+	var ph := 0.0
+	var pr := 0.0
 	var pst := 0.0
 	for sd in range(500, 516):
 		var x = W.new()
@@ -277,18 +286,25 @@ func _init() -> void:
 			x.tick(home)
 			if home:
 				phd += 1
+			else:
+				prd += 1
 			var ev = x.pending()
 			if ev.is_empty():
 				st = 0
 				continue
 			pt += 1
+			if home:
+				ph += 1
+			else:
+				pr += 1
 			st += 1
 			smax = maxi(smax, st)
 			x.choose(String(ev["opts"][d % ev["opts"].size()][0]))
 			x.close()
 		pst += smax / 16.0
-	lines.append("50 日节奏：%.1f 件/局，%.2f 件/在家日，最长连续有事 %.1f 日" % [pt / 16.0, pt / phd, pst])
-	ok(pt / phd >= 0.35 and pt / phd <= 0.55 and pst <= 3.2, "50 日局：每个在家日 0.35–0.55 件事，最长连着有事 ≤3.2 日（%.2f，%.1f）" % [pt / phd, pst])
+	lines.append("50 日节奏：%.1f 件/局，在家 %.2f 件/日，路上 %.2f 件/日，最长连续有事 %.1f 日" % [pt / 16.0, ph / phd, pr / prd, pst])
+	ok(ph / phd >= 0.35 and ph / phd <= 0.55 and pst <= 3.2, "50 日局：每个在家日 0.35–0.55 件事，最长连着有事 ≤3.2 日（%.2f，%.1f）" % [ph / phd, pst])
+	ok(pr / prd >= 0.18 and pr / prd <= 0.45, "50 日局：路上每日 0.18–0.45 件事——有事可遇，又不至于站站都被拦（%.2f）" % (pr / prd))
 	# 节令只在历法上的日子出现（第 1 日 = 正月初一，30 日一月）
 	var fest_bad := []
 	var fest_n := 0
@@ -396,7 +412,7 @@ func _init() -> void:
 	ok(int(m.world.w["day"]) == 30 and m.world.w["events"].size() > 0, "迁移后江湖随闭关日推进（事件 %d 件）" % m.world.w["events"].size())
 	for i in 3:
 		m.tick("road")
-	ok(m.world.pending().is_empty() or int(m.world.pending()["day"]) <= 30, "路上不出江湖事件")
+	ok(int(m.world.w["day"]) == 33, "路上的日子照走（v0.9 起路上也可能碰上事，见“路上奇遇”测试）")
 	var m2 = GS.new()
 	ok(m2.from_dict(JSON.parse_string(JSON.stringify(m.to_dict()))) and m2.world != null and int(m2.world.w["day"]) == 33, "带江湖的 v2 存档往返")
 	ok(int(m2.s["v"]) == GS.SAVE_VERSION, "存档版本号 = %d" % GS.SAVE_VERSION)

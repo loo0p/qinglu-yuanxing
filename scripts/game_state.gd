@@ -355,7 +355,8 @@ func tick(mode: String) -> void:
 		s["loc"] = "ending"
 		_log("寿元耗尽。她回到青庐静室，在灯下坐化。")
 	if world != null:
-		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"])
+		# v0.9：路上（历练）也会碰上事；心魔/结局时世界只过日子
+		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"], mode == "road" and s["loc"] == "trip" and not s["ended"])
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 

@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.8.2 试玩版"
+const VERSION = "v0.9.0 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -986,7 +986,7 @@ func _bgm_for_scene() -> String:
 		return "title"
 	if modal.get("kind", "") == "story" and g.world != null:
 		var tid = String(g.world.pending().get("tid", ""))
-		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险", "劫修伏击", "仇家寻上门", "落难", "两难"]:
+		if tid in ["心魔", "仇人上门", "魔修袭镇", "寻凶", "道侣遇险", "劫修伏击", "仇家寻上门", "落难", "两难", "寻仇", "截道", "撞见", "求援", "叛门"]:
 			return "xinmo"
 		if tid in ["秘境", "旧友托梦", "宝地相争", "道途殊归", "坊市认物"]:
 			return "hantan"
@@ -2292,9 +2292,10 @@ func _fx_breakthrough() -> void:
 func _story_check() -> void:
 	if screen != "game" or g.world == null or not modal.is_empty():
 		return
-	if g.s.get("loc", "") != "home" or g.s.get("ended", false):
+	var on_trip: bool = g.s.get("loc", "") == "trip" and String(g.s.get("trip", {}).get("stage", "")) in ["result", "choose"]
+	if (g.s.get("loc", "") != "home" and not on_trip) or g.s.get("ended", false):
 		return
-	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
+	if not on_trip and g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
 		return
 	var pe: Dictionary = g.world.pending()
 	if not pe.is_empty():
@@ -2361,7 +2362,10 @@ func _story() -> void:
 		"师弟惹祸": "bg_fangshi", "天材地宝": "bg_houshan", "宝地相争": "bg_houshan", "对手突破": "bg_biguan", "旧债上门": "courtyard",
 		"节令": "bg_fangshi", "远方来信": "bg_yeyu", "喜帖": "bg_chasi", "落难": "bg_shandao",
 		"坊市认物": "bg_fangshi", "两难": "courtyard", "暗涌": "bg_yeyu", "道途殊归": "bg_yeyu", "重逢": "bg_shandao", "白首": "courtyard",
-		"借庐": "courtyard", "点化": "courtyard", "点化回响": "courtyard"}
+		"借庐": "courtyard", "点化": "courtyard", "点化回响": "courtyard",
+		"寻仇": "bg_shandao", "截道": "bg_shandao", "失窃": "courtyard", "示好": "bg_chasi", "馈赠": "bg_chasi", "结伴": "bg_shandao",
+		"交易": "bg_fangshi", "讨债": "bg_fangshi", "求援": "bg_yeyu", "示警": "bg_yeyu", "求教": "bg_chasi", "还情": "bg_chasi",
+		"挑战": "bg_leitai", "流言": "bg_fangshi", "叛门": "bg_yeyu", "劝和": "bg_chasi", "夺宝": "bg_houshan", "邀游": "bg_dongfu", "撞见": "bg_shandao"}
 	# 选项多（节令、拍卖会……）时按钮紧凑些，并把场景往上挪，让画面露在对话框上方
 	var n_opt = ev["opts"].size() if ev["stage"] == "ask" else 1
 	var opt_h = 46 if n_opt >= 3 else 50
@@ -2507,7 +2511,7 @@ func _person() -> void:
 		info.add_child(bar)
 		L("好感", 11, C_DIM, info)
 	var tr = row()
-	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["mem", "记得她"]])):
+	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["why", "心事"], ["mem", "记得她"]])):
 		var k = String(t[0])
 		var b = B(("● " if person_tab == k else "") + String(t[1]), func(): person_tab = k, true, tr, 38)
 		b.add_theme_font_size_override("font_size", 14)
@@ -2515,6 +2519,18 @@ func _person() -> void:
 	match person_tab:
 		"life":
 			_life_timeline(c, cc)
+		"why":
+			# v0.9：这个人眼下想做什么、为什么（动机 + 最放不下的几件事 + 性子）
+			var wl: Array = w.AG.why_lines(w, c)
+			var deep: bool = int(w.R(c, w.P())["f"]) >= 20 or not w.R(w.P(), c)["t"].is_empty() or int(w.R(c, w.P())["g"]) >= 20
+			if wl.is_empty():
+				L("（无从知晓）", 13, C_DIM, cc)
+			for i in wl.size():
+				var ln := String(wl[i])
+				if not deep and i > 0:
+					L("（再熟些，才看得出%s心里放不下什么。）" % w.ta(c), 13, C_DIM, cc)
+					break
+				L(ln, 14 if i == 0 else 13, C_TEXT if i == 0 else C_DIM, cc)
 		"rel":
 			var ks = c["rel"].keys()
 			ks.sort_custom(func(a, b): return _rel_depth(c["rel"][a]) > _rel_depth(c["rel"][b]))
@@ -2749,6 +2765,54 @@ func _dev(cmd: String) -> String:
 				pb.view.eye_state = String(sp.get("eye_state", "open"))
 				pb.view._apply_eyes(pb.view.eye_state)
 			return "ok"
+		_ when cmd.begins_with("xinshi"):
+			# 调试：打开一个熟人的“心事”页（先跑几十日让人物有动机和记忆，并把关系拉近到能看全）
+			_dev("jianghu")
+			for i in 40:
+				g.world.tick(i % 3 != 0)
+				g.world.auto_choose()
+			var cx: Dictionary = {}
+			for c in g.world.npcs():
+				if c.has("dr") and String(c["dr"]["k"]) != "交游" and not c["mem"].is_empty():
+					cx = c
+					break
+			if cx.is_empty():
+				cx = g.world.npcs()[0]
+			g.world.R(cx, g.world.P())["f"] = 25
+			g.world.R(g.world.P(), cx)["m"] = 1
+			tab = "jianghu"
+			person_id = int(cx["id"])
+			person_tab = "why"
+			modal = {"kind": "person"}
+			_save()
+			refresh()
+		_ when cmd.begins_with("ag:"):
+			# 调试：人物自主事件（ag:截道 在家；ag:截道@路 在路上）
+			_dev("jianghu")
+			tab = "home"
+			var spec := cmd.substr(3).split("@")
+			var tid2 := String(spec[0])
+			var ns: Array = g.world.acquaintances().filter(func(x): return x["alive"])
+			for c in g.world.npcs():
+				if not c in ns:
+					ns.append(c)
+			var a: Dictionary = ns[0]
+			g.world.AG.pers(a)
+			a["dr"] = {"k": "复仇" if tid2 in ["寻仇", "截道", "流言", "撞见"] else "求财", "t": 1, "u": 0.8, "d": int(g.world.w["day"]), "why": "%s抢了我在后山看中的灵物" % g.world.pn(), "src": -1}
+			var r2 := {"B": int(a["id"])}
+			match tid2:
+				"求援":
+					r2["V"] = int(ns[1]["id"]); r2["H"] = int(ns[2]["id"])
+				"示警", "劝和":
+					r2["H"] = int(ns[2]["id"])
+				"撞见":
+					r2["V"] = int(ns[1]["id"])
+			g.world.R(a, g.world.P())["owe"] = 6
+			if spec.size() > 1:
+				g.world.w["here"] = "后山"
+			g.world.fire(tid2, r2, {"aid": -1, "why": String(a["dr"]["why"]), "v": "截杀"})
+			_save()
+			refresh()
 		_ when cmd.begins_with("story:"):
 			# 调试：直接弹某个江湖事件（截背景用）；绑不上角色就退回表白/访客
 			_dev("jianghu")

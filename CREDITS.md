@@ -32,3 +32,7 @@
 - `scripts/world.gd` 由本项目的叙事原型 `docs/design/sim/story_sim.py`（design-v4）移植，自写，无第三方代码。
 
 - 江湖事件背景（茶肆/山道/坊市/夜雨/洞府/擂台，art_src/bg_*.jpg → web_portrait/bg/）：AI 生成，以 bg_houshan 为风格参考，v0.6.5
+
+## v0.9 人物自主（`scripts/agency.gd`）
+- **godot-utility-ai** — Pennycook — MIT — https://github.com/Pennycook/godot-utility-ai 。响应曲线（二值/线性/指数/逻辑斯蒂）、考量相乘聚合、按分数加权随机选择，改写成静态函数放在 `scripts/vendor/utility_ai_curves.gd`（随机数改为注入游戏自己的种子 RNG，保证存读档后可复现）。许可证全文：`addons/utility_ai/LICENSE`。
+- 只借思路、未拷代码：Comme il Faut / Prom Week（McCoy 等，社会意愿 volition = 由性格与关系算出的“想对某人做某事”的分数）；Talk of the Town（Ryan 等，人物记忆随时间淡忘、流言传播）；Versu（Evans & Short，社会惯例/动作库由人物按欲望选择）；Tracery（Kate Compton，Apache-2.0，变体语法）——文本变体用本项目已有的 `world.pv()` 去重实现，没有引入 Tracery/GDTracery 代码（其全局随机数会破坏可复现）。

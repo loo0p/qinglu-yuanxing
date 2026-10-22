@@ -43,9 +43,9 @@ const T = {
 	"暗恋不舍": [1, -4, true, 99, 0, 0, 1.0], "怨偶": [1, 14, true, 99, 0, 0, 1.0], "旧友托梦": [1, 4, true, 99, 0, 0, 1.0],
 	"仇家寻上门": [2, 25, true, 99, 0, 0, 1.0], "再问": [2, -8, true, 99, 0, 0, 1.0],
 	# v0.7.2：江湖再添几味
-	"宗门招徒": [1, 2, false, 2, 6, 20, 1.2], "入门试炼": [1, 6, true, 99, 0, 0, 1.0], "秘境请柬": [1, 4, false, 2, 10, 20, 1.2],
-	"拍卖会": [0, 2, false, 99, 8, 18, 1.2], "劫修伏击": [2, 22, false, 2, 12, 25, 1.5], "师弟惹祸": [1, 6, false, 99, 6, 15, 0.6],
-	"天材地宝": [1, 6, false, 99, 6, 18, 1.2], "宝地相争": [1, 10, true, 99, 0, 0, 1.0], "对手突破": [0, 4, false, 99, 10, 15, 1.2],
+	"宗门招徒": [1, 2, false, 2, 6, 20, 1.8], "入门试炼": [1, 6, true, 99, 0, 0, 1.0], "秘境请柬": [1, 4, false, 2, 10, 20, 1.5],
+	"拍卖会": [0, 2, false, 99, 8, 18, 1.5], "劫修伏击": [2, 22, false, 2, 12, 25, 2.2], "师弟惹祸": [1, 6, false, 99, 6, 15, 1.1],
+	"天材地宝": [1, 6, false, 99, 6, 18, 1.5], "宝地相争": [1, 10, true, 99, 0, 0, 1.0], "对手突破": [0, 4, false, 99, 10, 15, 1.2],
 	"旧债上门": [1, 6, false, 99, 6, 18, 1.0], "节令": [0, -4, true, 99, 0, 0, 1.0],
 	# 第三拍：对后话也说“不”的人
 	"远方来信": [0, -4, true, 99, 0, 0, 1.0], "喜帖": [1, 2, true, 99, 0, 0, 1.0], "落难": [1, 8, true, 99, 0, 0, 1.0],
@@ -53,6 +53,14 @@ const T = {
 	"坊市认物": [1, 8, false, 3, 0, 15, 3.0], "两难": [2, 18, false, 1, 18, 0, 2.5], "暗涌": [0, -4, false, 4, 8, 12, 1.4],
 	"道途殊归": [2, 6, false, 1, 30, 0, 1.0], "重逢": [0, -2, false, 4, 12, 12, 1.6], "白首": [1, -4, false, 1, 15, 0, 1.6],
 	"借庐": [1, 10, false, 2, 10, 25, 1.3], "点化": [0, -3, false, 1, 8, 0, 1.0], "点化回响": [1, -6, true, 99, 0, 0, 1.0],
+	# v0.9：人物自己找上门的事（agency.gd 产生；说书人不主动绑角色，只从人物的念头里来）
+	"寻仇": [2, 18, true, 99, 0, 0, 1.0], "截道": [1, 10, true, 99, 0, 0, 1.0], "失窃": [0, 4, true, 99, 0, 0, 1.0],
+	"示好": [0, -5, true, 99, 0, 0, 1.0], "馈赠": [0, -4, true, 99, 0, 0, 1.0], "结伴": [0, -3, true, 99, 0, 0, 1.0],
+	"交易": [0, 0, true, 99, 0, 0, 1.0], "讨债": [0, 5, true, 99, 0, 0, 1.0], "求援": [1, 10, true, 99, 0, 0, 1.0],
+	"示警": [1, 6, true, 99, 0, 0, 1.0], "求教": [0, -4, true, 99, 0, 0, 1.0], "还情": [0, -6, true, 99, 0, 0, 1.0],
+	"挑战": [1, 6, true, 99, 0, 0, 1.0], "流言": [0, 6, true, 99, 0, 0, 1.0], "叛门": [1, 10, true, 99, 0, 0, 1.0],
+	"劝和": [0, -6, true, 99, 0, 0, 1.0], "夺宝": [1, 8, true, 99, 0, 0, 1.0], "邀游": [1, 4, true, 99, 0, 0, 1.0],
+	"撞见": [1, 10, true, 99, 0, 0, 1.0],
 }
 ## 信物（v0.8）：结下深交时双方各留一件旧物；人没了，东西可能流落坊市
 const KEEPSAKES = ["半截断玉簪", "一卷写满批注的旧丹经", "一枚墨麟片", "一只旧铜铃", "一方绣了兰草的帕子", "一枚刻了字的桃木符",
@@ -139,6 +147,10 @@ const HINT = {"温柔": ["{ta}把伞往她这边偏了偏", "{ta}说话时声音
 	"记仇": ["{ta}记下了她的样子", "{ta}问了她的名字，又问了一遍", "{ta}说起前日有人踩了自家的药圃，眼神发冷"],
 	"薄情": ["{ta}看她一眼就移开了", "{ta}连名字也懒得问", "{ta}从她身边过去，像过一棵树"]}
 
+## v0.9 人物自主：性格 × 动机 × 记忆 → 每日行动（见 scripts/agency.gd）
+const AG = preload("res://scripts/agency.gd")
+## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
+const ROAD_OK = ["偶遇", "求助", "朱果之争", "劫修拦路", "劫修伏击", "天材地宝", "秘境", "重逢", "宝地相争", "寻凶", "坊市传闻", "旧友死讯", "暗涌", "报恩"]
 var w: Dictionary = {}
 var g = null
 var rng := RandomNumberGenerator.new()
@@ -232,6 +244,10 @@ func P() -> Dictionary:
 	return w["C"]["1"]
 
 ## 按 id 数字顺序遍历（JSON 存档会把键排成字典序，不排序的话读档后随机序列会变）
+## 取整成“规范”的浮点：int/10^k 与 JSON 读回的值逐位相同，存读档后行为不变
+static func qz(x: float, d: float) -> float:
+	return float(roundi(x * d)) / d
+
 static func _ids(d: Dictionary) -> Array:
 	var ks := d.keys()
 	ks.sort_custom(func(a, b): return int(a) < int(b))
@@ -314,8 +330,12 @@ func opinion(a: Dictionary, o: Dictionary) -> float:
 		v -= 10
 	return v
 
-func remember(c: Dictionary, o, text: String, wt: int) -> void:
-	c["mem"].append([int(w["day"]), int(o["id"]) if o is Dictionary and not o.is_empty() else 0, text, wt])
+func remember(c: Dictionary, o, text: String, wt: int, kind: String = "", aid: int = -1) -> void:
+	var m := [int(w["day"]), int(o["id"]) if o is Dictionary and not o.is_empty() else 0, text, wt]
+	if kind != "":
+		m.append(kind)   # v0.9：记忆的种类（救/劫/辱/欠……）与来由动作，可缺省
+		m.append(aid)
+	c["mem"].append(m)
 	if c["mem"].size() > 24:
 		var d := int(w["day"])
 		c["mem"].sort_custom(func(x, y): return absf(float(x[3])) - (d - float(x[0])) * 0.05 < absf(float(y[3])) - (d - float(y[0])) * 0.05)
@@ -448,14 +468,17 @@ func lingshi() -> int:
 
 # ================================================================ 世界自转（每日）
 ## home=false 时（路上）只让世界过日子，说书人不出事件；回家后再说
-func tick(home: bool = true) -> void:
+func tick(home: bool = true, road: bool = true) -> void:
 	w["day"] = int(w["day"]) + 1
 	_sync_player()
+	# v0.9：她在哪（青庐 / 路上的某处）。只用来微调“谁会碰上她”的权重，不挡任何事
+	w["here"] = "青庐" if home else _road_place()
+	P()["place"] = w["here"]
 	for c in npcs():
-		c["age"] = snappedf(float(c["age"]) + 1.0 / 360.0, 0.0001)   # 取整到 4 位：JSON 往返不丢精度
+		c["age"] = qz(float(c["age"]) + 1.0 / 360.0, 10000.0)   # 取整到 4 位：JSON 往返不丢精度
 		if int(c["inj"]) > 0:
 			c["inj"] = int(c["inj"]) - 1
-		c["xp"] = snappedf(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0) * (1.8 if c.has("dh") else 1.0), 0.0001)
+		c["xp"] = qz(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0) * (1.8 if c.has("dh") else 1.0), 10000.0)
 		var lv := int(c["lv"])
 		if float(c["xp"]) >= 8.0 * pow(1.35, lv):
 			c["xp"] = 0.0
@@ -498,10 +521,18 @@ func tick(home: bool = true) -> void:
 			solo(c)
 	if rng.randf() < 0.04 and npcs().size() < 30:
 		newcomer()
+	AG.daily(self)
 	_arc_tick()
-	if home and w["pending"].is_empty():
-		storyteller()
+	if (home or road) and w["pending"].is_empty():
+		storyteller(home)
 	_save_rng()
+
+func _road_place() -> String:
+	if g != null:
+		var rid := String(g.s.get("trip", {}).get("route", ""))
+		if rid != "" and g.routes.has(rid):
+			return {"houshan": "后山", "hantan": "寒潭"}.get(rid, String(g.routes[rid].get("place", g.routes[rid]["name"])))
+	return "后山" if int(w["day"]) % 2 == 0 else "寒潭"
 
 func solo(c: Dictionary) -> void:
 	var goal: String = c["goal"]
@@ -528,6 +559,16 @@ func die(c: Dictionary, how: String) -> void:
 	c["alive"] = false
 	chron(c, how + "。")
 	rumor("%s%s。" % [c["name"], how], [c], "死")
+	var killer = _killer_of(how)
+	for o in npcs():
+		if o.has("dr") and int(o["dr"]["t"]) == int(c["id"]):
+			o["rt"] = 1   # v0.9：念头里的那个人没了，重想
+		if killer != null and o != killer and o["rel"].has(str(int(c["id"]))):
+			var r0: Dictionary = o["rel"][str(int(c["id"]))]
+			if "道侣" in r0["t"] or "师" in r0["t"] or "徒" in r0["t"] or "结义" in r0["t"] or int(r0["f"]) > 40:
+				remember(o, killer, "%s害了%s" % [killer["name"], c["name"]], -28, "仇")
+				R(o, killer)["g"] = int(R(o, killer)["g"]) + 30
+				o["rt"] = 1
 	for o in w["C"].values():
 		if o["alive"] and o["rel"].has(str(int(c["id"]))):
 			var r: Dictionary = o["rel"][str(int(c["id"]))]
@@ -609,7 +650,7 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 			var lose: Dictionary = ab[1]
 			R(win, lose)["g"] = int(R(win, lose)["g"]) + 5
 			R(lose, win)["g"] = int(R(lose, win)["g"]) + 20
-			remember(lose, win, "%s抢了我在%s看中的灵物" % [win["name"], place], -15)
+			remember(lose, win, "%s抢了我在%s看中的灵物" % [win["name"], place], -15, "夺")
 			chron(win, String(_ch(VAR["争宝_w"])).format({"p": place, "o": lose["name"]}))
 			chron(lose, String(_ch(VAR["争宝_l"])).format({"p": place, "o": win["name"]}))
 			if rng.randf() < 0.3:
@@ -629,7 +670,7 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 			if int(win2["lv"]) - int(lose2["lv"]) >= 3 and (tag(win2, "阴狠") or side(win2) == "魔") and rng.randf() < 0.5:
 				die(lose2, "死于%s之手" % win2["name"])
 			else:
-				remember(lose2, win2, "%s伤我" % win2["name"], -25)
+				remember(lose2, win2, "%s伤我" % win2["name"], -25, "伤")
 		"结为道侣":
 			if _protected(a) or _protected(b):
 				ra["f"] = int(ra["f"]) + 5
@@ -658,7 +699,7 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 			ra["t"].erase("道侣")
 			rb["t"].erase("道侣")
 			rb["g"] = int(rb["g"]) + 60
-			remember(b, a, "%s负我" % a["name"], -40)
+			remember(b, a, "%s负我" % a["name"], -40, "负")
 			chron(a, "弃了道侣%s，独自远走。" % b["name"])
 			chron(b, "被%s所负。" % a["name"])
 			rumor("听说%s负了%s。" % [a["name"], b["name"]], [a, b])
@@ -676,12 +717,12 @@ func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
 				R(b, a)["g"] = int(R(b, a)["g"]) + 30
 
 # ================================================================ 说书人
-func storyteller() -> void:
+func storyteller(home: bool = true) -> void:
 	w["since_major"] = int(w["since_major"]) + 1
 	var day := int(w["day"])
 	var due := []
 	for it in w["queue"]:
-		if int(it[0]) <= day:
+		if int(it[0]) <= day and (home or String(it[1]) in ROAD_OK):
 			due.append(it)
 	for it in due:
 		w["queue"].erase(it)
@@ -697,9 +738,15 @@ func storyteller() -> void:
 			if tid != "":
 				fire(tid, it[2], it[3])
 				return
+	if not home:
+		_road_teller()
+		return
 	# 节令：到了日子（当天或之后两天里）在青庐，多半会过上这个节
 	if festival_today() != "" and rng.randf() < 0.7:
 		fire("节令", {}, {})
+		return
+	# v0.9：连着两天都有事，第三天歇一歇（路上的事也算在内）
+	if int(w.get("last_ev", -9)) >= day - 1 and int(w.get("last_ev2", -9)) >= day - 2:
 		return
 	var p_event := 0.35 + int(w["since_major"]) * 0.012
 	# 喘口气（v0.7.3）：昨天刚出过事，今天随机事件的机会减半多（故事线、节令不受影响），免得回到青庐天天有人敲门
@@ -708,6 +755,12 @@ func storyteller() -> void:
 	if rng.randf() > p_event:
 		w["tension"] = maxi(0, int(w["tension"]) - 2)
 		return
+	# v0.9：先看有没有人自己找上门来（人物的念头），没有再由说书人从模板里挑
+	if rng.randf() < 0.5:
+		var it2: Array = AG.take(self, false)
+		if not it2.is_empty():
+			fire(String(it2[1]), it2[2], it2[3])
+			return
 	var want: int
 	if int(w["since_major"]) > 14 and rng.randf() < 0.5:
 		want = 2
@@ -736,6 +789,37 @@ func storyteller() -> void:
 		if wt > 0:
 			cands.append([tid, roles])
 			cws.append(wt)
+	if cands.is_empty():
+		return
+	var pick: Array = _wch(cands, cws)
+	fire(pick[0], pick[1], {})
+
+## 路上：两三站碰上一件事。先看谁惦记着她，再看附近谁按自己的念头会冲着这个过路的女修来，最后才是路上的旧模板
+func _road_teller() -> void:
+	var day := int(w["day"])
+	if int(w.get("last_ev", -9)) >= day - 1:
+		return
+	if rng.randf() > 0.36:
+		return
+	var it: Array = AG.take(self, true)
+	if it.is_empty() and rng.randf() < 0.6:
+		it = AG.crossing(self)
+	if not it.is_empty():
+		fire(String(it[1]), it[2], it[3])
+		return
+	var cands := []
+	var cws := []
+	for tid in ROAD_OK:
+		var m: Array = T[tid]
+		if m[2] or int(w["fired"].get(tid, 0)) >= int(m[3]) or day < int(m[4]):
+			continue
+		if w["last"].has(tid) and day - int(w["last"][tid]) < int(m[5]):
+			continue
+		var roles = bind(tid)
+		if roles == null:
+			continue
+		cands.append([tid, roles])
+		cws.append(weight(tid, roles))
 	if cands.is_empty():
 		return
 	var pick: Array = _wch(cands, cws)
@@ -1189,7 +1273,13 @@ func fire(tid: String, roles: Dictionary, ctx: Dictionary) -> void:
 				R(rc, P())["n"] = int(R(rc, P()).get("n", 0)) + 1
 				R(P(), rc)["d"] = int(w["day"])
 	_log_fire(tid)
+	if int(w.get("last_ev", -9)) != int(w["day"]):
+		w["last_ev2"] = int(w.get("last_ev", -9))
 	w["last_ev"] = int(w["day"])
+	if roles.has("B"):
+		var lw: Dictionary = w.get("last_who", {})
+		lw[str(int(roles["B"]))] = int(w["day"])
+		w["last_who"] = lw
 	var ev := present(tid, roles, ctx)
 	ev["tid"] = tid
 	ev["roles"] = roles
@@ -1230,6 +1320,8 @@ func _hint(n: Dictionary) -> String:
 
 ## 呈现：{speaker: id(0=旁白), text, opts:[[id,label]]}
 func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
+	if tid in AG.TIDS:
+		return AG.present(self, tid, roles, ctx)
 	var n: Dictionary = C(roles["B"]) if roles.has("B") else {}
 	var nm: String = n.get("name", "")
 	var ok := [_o("ok", "知道了")]
@@ -1240,7 +1332,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			return {"speaker": int(n["id"]), "anon": true, "text": pv("偶遇式", ["{w}，她遇见{who}，{r}。{h}。", "{w}，迎面来了{who}，看气息是{r}。{h}。", "{w}，有人同她打了个照面：{who}，{r}。{h}。", "她在{w}歇脚，来了{who}，{r}。{h}。"]).format({"w": where, "who": who, "r": realm(n), "h": _hint(n)}),
 				"opts": [_o("go", "结伴走一程"), _o("bye", "拱手别过")]}
 		"求助":
-			var where2 := pv("求助地", ["寒潭边", "青庐柴门外", "后山的山涧里", "坊市后巷", "去镇上的半路"])
+			var where2 := pv("求助地", ["寒潭边", "青庐柴门外", "后山的山涧里", "坊市后巷", "去镇上的半路"]) if String(w.get("here", "青庐")) == "青庐" else pv("求助路", ["%s的山涧里", "%s路边的草窠里", "%s的一块大石后头", "去%s的半路上"]) % String(w["here"])
 			ctx["where"] = where2
 			return {"speaker": int(n["id"]), "anon": true, "text": "%s%s，%s的服色，%s%s" % [where2, pv("求助起", ["躺着一个人", "有人倒在草里", "伏着一个人，一动不动", "传来极轻的一声呻吟——是个受了伤的人"]), n["sect"], pv("求助伤", ["胸前一道剑伤还在渗血", "嘴唇发紫，像中了毒", "灵气乱窜，经脉一跳一跳", "一条腿压在落石下", "背上插着半截断箭", "眉心一缕黑气，是挨了魔修的掌", "半边身子结了一层薄霜"]),
 				(("。她先认出了%s，才认出人——%%s。" % sig(n)[0]) if known(n) and rng.randf() < 0.5 else (pv("求助认熟", ["。她认得这张脸——%s。", "。凑近了看，是%s。"]) if known(n) else pv("求助认", ["。是%s。", "。那人勉强抬起头：“……%s。”", "。腰牌上刻着名字：%s。"]))) % nm],
@@ -1608,6 +1700,8 @@ func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
 	return mine + rng.randf() * a > theirs + rng.randf() * b
 
 func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
+	if tid in AG.TIDS:
+		return AG.resolve(self, tid, roles, ctx, oid)
 	var p := P()
 	var n: Dictionary = C(roles["B"]) if roles.has("B") else {}
 	var nm: String = n.get("name", "")
