@@ -2809,6 +2809,12 @@ func _dev(cmd: String) -> String:
 				"撞见":
 					r2["V"] = int(ns[1]["id"])
 			g.world.R(a, g.world.P())["owe"] = 6
+			if tid2 == "赔罪":
+				a["dr"]["why"] = "当年在后山抢了你看中的灵物，是我对不住你"
+			elif tid2 == "托付":
+				a["dr"]["why"] = "自知时日无多，你待我好"
+			elif tid2 == "求药":
+				a["inj"] = 14
 			if spec.size() > 1:
 				g.world.w["here"] = "后山"
 			g.world.fire(tid2, r2, {"aid": -1, "why": String(a["dr"]["why"]), "v": "截杀"})

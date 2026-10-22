@@ -705,8 +705,9 @@ static func crossing(W) -> Array:
 		if i < 0:
 			continue
 		var v2: String = opts[i]
-		var aid := log_act(W, c, v2, W.P(), String(dr["k"]), int(dr.get("src", -1)))
-		_intent(W, c, v2, {}, aid)
+		var incidental: bool = not (v2 in own)   # 顺路做的寻常事，不算在心里那件事的账上
+		var aid := log_act(W, c, v2, W.P(), "交游" if incidental else String(dr["k"]), -1 if incidental else int(dr.get("src", -1)))
+		_intent(W, c, v2, {"k": "交游"} if incidental else {}, aid)
 		for it in W.w["agq"]:
 			if int(it[2]["B"]) == int(c["id"]):
 				W.w["agq"].erase(it)
@@ -1654,7 +1655,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					n["inj"] = maxi(0, int(n["inj"]) - 6)
 					mem(W, n, p, "%s替我看过伤" % W.pn(), 8, "助", aid)
 					W.fav(n, 4)
-					out = "她替%s清了伤口，写了张方子，又嘱咐了三件忌口的事。%s听得很认真。" % [nm, tb]
+					out = W.pv("求药看", ["她替{n}清了伤口，写了张方子，又嘱咐了三件忌口的事。{t}听得很认真。", "她拆开{n}胡乱缠的布条，重新上药包好：“七日别动真气。”", "她按了按{n}的脉，从药柜里抓了三味草：“煎到一碗，睡前喝。”", "伤不算深，只是拖久了。她替{n}剜去腐肉，{t}咬着牙一声没吭。"]).format({"n": nm, "t": tb})
 				"sell":
 					W._use("herb_qingzhi")
 					var got = W._ling(6)
