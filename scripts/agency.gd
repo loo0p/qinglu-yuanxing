@@ -803,11 +803,23 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 					W.rumor(W.pv("寻仇闻", ["%s寻%s报仇，在%s把人打成重伤。", "听说%s到底还是找到了%s，在%s。"]) % [an, bn, pl], [a, b], "伤")
 			else:
 				a["inj"] = maxi(int(a["inj"]), 20)
-				W.chron(a, "寻%s报仇不成，负伤遁走。" % bn)
+				var fz := int(a.get("fz", 0)) + 1
+				a["fz"] = fz
+				W.chron(a, ("寻%s报仇不成，负伤遁走。" if fz < 2 else W.pv("寻仇再败", ["又一次败给%s，这回伤得不轻。", "第%s回去寻%s，还是没讨到便宜。" % [str(fz), "%s"]])) % bn)
 				W.chron(b, "%s寻上门来，被打退了。" % an)
 				mem(W, a, b, "又败在%s手里" % bn, -12, "辱", aid)
 				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 15
 				drift(a, "仇", 0.02)
+				# 连败两回：沉得住气的人先去变强，心软的人干脆放下；都不是的，接着恨
+				if fz >= 2 and (px(a, "慎") > 0.4 or px(a, "野") > 0.5):
+					a["fz"] = 0
+					a["dr"] = {"k": "破境", "t": 0, "u": 0.9, "d": int(W.w["day"]), "why": "连败给%s，不把修为提上去，这仇报不了" % bn, "src": aid}
+					W.chron(a, "闭门不出，说要先把修为练上去。")
+				elif fz >= 2 and px(a, "善") > 0.55 and px(a, "仇") < 0.6:
+					a["fz"] = 0
+					_settle(a, int(b["id"]), ["夺", "伤", "辱", "窃", "谣", "负"])
+					drift(a, "仇", -0.05)
+					W.chron(a, "对人说：和%s的事，算了。" % bn)
 		"截杀":
 			if b.is_empty():
 				return
