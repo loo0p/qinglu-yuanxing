@@ -47,6 +47,7 @@ func _go() -> void:
 		var screens := {}
 		var clicks := 0
 		var stuck_at := ""
+		var in_person := 0
 		for i in 1500:
 			var bs: Array = buttons(main, [])
 			if not started:
@@ -77,6 +78,16 @@ func _go() -> void:
 				for k in (1 if x.text in NAV else 3):
 					pool.append(x)
 			var b = adv[0] if not adv.is_empty() and rng.randf() < 0.9 else pool[rng.randi() % pool.size()]
+			# 人物卡里能一张张点进别人的卡，真人翻二三十下总会关掉
+			if String(main.modal.get("kind", "")) == "person":
+				in_person += 1
+				if in_person > 25:
+					var cl = bs.filter(func(x): return x.text in ["回江湖", "返回", "收起"])
+					if not cl.is_empty():
+						b = cl[0]
+						in_person = 0
+			else:
+				in_person = 0
 			screens["%s|%s|%s" % [main.screen, main.modal.get("kind", ""), main.sheet]] = 1
 			var here := "%s/%s/%s 按钮：%s" % [main.screen, main.modal.get("kind", ""), main.sheet, ", ".join(bs.slice(0, 10).map(func(x): return x.text.replace("\n", "/")))]
 			b.pressed.emit()

@@ -330,7 +330,7 @@ func _init() -> void:
 	# 第三拍：对后话也说不（总挑“拒绝”那一项）→ 远方来信/落难；总选第二项（收下心意→再问→仍婉拒）→ 喜帖
 	var REFUSE := ["no", "bye", "cut", "let", "bow", "wait", "pass", "shrug", "hide", "keep_no"]
 	var third := {"拒绝到底": 0, "再问又拒": 0, "喜帖": 0}
-	for sd in range(31, 39):
+	for sd in range(31, 47):
 		for mode in ["refuse", "second"]:
 			var x = W.new()
 			x.create(sd, "苏青禾")
@@ -352,8 +352,8 @@ func _init() -> void:
 				third["再问又拒"] += 1
 				if cnt.has("喜帖"):
 					third["喜帖"] += 1
-	lines.append("第三拍（8 局 100 日里出现的局数）：%s" % JSON.stringify(third))
-	ok(third["拒绝到底"] >= 6, "拒绝到底的玩家也有第三拍（远方来信/落难/喜帖），至少 6/8 局")
+	lines.append("第三拍（16 局 100 日里出现的局数）：%s" % JSON.stringify(third))
+	ok(third["拒绝到底"] >= 12, "拒绝到底的玩家也有第三拍（远方来信/落难/喜帖），至少 12/16 局")
 	ok(third["喜帖"] == third["再问又拒"] and third["再问又拒"] >= 1, "再问仍婉拒的局都有喜帖/辞行（%d/%d）" % [third["喜帖"], third["再问又拒"]])
 	# 像真人一样乱点：3 个种子 × 120 日，每件事随机挑一项；检查文字没有漏网的占位符、选项不空、事件不卡住
 	var bad := []

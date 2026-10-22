@@ -326,9 +326,12 @@ static func on_road(W) -> bool:
 
 ## 她在不在附近：只微调权重，从不排除（路上同一处 1.0；路上别处 0.4；在家：认识的人 0.6，生人 0.2）
 static func opp_p(W, c: Dictionary) -> float:
+	var k: bool = W.known(c)
+	# 焦点社交圈：她近来往来的人已多时，生人更少冲她来
+	var cf := 0.35 if not k and W.active_bonds() >= 4 else 1.0
 	if on_road(W):
-		return 1.0 if String(c["place"]) == here(W) else 0.4
-	return 0.8 if W.known(c) else 0.3
+		return (1.0 if String(c["place"]) == here(W) else 0.4) * cf
+	return (0.8 if k else 0.3) * cf
 
 static func daily(W) -> void:
 	var day := int(W.w["day"])
@@ -572,7 +575,9 @@ static func act(W, c: Dictionary) -> bool:
 	if v in ["寻仇", "截杀", "挑战", "偷窃"] and not t.is_empty():
 		# 路上同一处、或一成多的机会，她会撞见
 		var near := on_road(W) and (String(c["place"]) == here(W) or String(t["place"]) == here(W))
-		if W.rng.randf() < (0.5 if near else 0.12):
+		var strangers: bool = not W.known(c) and not W.known(t)
+		var pz := (0.5 if near else 0.1) * (0.3 if strangers and W.active_bonds() >= 4 else 1.0)
+		if W.rng.randf() < pz:
 			_queue(W, "撞见", {"B": int(c["id"]), "V": int(t["id"])}, {"v": v, "aid": aid})
 			return true
 	if v == "叛门":
@@ -631,12 +636,16 @@ static func take(W, road: bool) -> Array:
 	if q.is_empty():
 		return []
 	var ws := []
+	# v0.8 的焦点社交圈照旧：近来往来的人已有 4 个时，生人找上门的权重 ×0.15，并留一份“今天没人来”
+	var crowded: bool = W.active_bonds() >= 4
 	for it in q:
 		var c: Dictionary = W.C(it[2]["B"])
 		if c.is_empty() or not c["alive"]:
 			ws.append(0.0)
 			continue
 		var wt := 1.0 + 0.5 * float(c.get("dr", {}).get("u", 0.3))
+		if crowded and not W.known(c):
+			wt *= 0.15
 		if road == (String(it[1]) in ROADISH):
 			wt *= 1.5
 		if W.w["last"].has(String(it[1])) and int(W.w["day"]) - int(W.w["last"][String(it[1])]) < 8:
@@ -651,19 +660,27 @@ static func take(W, road: bool) -> Array:
 	if tot <= 0.0:
 		W.w["agq"] = []
 		return []
+	if crowded:
+		var q2: Array = q + [[]]
+		var it3: Array = W._wch(q2, ws + [0.6])
+		if it3.is_empty():
+			return []
+		q.erase(it3)
+		return it3
 	var it2: Array = W._wch(q, ws)
 	q.erase(it2)
 	return it2
 
 ## 路上没有人惦记她时：附近的某个人按自己的动机，看看能对这个路过的女修做点什么
 static func crossing(W) -> Array:
+	var crowded: bool = W.active_bonds() >= 4
 	var cs := []
 	var ws := []
 	for c in W.npcs():
 		if not c.has("dr"):
 			continue
 		cs.append(c)
-		ws.append((1.0 if String(c["place"]) == here(W) else 0.35) * (0.5 + float(c["dr"]["u"])))
+		ws.append((1.0 if String(c["place"]) == here(W) else 0.35) * (0.5 + float(c["dr"]["u"])) * (0.15 if crowded and not W.known(c) else 1.0))
 	if cs.is_empty():
 		return []
 	for tries in 4:
