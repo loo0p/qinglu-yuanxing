@@ -16,7 +16,8 @@ SCENES = [('title', 'title'), ('create', 'create'), ('home', 'home'), ('sheet_fu
           ('story:借庐', 'jielu'), ('story:点化', 'dianhua'), ('story:白首', 'baishou'), ('story:重逢', 'chongfeng'), ('story:灵田', 'light_home'), ('extra', 'extra'),
           ('ag:截道@路', 'ag_jiedao_road'), ('reveal', 'ag_jiedao_road_choices'), ('ag:撞见@路', 'ag_zhuangjian_road'), ('ag:示好', 'ag_shihao'), ('ag:求援', 'ag_qiuyuan'), ('ag:流言', 'ag_liuyan'), ('ag:挑战@路', 'ag_tiaozhan_road'), ('xinshi', 'xinshi'),
           ('ag:求药', 'ag_qiuyao'), ('ag:赔罪', 'ag_peizui'), ('ag:托付', 'ag_tuofu'), ('ag:问道@路', 'ag_wendao_road'),
-          ('md:风声', 'md_fengsheng'), ('reveal', 'md_fengsheng_choices'), ('md:风声@路', 'md_fengsheng_road'), ('md:插手:夺宝', 'md_chashou_duobao'), ('reveal', 'md_chashou_choices'), ('mdpick', 'md_chashou_result'), ('mdnews', 'md_news')]
+          ('md:风声', 'md_fengsheng'), ('reveal', 'md_fengsheng_choices'), ('md:风声@路', 'md_fengsheng_road'), ('md:插手:夺宝', 'md_chashou_duobao'), ('reveal', 'md_chashou_choices'), ('mdpick', 'md_chashou_result'), ('mdnews', 'md_news'),
+          ('map', 'world_warm'), ('map', 'world_map'), ('map_place', 'world_place'), ('roam', 'world_roam'), ('meet', 'world_meet'), ('reveal', 'world_meet_choices')]
 # 可选第 4 个参数：只截名字里含这些词的场景（逗号分隔），例如 liangnan,jianghu
 if len(sys.argv) > 4:
     keep = sys.argv[4].split(',')

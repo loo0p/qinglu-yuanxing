@@ -36,3 +36,6 @@
 ## v0.9 人物自主（`scripts/agency.gd`）
 - **godot-utility-ai** — Pennycook — MIT — https://github.com/Pennycook/godot-utility-ai 。响应曲线（二值/线性/指数/逻辑斯蒂）、考量相乘聚合、按分数加权随机选择，改写成静态函数放在 `scripts/vendor/utility_ai_curves.gd`（随机数改为注入游戏自己的种子 RNG，保证存读档后可复现）。许可证全文：`addons/utility_ai/LICENSE`。
 - 只借思路、未拷代码：Comme il Faut / Prom Week（McCoy 等，社会意愿 volition = 由性格与关系算出的“想对某人做某事”的分数）；Talk of the Town（Ryan 等，人物记忆随时间淡忘、流言传播）；Versu（Evans & Short，社会惯例/动作库由人物按欲望选择）；Tracery（Kate Compton，Apache-2.0，变体语法）——文本变体用本项目已有的 `world.pv()` 去重实现，没有引入 Tracery/GDTracery 代码（其全局随机数会破坏可复现）。
+
+## v0.11 世界图
+- `art_src/map_world.jpg` / `web_portrait/bg/map_world.webp`（山外世界水墨地图）：为本项目用 AI 图像生成工具生成，由 `tools/make_assets.py` 压缩。未使用第三方图片素材。地点解锁与游历为本项目自写代码，未引入第三方代码。

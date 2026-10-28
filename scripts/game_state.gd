@@ -1080,8 +1080,13 @@ func roam_home() -> Dictionary:
 		tick("road")
 		if s["loc"] != "roam":
 			return {}
+	var info := "在%s一带游历了 %d 日。" % [s["roam"]["pl"], int(s["roam"].get("days", 0))]
 	_log("从%s回来，路上走了 %d 日。" % [s["roam"]["pl"], d])
-	return come_home(false)
+	var sum := come_home(false)
+	if not sum.is_empty():
+		sum["roam"] = info
+		s["last_home"] = sum
+	return sum
 
 ## 坊市里能补干粮
 func roam_buy_ration() -> bool:

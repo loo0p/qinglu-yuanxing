@@ -85,15 +85,38 @@ func _go() -> void:
 	main.tab = "home"; main.refresh()
 	log_lines.append("新手提示（新局出现、记下后消失）：" + ("PASS" if gd_ok else "FAIL"))
 	ok = ok and gd_ok
-	ok = ok and seq(["历练", "出发：后山"])
+	ok = ok and seq(["历练", "后山", "出发：后山"])
 	ok = ok and seq(["溪边", "贴上避水符", "继续", "溪畔野地", "采一把续骨草", "继续", "葛老三", "递上续骨草", "继续", "古松残碑", "拓下碑文", "继续", "归途", "回青庐", "回家", "进屋"])
 	ok = ok and seq(["开第三块阳田", "修炼", "2 日"]) if false else ok and seq(["开第三块阳田", "修炼"])
 	# 闭关 2 日：点 1 日两次
 	ok = ok and seq(["1 日", "1 日", "历练", "● 后山"]) if false else ok and seq(["1 日", "1 日", "历练"])
+	# v0.11：寒潭要修到二层或听够风声才认得路；冒烟测试只测界面，这里直接记作认得
+	if main.g.world != null and not main.TV.unlocked(main.g.world, "寒潭"):
+		main.TV.unlock(main.g.world, "寒潭", "风声", true)
+		main.refresh()
 	ok = ok and seq(["寒潭", "+1（1灵石）", "+1（1灵石）", "出发：寒潭"])
 	ok = ok and seq(["冷杉道", "向他打听老龟", "继续", "寒潭野地", "拢紧衣襟", "继续", "潭边石屋", "坐下烤火", "继续", "寒潭老龟", "在石头上坐下", "继续",
 		"冰瀑", "站定", "继续", "猎屋", "点上蜡烛", "继续", "雾林", "掩住口鼻", "继续", "回程野地", "加快脚步", "继续", "归途", "回青庐", "回家", "进屋"])
 	ok = ok and seq(["修炼", "3 日", "历练", "后山", "出发：后山", "溪边", "快走", "继续", "向阳坡", "伏在草里", "继续", "归途", "回青庐", "回家", "进屋"])
+	# v0.11 游历：世界图 → 点坊市 → 去游历 → 逛一处 → 上前搭话（相逢）→ 回青庐
+	var rm_ok := true
+	var gw0 = main.g.world
+	var meet0 := int(gw0.w["fired"].get("相逢", 0)) if gw0 else 0
+	rm_ok = rm_ok and seq(["历练", "坊市", "去坊市游历"]) and main.g.s["loc"] == "roam"
+	rm_ok = rm_ok and seq(["茶肆"])
+	drain_story()
+	if gw0:
+		gw0.w["appr"] = -1
+		main.refresh()
+	rm_ok = rm_ok and click("上前")
+	drain_story()
+	rm_ok = rm_ok and gw0 != null and int(gw0.w["fired"].get("相逢", 0)) > meet0
+	rm_ok = rm_ok and seq(["去别处"]) and main.sheet == "goto"
+	main.sheet = ""
+	main.refresh()
+	rm_ok = rm_ok and seq(["回青庐", "进屋"]) and main.g.s["loc"] == "home"
+	log_lines.append("世界图 → 游历 → 相逢 → 回家：" + ("PASS" if rm_ok else "FAIL"))
+	ok = ok and rm_ok
 	var jh := true
 	var gw = main.g.world
 	# 江湖页与人物卡能打开

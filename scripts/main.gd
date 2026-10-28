@@ -4,8 +4,9 @@ extends Control
 ## 结构：stage（整幅插画 + 热点/路标）→ ui（顶栏 HUD、正文、底栏）→ sheet（底部抽屉）→ fx（飞入、冲关特效）
 
 const GS = preload("res://scripts/game_state.gd")
+const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.10.3 试玩版"
+const VERSION = "v0.11 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -71,6 +72,7 @@ var sheet = ""           # 底部抽屉：field | furnace | aunt | pack | stats 
 var create_name = "苏青禾"
 var create_cherish = "aunt"
 var selected_route = "houshan"
+var sel_place = ""       # v0.11 世界图上点开的地方
 var preset_save_mode = false
 var play_ms_base = 0
 var session_start = 0
@@ -221,7 +223,7 @@ func _font(path: String) -> Font:
 
 # ------------------------------------------------------------ 资源
 ## 江湖事件背景（v0.6.5）不进 pck：网页版从 portrait/bg/ 按需下载，下好前先用院子图顶着
-const LAZY_BG = ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai"]
+const LAZY_BG = ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai", "map_world"]
 var bg_want := {}
 
 func _bg_fetch(name: String) -> void:
@@ -957,7 +959,7 @@ func _start_new() -> void:
 # ------------------------------------------------------------ 刷新
 func refresh() -> void:
 	_story_check()
-	var key = "%s|%s|%s|%s|%s|%s|%s" % [screen, tab, modal.get("kind", ""), g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), String(g.s.get("trip", {}).get("node", "")), _story_key()]
+	var key = "%s|%s|%s|%s|%s|%s|%s|%s" % [screen, tab, modal.get("kind", ""), g.s.get("loc", ""), g.s.get("trip", {}).get("stage", ""), String(g.s.get("trip", {}).get("node", "")), _story_key(), String(g.s.get("roam", {}).get("pl", "")) if g.s.get("loc", "") == "roam" else ""]
 	var changed = key != scene_key
 	var prev_key = scene_key
 	scene_key = key
@@ -997,6 +999,8 @@ func _bgm_for_scene() -> String:
 			return "xinmo"
 		"trip":
 			return "travel_houshan" if String(g.s["trip"].get("route", "houshan")) == "houshan" else "hantan"
+		"roam":
+			return "hantan" if String(g.s["roam"].get("pl", "")) in ["寒潭", "玄霜谷", "秘境", "古战场"] else "travel_houshan"
 	return "home"
 
 func _refresh() -> void:
@@ -1042,6 +1046,11 @@ func _refresh() -> void:
 	if g.s["loc"] == "trip":
 		_trip()
 		return
+	if g.s["loc"] == "roam":
+		_roam()
+		if sheet != "":
+			_sheet()
+		return
 	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
 		_extra_choice()
 		return
@@ -1061,7 +1070,7 @@ func _refresh() -> void:
 const GUIDE = {
 	"home": "这院子就是青庐。阳田种青芝，丹炉炼丹，静室闭关——点院里的地方就能打理。日子在这里过，一天是一天。",
 	"home2": "回来了就好。累了就闭关，采回的灵草放进丹炉。寿元一日日少，别都耗在路上。",
-	"depart": "出门历练：挑一条路，带够干粮。路上每一站都要你拿主意，采回的灵草能入药。别贪远，人要先回来。",
+	"depart": "这是山外的图。认得的地方点开就能去，“？”是只听过风声的。后山、寒潭照姑母的路书走；别处一天逛一处，看看谁在。",
 	"cult": "静室里闭关，一日一日把感悟炼成修为。修为攒满，院里会出现「冲关」：过了心魔那几问，才算筑基。",
 	"jianghu": "山外的人和事都记在「江湖」里。你怎么待人，人家都记得——好的坏的都记得。",
 }
@@ -1271,7 +1280,7 @@ func _sheet() -> void:
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "aunt": "姑母", "pack": "行囊", "stats": "近况"}.get(sheet, "")
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "aunt": "姑母", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处"}.get(sheet, "")
 	var ht = H(tl, 24, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
@@ -1284,16 +1293,39 @@ func _sheet() -> void:
 		"aunt": _sheet_aunt(v)
 		"pack": _sheet_pack(v)
 		"stats": _sheet_stats(v)
+		"place": _sheet_place(v)
+		"goto": _sheet_goto(v)
 	var vs = get_viewport_rect().size
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
 	var h = max(p.get_combined_minimum_size().y, 120)
 	p.position = Vector2(0, vs.y - h)
 	p.size = Vector2(vs.x, h)
+	var tw: Tween = null
 	if not sheet_layer.has_meta("open") or sheet_layer.get_meta("open") != sheet:
 		sheet_layer.set_meta("open", sheet)
 		p.position.y = vs.y
-		p.create_tween().tween_property(p, "position:y", vs.y - h, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw = p.create_tween()
+		tw.tween_property(p, "position:y", vs.y - h, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# 换行字要排过一帧才知道真实行数：下一帧按真实高度再贴一次底
+	var pref = weakref(p)
+	get_tree().process_frame.connect(func():
+		var p2 = pref.get_ref()
+		if p2 == null or not is_instance_valid(p2):
+			return
+		_refit_sheet(p2, tw, vs)
+	, CONNECT_ONE_SHOT)
+
+func _refit_sheet(p: PanelContainer, tw: Tween, vs: Vector2) -> void:
+	var h2: float = minf(maxf(p.get_combined_minimum_size().y, 120.0), vs.y * 0.9)
+	if absf(h2 - p.size.y) < 1.0:
+		return
+	p.size = Vector2(vs.x, h2)
+	if tw != null and tw.is_valid():
+		tw.kill()
+		p.create_tween().tween_property(p, "position:y", vs.y - h2, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	else:
+		p.position.y = vs.y - h2
 
 func _queue_text() -> String:
 	if g.s["queue"].is_empty():
@@ -1744,6 +1776,8 @@ func _modal() -> void:
 				chip("姑母处寄存 %d" % int(sm["aunt_ration"]), ir, "ico_ration")
 			if sm.get("turned_back", false):
 				L("半路折返。", 13, C_DIM, c)
+			if sm.has("roam"):
+				L(String(sm["roam"]), 13, C_DIM, c)
 			if sm.has("news"):
 				var nw = card()
 				H("山外", 20, C_ACCENT, nw)
@@ -1905,6 +1939,8 @@ func _log_tab() -> void:
 
 # ------------------------------------------------------------ 出发（路线图预览 + 行囊）
 func _trip_bg() -> String:
+	if g.s.get("loc", "") == "roam":
+		return String(TV.PL.get(String(g.s["roam"].get("pl", "")), {}).get("bg", "bg_shandao"))
 	var rid = String(g.s.get("trip", {}).get("route", selected_route)) if g.s.get("loc", "") == "trip" else selected_route
 	return "bg_houshan" if rid == "houshan" else "bg_hantan"
 
@@ -1954,7 +1990,7 @@ func _token(at: Vector2, from: Vector2) -> void:
 	bob.tween_property(t, "rotation", 0.06, 0.25)
 	bob.tween_property(t, "rotation", -0.06, 0.25)
 
-func _depart() -> void:
+func _depart_routes() -> void:
 	var s = g.s
 	var r = _stage_image("map_" + selected_route, 0.15)
 	_map_markers(selected_route, r, [], [], "_start")
@@ -1997,6 +2033,227 @@ func _depart() -> void:
 	var pb = BI("行囊 %d/6" % s["pack"].size(), "ico_fu", func(): sheet = "pack", true, kr, 36)
 	pb.add_theme_font_size_override("font_size", 13)
 	B("出发：%s" % rt["name"], func(): g.start_trip(selected_route), true, footer, 50)
+
+# ------------------------------------------------------------ v0.11 世界图：一处处解锁的地方
+func _depart() -> void:
+	if g.world == null:
+		_depart_routes()
+		return
+	var W = g.world
+	TV.ensure(W)
+	var r = _stage_image("map_world", 0.04)
+	scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var home_at = _at(r, Vector2(0.48, 0.87))
+	var lines = MapLines.new()
+	lines.size = get_viewport_rect().size
+	lines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(lines)
+	var segs = []
+	for p in TV.places(W):
+		segs.append([home_at, _at(r, Vector2(TV.PL[p]["xy"][0], TV.PL[p]["xy"][1])), false])
+	lines.segs = segs
+	var hl = Label.new()
+	hl.text = "● 青庐"
+	hl.add_theme_font_size_override("font_size", 14)
+	hl.add_theme_color_override("font_color", Color("#8A3A22"))
+	hl.add_theme_stylebox_override("normal", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 3))
+	hl.position = home_at - Vector2(28, 12)
+	hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(hl)
+	for p in TV.ORDER:
+		var at = _at(r, Vector2(TV.PL[p]["xy"][0], TV.PL[p]["xy"][1]))
+		var pn: String = p
+		if TV.unlocked(W, p):
+			var ka: Array = TV.known_at(W, p)
+			var lab = "%s\n%d日%s" % [p, TV.dist(TV.HOME, p), ("·熟人%d" % ka.size()) if not ka.is_empty() else ""]
+			var b = hotspot(lab, "", at, func(): sel_place = pn; sheet = "place", 84)
+			b.custom_minimum_size = Vector2(84, 46)
+			b.size = Vector2(84, 46)
+			b.add_theme_font_size_override("font_size", 13)
+			if sel_place == p:
+				var hs = _sb(Color(1.0, 0.95, 0.85, 0.95), C_WARN, 16, 2, 4)
+				b.add_theme_stylebox_override("normal", hs)
+				b.add_theme_stylebox_override("hover", hs)
+		elif TV.heard_n(W, p) > 0:
+			# 听过风声、还去不了：淡淡一个“？”，点开看传闻和还差什么
+			var b2 = hotspot("%s？" % p, "", at, func(): sel_place = pn; sheet = "place", 80)
+			b2.add_theme_font_size_override("font_size", 13)
+			b2.add_theme_color_override("font_color", C_DIM)
+			var ds = _sb(Color(0.985, 0.97, 0.935, 0.55), Color(0.29, 0.25, 0.2, 0.35), 16, 1, 4)
+			b2.add_theme_stylebox_override("normal", ds)
+			b2.add_theme_stylebox_override("hover", ds)
+	_spacer()
+	var n_un = TV.places(W).size()
+	var tip = L("认得 %d 处 · 点地名看看，“？”是只听过风声的地方" % n_un, 13, C_INK, footer)
+	tip.add_theme_stylebox_override("normal", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 4))
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _sheet_place(v: Node) -> void:
+	var W = g.world
+	var p: String = sel_place
+	if W == null or not TV.PL.has(p):
+		return
+	var pl: Dictionary = TV.PL[p]
+	_wl(String(pl["hint"]), 14, C_DIM, v)
+	if not TV.unlocked(W, p):
+		_wl("还去不了。要么%s。" % TV.need(W, p), 14, C_WARN, v)
+		return
+	var d := TV.dist(TV.HOME, p)
+	var nm := []
+	for sp in TV.spots(p):
+		nm.append(String(sp[0]))
+	_wl("离青庐 %d 日 · 去处：%s" % [d, "、".join(nm)], 14, C_TEXT, v)
+	var ka: Array = TV.known_at(W, p)
+	if ka.is_empty():
+		_wl("听说那边人来人往，认得的人倒没听说在。", 13, C_DIM, v)
+	else:
+		var ws := []
+		for c in ka.slice(0, 4):
+			ws.append(String(c["name"]))
+		_wl("熟人在那边：%s%s" % ["、".join(ws), "等" if ka.size() > 4 else ""], 14, C_ACCENT, v)
+	var pr = row(v, 6)
+	IC("ico_ration", 28, pr)
+	var rl = L("干粮 %d/12%s" % [int(g.s["ration"]), "（来回就要 %d）" % (d * 2) if int(g.s["ration"]) < d * 2 + 1 else ""], 14, C_WARN if int(g.s["ration"]) < d * 2 + 1 else C_TEXT, pr)
+	rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var b1 = B("+1（1灵石）", func(): g.buy_rations(1), int(g.s["ration"]) < 12 and int(g.s["lingshi"]) > 0, pr, 36)
+	b1.add_theme_font_size_override("font_size", 13)
+	if g.store_n("crop_linggu") > 0:
+		var b2 = B("装灵谷", func(): g.load_grain(), int(g.s["ration"]) < 12, pr, 36)
+		b2.add_theme_font_size_override("font_size", 13)
+	if pl.has("route") and g.routes.has(String(pl["route"])):
+		var rid := String(pl["route"])
+		var ob = B("出发：%s（姑母的路书）" % g.routes[rid]["name"], func(): sheet = ""; selected_route = rid; g.start_trip(rid), true, v, 46)
+		ob.add_theme_font_size_override("font_size", 15)
+	var why: String = g.can_roam(p)
+	var gb = B("去%s游历（路上 %d 日）" % [p, d], func(): _go_roam(p), why == "", v, 50)
+	gb.add_theme_color_override("font_color", C_ACCENT)
+	if why != "":
+		L(why, 13, C_WARN, v)
+
+## 抽屉里的整行换行字（不像 LW 那样给 96 的最小宽度——竖排里那会把抽屉撑得老高）
+func _wl(text: String, size: int, color: Color, parent: Node) -> Label:
+	var l = L(text, size, color, parent)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size.x = get_viewport_rect().size.x - 56   # 换行字给足宽度，抽屉才算得出真实高度
+	l.size = Vector2(l.custom_minimum_size.x, 0)
+	return l
+
+func _go_roam(p: String) -> void:
+	sheet = ""
+	if g.start_roam(p):
+		sfx("page")
+
+func _sheet_goto(v: Node) -> void:
+	var W = g.world
+	var here := String(g.s.get("roam", {}).get("pl", ""))
+	for p in TV.places(W):
+		if p == here:
+			continue
+		var pn: String = p
+		var ka: Array = TV.known_at(W, p)
+		var b = B("%s（%d日）%s" % [p, TV.dist(here, p), ("  熟人%d" % ka.size()) if not ka.is_empty() else ""], func(): sheet = ""; g.roam_move(pn), true, v, 42)
+		b.add_theme_font_size_override("font_size", 14)
+
+# ------------------------------------------------------------ v0.11 游历：在一处地方，一天去一个小去处，看看今天谁在
+func _roam() -> void:
+	if not g.s["pending_overflow"].is_empty():
+		_overflow()
+		return
+	var W = g.world
+	var rm: Dictionary = g.s["roam"]
+	var p := String(rm["pl"])
+	var pl: Dictionary = TV.PL[p]
+	_stage_image(String(pl["bg"]), 0.42)
+	var tag = PanelContainer.new()
+	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.88), Color(0, 0, 0, 0), 8, 0, 6))
+	body.add_child(tag)
+	var tr = row(tag)
+	H(p, 24, C_ACCENT, tr)
+	var sl = L("游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()], 13, C_DIM, tr)
+	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# 今天去哪：每个小去处 1 日、1 份干粮
+	var sc = card()
+	L("今天去哪儿走走（各 1 日）", 14, C_INK, sc)
+	var spots: Array = TV.spots(p)
+	for i in spots.size():
+		var sp: Array = spots[i]
+		var idx = i
+		var b = B("%s · %s" % [sp[0], sp[1]], func(): _roam_spot(idx), true, sc, 44)
+		b.add_theme_font_size_override("font_size", 14)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		if int(rm.get("si", -1)) == i:
+			b.add_theme_color_override("font_color", C_ACCENT)
+	# 今天在这一带的人：熟人在前，再添一两个生面孔
+	var pc = card()
+	var can: bool = TV.can_approach(W)
+	L("这一带的人" + ("" if can else "（今天已上前搭过话）"), 14, C_INK, pc)
+	var here: Array = TV.present_at(W, p)
+	var show := []
+	var strangers := 0
+	for c in here:
+		if W.known(c):
+			if show.size() < 3:
+				show.append(c)
+		elif strangers < 2:
+			show.append(c)
+			strangers += 1
+	if show.is_empty():
+		L("今天没碰见什么人。", 13, C_DIM, pc)
+	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
+	for c in show:
+		var cid = int(c["id"])
+		var rr = row(pc, 6)
+		var known: bool = W.known(c)
+		var ln = L(String(c["name"]) if known else TV._who(W, c), 14, C_TEXT if known else C_DIM, rr)
+		ln.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ln.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		ln.clip_text = true
+		if known:
+			var kb = B("看看", func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}, true, rr, 40)
+			kb.add_theme_font_size_override("font_size", 13)
+		var ab = B("上前", func(): _approach(cid, p, spn), can, rr, 40)
+		ab.add_theme_font_size_override("font_size", 13)
+	var lg: Array = rm.get("log", [])
+	if not lg.is_empty():
+		var lc = card()
+		for it in lg.slice(-2):
+			_wl("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
+	_spacer()
+	var fr = row(footer, 6)
+	var hb = B("回青庐（%d日）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
+	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 46)
+	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var xr = row(footer, 6)
+	if p == "坊市":
+		var bb = B("买干粮（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, xr, 40)
+		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bb.add_theme_font_size_override("font_size", 13)
+	if pl.has("route"):
+		var rb = B("走姑母的路书：%s" % g.routes[String(pl["route"])]["name"], func(): g.roam_route(), true, xr, 40)
+		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rb.add_theme_font_size_override("font_size", 13)
+
+func _roam_spot(i: int) -> void:
+	var r: Dictionary = g.roam_spot(i)
+	if r.is_empty():
+		return
+	if String(r.get("text", "")) != "":
+		g.notice(String(r["text"]))
+	sfx("success" if not r["items"].is_empty() or int(r["ls"]) > 0 else "page")
+
+func _approach(id: int, p: String, sp: String) -> void:
+	if TV.approach(g.world, id, p, sp):
+		g.world._save_rng()
+
+func _roam_home() -> void:
+	g.roam_home()
+	if g.s.get("loc", "") == "home" and g.s.has("last_home"):
+		modal = {"kind": "home", "sum": g.s["last_home"]}
+		tab = "home"
 
 # ------------------------------------------------------------ 历练
 func _trip() -> void:
@@ -2292,7 +2549,7 @@ func _fx_breakthrough() -> void:
 func _story_check() -> void:
 	if screen != "game" or g.world == null or not modal.is_empty():
 		return
-	var on_trip: bool = g.s.get("loc", "") == "trip" and String(g.s.get("trip", {}).get("stage", "")) in ["result", "choose"]
+	var on_trip: bool = (g.s.get("loc", "") == "trip" and String(g.s.get("trip", {}).get("stage", "")) in ["result", "choose"]) or (g.s.get("loc", "") == "roam" and g.s["pending_overflow"].is_empty())
 	if (g.s.get("loc", "") != "home" and not on_trip) or g.s.get("ended", false):
 		return
 	if not on_trip and g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
@@ -2372,7 +2629,12 @@ func _story() -> void:
 	var opt_h = 46 if n_opt >= 3 else 50
 	var vsz = get_viewport_rect().size
 	var free_bot = vsz.y - (n_opt * (opt_h + 6) + 150)
-	_stage_image(bgs.get(String(ev["tid"]), "courtyard"), 0.3 if tier < 2 else 0.2, Color("#F3EEE2"), maxf(vsz.y * 0.32, (170.0 + free_bot) / 2.0 + 40.0))
+	var bgn: String = bgs.get(String(ev["tid"]), "courtyard")
+	if String(ev["tid"]) == "相逢" or (g.s.get("loc", "") == "roam" and not bgs.has(String(ev["tid"]))):
+		bgn = _trip_bg()
+	elif String(ev["tid"]) == "引路":
+		bgn = "bg_chasi" if g.s.get("loc", "") == "home" else _trip_bg()
+	_stage_image(bgn, 0.3 if tier < 2 else 0.2, Color("#F3EEE2"), maxf(vsz.y * 0.32, (170.0 + free_bot) / 2.0 + 40.0))
 	var tag = PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
 	body.add_child(tag)
@@ -2754,6 +3016,38 @@ func _dev(cmd: String) -> String:
 				person_id = int(g.world.acquaintances()[0]["id"])
 				person_tab = "life"
 				modal = {"kind": "person"}
+			g.notices.clear()
+			_save()
+			refresh()
+		"map", "map_place", "roam", "meet":
+			# 调试（v0.11）：世界图 / 点开一处 / 在坊市游历 / 上前搭话
+			_dev("jianghu")
+			var W = g.world
+			g.s["xiuwei"] = 150
+			TV.ensure(W)
+			W.w["unl"] = {}
+			W.w["heard"] = {"云梦泽": 1, "玄霜谷": 2, "古战场": 1}
+			for q in ["后山", "坊市", "寒潭", "药王谷", "青云宗"]:
+				W.w["unl"][q] = 1
+				W.w["uwhy"][q] = "调试"
+			var ac: Array = W.acquaintances()
+			for k in mini(3, ac.size()):
+				ac[k]["place"] = ["坊市", "药王谷", "坊市"][k]
+			tab = "depart"
+			if cmd == "map_place":
+				sel_place = "坊市"
+				sheet = "place"
+			if cmd in ["roam", "meet"]:
+				sheet = ""
+				g.start_roam("坊市")
+				W.close()
+				g.roam_spot(0)
+				W.close()
+				g.s["roam"]["log"] = g.s["roam"]["log"].slice(-2)
+			if cmd == "meet":
+				var who: Array = TV.present_at(W, "坊市")
+				W.w["appr"] = -1
+				TV.approach(W, int(who[0]["id"]), "坊市", "茶肆")
 			g.notices.clear()
 			_save()
 			refresh()
