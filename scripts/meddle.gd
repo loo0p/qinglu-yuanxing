@@ -225,7 +225,7 @@ static func options(W, pt: Dictionary) -> Array:
 	match String(pt["v"]):
 		"寻仇", "截杀":
 			o.append(_o("warn", ("给%s递个话" if W.known(b) else "托人给%s捎个信（1 灵石）") % f["b"]))
-			o.append(_o("guard", "赶去%s身边（耽搁 2 个月）" % f["b"]))
+			o.append(_o("guard", "赶去%s身边（要走 2 个月）" % f["b"]))
 			if String(pt["v"]) == "寻仇":
 				o.append(_o("mediate", ("去找%s说和" % f["a"]) if ls < 5 else "备一份礼去找%s说和（5 灵石）" % f["a"]))
 			elif String(a["sect"]) != "散修":
@@ -236,10 +236,10 @@ static func options(W, pt: Dictionary) -> Array:
 				o.append(_o("join", "帮%s一把" % f["a"]))
 		"偷窃":
 			o.append(_o("warn", "提醒%s看好灵石匣" % f["b"]))
-			o.append(_o("catch", "守在暗处，当场拿住%s（耽搁 1 个月）" % f["a"]))
+			o.append(_o("catch", "守在暗处，当场拿住%s（要走 1 个月）" % f["a"]))
 			o.append(_o("report", "去%s告%s一状" % [a["sect"] if String(a["sect"]) != "散修" else "坊市管事那里", f["a"]]))
 		"夺宝":
-			o.append(_o("first", "抢先去%s取宝（耽搁 1 个月）" % f["pl"]))
+			o.append(_o("first", "抢先去%s取宝（要走 1 个月）" % f["pl"]))
 			o.append(_o("warn", "给%s递个话" % f["b"]))
 			o.append(_o("mediate", "劝两边各退一步，宝物对半"))
 			if not close_b:
@@ -254,7 +254,7 @@ static func options(W, pt: Dictionary) -> Array:
 			o.append(_o("spoil", "提醒%s：%s这人……" % [f["b"], f["a"]]))
 		"叛门":
 			o.append(_o("persuade", "去劝%s再想想" % f["a"]))
-			o.append(_o("help", "替%s引开巡山的人（耽搁 1 个月）" % f["a"]))
+			o.append(_o("help", "替%s引开巡山的人（要走 1 个月）" % f["a"]))
 			o.append(_o("report", "去%s报信" % f["sect"]))
 		"讨债":
 			var k := int(pt.get("owe", 1))
@@ -340,7 +340,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			W.chron(p, "听说%s要对%s下手，给%s递了话。" % [f["a"], f["b"], W.ta(b)])
 		"guard":
 			W.meet(b)
-			W._inj(2)
+			W._away(2, String(b.get("place", "")))
 			pt["p"] = 2
 			var win: bool = W._roll(pl + float(b["lv"]) * 0.3, float(a["lv"]), 5, 4)
 			W.meet(a)
@@ -362,7 +362,8 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				W.chron(a, "去找%s，%s挡在前头，没能得手。" % [f["b"], pn])
 			W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 5)
 			W.chron(p, "赶去%s身边，挡下了%s。" % [f["b"], f["a"]] if win else "赶去护着%s，与%s斗了一场。" % [f["b"], f["a"]])
-			out += "\n（耽搁两个月：闭关炼化减半 2 个月）" if win else ""
+			if not win:
+				W._away(-1)   # 打输了早一个月回来养伤（伤另算）
 		"join":
 			W.meet(a)
 			pt["p"] = 2
@@ -459,7 +460,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			W.chron(p, "把%s的事报给了%s。" % [f["a"], sect if sect != "散修" else "坊市管事"])
 		"catch":
 			W.meet(a)
-			W._inj(1)
+			W._away(1, String(b.get("place", "")) if not b.is_empty() else "")
 			pt["p"] = 2
 			if W._roll(pl + 1.0, float(a["lv"]), 5, 4):
 				out = W.pv("插手捉贼", ["第二夜，一只手伸进了{b}的灵石匣。她按住那只手，{a}的脸白了。", "{a}刚翻过墙头，就看见她坐在院里喝茶。"]).format(f)
@@ -474,10 +475,9 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				W.AG.npc_resolve(W, a, "偷窃", b, aid)
 				_m(W, b, "%s替我守过一夜灵石匣" % pn, 6, "助", aid)
 				out = W.pv("插手捉空", ["她守了一夜，只听见一声瓦响。等她追出去，人已经没影了。", "{a}比她想的机灵。第二天{b}发现灵石匣空了一半。"]).format(f)
-			out += "\n（耽搁一个月：闭关炼化减半 1 个月）"
 			W.chron(p, "替%s守了一夜灵石匣。" % f["b"])
 		"first":
-			W._inj(1)
+			W._away(1, String(f.get("pl", "")))
 			pt["p"] = 2
 			W.meet(a)
 			if W._roll(pl + 1.0, float(a["lv"]), 5, 4):
@@ -492,7 +492,6 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				W.AG.npc_resolve(W, a, "夺宝", b, aid)
 				_m(W, a, "%s也去抢过%s" % [pn, f["pr"]], -4, "夺", aid)
 				out = W.pv("插手先空", ["她赶到{pl}，只看见一截新断的枝子。有人先到了。", "{pl}的雾太大，她绕了半夜，等找到地方，那里只剩一个土坑。"]).format(f)
-			out += "\n（耽搁一个月：闭关炼化减半 1 个月）"
 			W.chron(p, "去%s抢%s。" % [f["pl"], f["pr"]])
 		"refute":
 			pt["p"] = 2
@@ -539,20 +538,20 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			W.chron(p, "去劝%s留在%s。" % [f["a"], f["sect"]])
 		"help":
 			W.meet(a)
-			W._inj(1)
+			W._away(1)
 			pt["p"] = 2
 			W.AG.npc_resolve(W, a, "叛门", {}, aid)
 			_m(W, a, "%s帮我下了山" % pn, 16, "助", aid)
 			var caught: bool = W.rng.randf() < 0.35
 			if caught:
-				W._inj(2)
+				W._away(2)
 				for o in W.npcs():
 					if o != a and String(o["sect"]) == String(pt.get("sect", "")) and W.rng.randf() < 0.5:
 						W.remember(o, p, "%s放走了叛门的%s" % [pn, f["a"]], -8, "怨", aid)
 						W.R(o, p)["g"] = int(W.R(o, p)["g"]) + 6
-				out = W.pv("插手助叛露", ["她引着巡山的人绕了半座山。{a}下了山，她却被认了出来。", "{a}走了。第二天{sect}的人找到青庐，问她那夜在哪。"]).format(f) + "\n（耽搁三个月：闭关炼化减半 3 个月）"
+				out = W.pv("插手助叛露", ["她引着巡山的人绕了半座山。{a}下了山，她却被认了出来。", "{a}走了。第二天{sect}的人找到青庐，问她那夜在哪。"]).format(f)
 			else:
-				out = W.pv("插手助叛", ["她在后山点了一把火。巡山的人都往那边去了，{a}从另一头下了山。", "那夜很黑。她在山门外学了三声鸟叫，{a}的影子就消失在了石阶尽头。"]).format(f) + "\n（耽搁一个月：闭关炼化减半 1 个月）"
+				out = W.pv("插手助叛", ["她在后山点了一把火。巡山的人都往那边去了，{a}从另一头下了山。", "那夜很黑。她在山门外学了三声鸟叫，{a}的影子就消失在了石阶尽头。"]).format(f)
 			W.chron(p, "帮%s下了%s的山。" % [f["a"], f["sect"]])
 		"pay":
 			var k2 := int(pt.get("owe", 1))

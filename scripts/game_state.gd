@@ -413,8 +413,8 @@ func tick(mode: String) -> void:
 		if int(q[1]) <= 0:
 			s["queue"].pop_front()
 			_pill_done(String(q[0]))
-	# ③ 当日消耗
-	if mode == "road":
+	# ③ 当日消耗（v0.13 busy：为一件事在外奔波，在外游历时照样吃辟谷丹）
+	if mode == "road" or (mode == "busy" and away()):
 		s["stats"]["trip_days"] = int(s["stats"]["trip_days"]) + 1
 		if I("ration") > 0:
 			s["ration"] = I("ration") - 1
@@ -435,7 +435,7 @@ func tick(mode: String) -> void:
 		s["ganwu"] = I("ganwu") - r
 		gain(biguan_xw(), "biguan")
 		gain(r, "ganwu")
-	if mode == "road" and I("ration") > 0:
+	if (mode == "road" or mode == "busy") and I("ration") > 0:
 		s["flags"].erase("hungry")
 	s["shouyuan"] = I("shouyuan") - 1
 	# ④ 世事检查
@@ -450,7 +450,7 @@ func tick(mode: String) -> void:
 	if world != null:
 		# v0.9：路上（历练）也会碰上事；心魔/结局时世界只过日子
 		var sec := bool(s.get("seclude", false))
-		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"] and not sec, mode == "road" and away() and not s["ended"])
+		world.tick(mode != "road" and mode != "busy" and s["loc"] == "home" and not s["ended"] and not sec, mode == "road" and away() and not s["ended"])
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 
@@ -1295,6 +1295,22 @@ func _start_vignette(pl: String, nid: String) -> void:
 
 func in_vignette() -> bool:
 	return s["loc"] == "trip" and s["trip"].has("roam")
+
+## v0.13（P0#5）：事件里“赶去、躲进山、结伴走”的真实耗时——由江湖在事件关掉时调用
+func spend_away(m: int, pl: String) -> void:
+	if m <= 0 or s["ended"] or s["loc"] in ["xinmo", "ending"]:
+		return
+	var where := pl if pl != "" else "外头"
+	_log("为这件事在%s耽了 %d 个月。" % [where, m])
+	s["stats"]["away_months"] = int(s["stats"].get("away_months", 0)) + m
+	for i in m:
+		tick("busy")
+		if s["ended"]:
+			return
+	if s["loc"] == "roam" and pl != "" and TV.PL.has(pl) and TV.unlocked(world, pl) and pl != String(s["roam"]["pl"]):
+		s["roam"]["pl"] = pl
+		s["roam"]["si"] = -1
+		roam_note("跟着这件事到了%s。" % pl)
 
 ## 从这里去另一处已认得的地方
 func roam_move(pl: String) -> bool:

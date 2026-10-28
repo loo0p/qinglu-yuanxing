@@ -1726,8 +1726,19 @@ func choose(oid: String) -> String:
 	if ev.is_empty() or ev.get("stage", "") != "ask":
 		return ""
 	var res := resolve(String(ev["tid"]), ev["roles"], ev["ctx"], oid)
+	# v0.13：选项写着“赶去 / 结伴走 / 进山躲”的，真的要过这些月
+	for o in ev.get("opts", []):
+		if String(o[0]) == oid:
+			for k in AWAY_LABEL:
+				if String(o[1]).begins_with(k):
+					_away(int(AWAY_LABEL[k]), String(ev["ctx"].get("pl", "")) if ev["ctx"] is Dictionary else "")
+					break
+	var am := int(w.get("away", {}).get("m", 0))
+	if am > 0 and res != "":
+		res += "\n（这一去就是 %s 个月）" % cn_num(am)
 	if res == "":
 		w["pending"] = {}
+		_settle_away()
 	else:
 		ev["stage"] = "result"
 		ev["result"] = res
@@ -1736,6 +1747,26 @@ func choose(oid: String) -> String:
 
 func close() -> void:
 	w["pending"] = {}
+	_settle_away()
+
+## ---- v0.13 真实耗时（Gemini 评审 P0#5）：事件里说“赶去、躲、护送”的，关掉事件后真的过 N 个月；
+## 这段日子她不在静室（不炼化、不出别的家中事件），在外游历的话人跟着到事发的地方
+const AWAY_LABEL := {"结伴走一程": 1, "去收殓": 1, "去讨个说法": 1, "去寻": 2, "揣上驱瘴丹进泽": 2,
+	"带镇上的老人孩子进山躲": 2, "结伴进去": 3, "去应试": 1, "去碰碰运气": 1, "去喝杯喜酒": 1, "去送一程": 1}
+func _away(months: int, pl: String = "") -> void:
+	var a: Dictionary = w.get("away", {"m": 0, "pl": ""})
+	a["m"] = int(a.get("m", 0)) + months
+	if pl != "":
+		a["pl"] = pl
+	w["away"] = a
+
+func _settle_away() -> void:
+	var a: Dictionary = w.get("away", {})
+	w.erase("away")
+	if a.is_empty() or int(a.get("m", 0)) <= 0:
+		return
+	if g != null and g.has_method("spend_away"):
+		g.spend_away(int(a["m"]), String(a.get("pl", "")))
 
 func _o(id: String, label: String) -> Array:
 	return [id, label]
