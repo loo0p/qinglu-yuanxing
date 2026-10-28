@@ -38,6 +38,16 @@ with sync_playwright() as p:
             if t.startswith(prefix) and 0 <= y <= H:
                 pg.touchscreen.tap(x, y); pg.wait_for_timeout(wait); return True
         return False
+    def tap_scroll(prefix, wait=1000, tries=8):
+        # 小屏上行囊页要翻：只点露在底栏之上的按钮；在上面看不到就往上翻，在下面就往下翻
+        for _ in range(tries):
+            ys = [(t, x, y) for t, x, y in btns() if t.startswith(prefix)]
+            for t, x, y in ys:
+                if 0 <= y <= H - 90:
+                    pg.touchscreen.tap(x, y); pg.wait_for_timeout(wait); return True
+            up = bool(ys) and all(y < 0 for _, _, y in ys)
+            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, -220 if up else 220); pg.wait_for_timeout(500)
+        return False
     def clear_dialogs(n=12):
         # 对话点完（▼ / 继续 / 知道了 / 记下了），事件有选项就点第一个
         for _ in range(n):
@@ -141,16 +151,16 @@ with sync_playwright() as p:
     if bought:
         hit = [t for t, _, _ in btns() if t.startswith(bought)]
         gear['bag_btn'] = hit[:1]
-        if hit and tap(hit[0], 1000):
+        if hit and tap_scroll(hit[0], 1000):
             step('v14_item', True)
-            gear['equipped'] = tap('装上', 1200)
+            gear['equipped'] = tap_scroll('装上', 1200)
             tap('收起', 800)
             clear_dialogs(3)
             slot = [t for t, _, _ in btns() if bought in t and '\n' in t]
             gear['slot_btn'] = slot[:1]
             step('v14_equipped', bool(slot))
-            if slot and tap(slot[0], 1000):
-                gear['unequipped'] = tap('卸下', 1200)
+            if slot and tap_scroll(slot[0], 1000):
+                gear['unequipped'] = tap_scroll('卸下', 1200)
                 tap('收起', 800)
                 clear_dialogs(3)
                 step('v14_unequipped', gear['unequipped'])
