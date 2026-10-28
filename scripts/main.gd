@@ -76,7 +76,6 @@ var create_name = "苏青禾"
 var create_cherish = "sect"
 var selected_route = "houshan"
 var sel_place = ""       # v0.11 世界图上点开的地方
-var new_seed := -1   # 测试用：下一局的种子（-1 = 随机）；乱点试玩靠它每回都一样
 var dev_roam_pl := "坊市"  # 调试：roam:<地名> 在哪处游历
 var preset_save_mode = false
 var item_u := -1          # v0.14：器物抽屉看的是哪一件（她的东西按 u；店里的按 u + shop 标记）
