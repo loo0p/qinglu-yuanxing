@@ -2232,7 +2232,7 @@ func _cult() -> void:
 	if stalled:
 		# v0.14.1：修为满了，长闭关一个月就会出关——不让点，指去冲关 / 备药
 		var w2: String = g.can_breakthrough()
-		LW("修为已到%s的关口，长闭关坐不出东西了。%s" % [g.gate_name(), ("下面可以冲关。" if w2 == "" else "冲关还差：%s。一月、三月仍可坐着等（田和丹炉照走）。" % w2)], 12, C_WARN, c)
+		LW("修为已到%s的关口，长闭关坐不出东西了。%s" % [g.gate_name(), ("下面可以冲关。" if w2 == "" else "先把冲关缺的补上；一月、三月仍可坐着等（田和丹炉照走）。")], 12, C_WARN, c)
 	var r2 = row(c)
 	B("炼完为止（约 %d 个月）" % int(ceil(s["ganwu"] / 20.0)), func(): _seclude("refine", 1), s["ganwu"] > 0, r2, 42)
 	B("闭到修为圆满", func(): _seclude("gate", 1), not g.at_gate(), r2, 42)

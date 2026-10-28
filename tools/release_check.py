@@ -177,6 +177,33 @@ with sync_playwright() as p:
         if tap('静室', 1200) or True:
             tap('十年', 4000)
         clear_dialogs()
+    # v0.14.1：修为满了（卡在关口）时静室的样子；再一月一月坐到三月 / 九月，去坊市看拍卖会
+    clear_dialogs()
+    tap('青庐', 1200)
+    tap('静室', 1200)
+    names = [t for t, _, _ in btns()]
+    res['gate'] = {'day0': state().get('day')}
+    step('gate_seclude', True)
+    for _ in range(8):
+        d = int(state().get('day') or 0)
+        if (max(d, 1) - 1) % 12 + 1 in (2, 8): break   # 去坊市路上要走一个月，到了正好三月 / 九月
+        clear_dialogs()
+        tap('青庐', 900); tap('静室', 1000)
+        tap('一月', 2500)
+        clear_dialogs()
+    clear_dialogs()
+    ok = tap('历练') and tap('坊市') and (tap('去坊市游历', 1500) or tap('去坊市', 1500))
+    for _ in range(6):
+        clear_dialogs()
+        if state().get('loc') == 'roam': break
+    res['gate']['month'] = (max(int(state().get('day') or 0), 1) - 1) % 12 + 1
+    res['gate']['auc'] = tap_scroll('这个月有拍卖会', 1200, 4)
+    step('v14_auc', res['gate']['auc'])
+    tap('收起', 800)
+    for _ in range(8):
+        clear_dialogs(20)
+        if state().get('loc') == 'home': break
+        tap('回青庐', 1500)
     step('decades_home', tap('青庐', 1200))
     step('decades_life', tap('生平', 1500))
     step('decades_lvli', tap('她在江湖里的生平', 1500))   # 闭关以后她自己的履历
