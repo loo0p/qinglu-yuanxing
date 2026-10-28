@@ -4,6 +4,7 @@
 
 ## v0.12（可插拔事件引擎 + 江湖事件迁入；人物前尘）
 - **热修（同为 v0.12）**：9beeb63 上线后玩家版打不开（标题页卡住）。原因：玩家版 Web 模板是瘦身自编的（regex 模块关、deprecated=no），编辑器/无头测试里都有，测不出来——① main.gd 前尘去年岁前缀用了 RegEx；② 引擎里 vendor/tracery.gd 用 RegEx；③ portrait5_view.gd 的 Color8()（10-28 18:41 立绘提交 f12d4c2 引入，已废弃 API，玩家版没有，说明那之后线上其实已经打不开）。全部改成手写/等价写法；tools/run_tests.sh 开头加了“运行期脚本不许用 RegEx”的检查；已用玩家版导出在无头 Chrome（390×844）里打开、乱点 120 下，控制台 0 报错。**以后发布前请用玩家版 build/web 在浏览器里开一下**，只跑测试不够。
+- 热修已发布：5678214 推上 main，Pages 工作流 40715344069 成功（10-28 23:25 UTC+8）；线上 200，标题“v0.12 试玩版”，无头 Chrome 390×844 乱点 200 下走过 标题→青庐→历练/坊市→行记→江湖偶遇→人物生平/前尘，控制台 0 报错（截图 /workspace/ev012_shots/live_*.png）。真机仍未测。
 - 设计草案/调研：docs/design/research-mouzong-chronicle.md（《某某宗女修修炼手札》式履历）、docs/design/event-engine-research.md（storylet/QBN、Valve 规则库、RimWorld、CK3、Ink、Yarn Spinner、Dialogic、Tracery、Versu、Wildermyth、Qud、鬼谷八荒；许可证与活跃度 2026-10-28 经 GitHub API 查过）。
 - 新插件 addons/storylet_engine（纯 GDScript，游戏只经 adapter 接入）：JSON 内容包、选角、显著度+冷却/同族节奏、连锁、同一事件多结局、玩家选项、变体语法（内置改过的 GDTracery，Apache-2.0）、生平生成、存读、lint、模拟台；README 写了接口与“时间单位”（包声明 unit，时长经 adapter.se_ticks 换算；眼下一刻=一日）。
 - 青庐胶水 scripts/saga.gd；四个包 data/packs/qinglu_{core,life,bio,offer}.json（tools/make_packs.py 生成）：storylet 75、结果 97、玩家选项 26、语法符号 205（候选 791）。江湖自转（相遇、独处、破境/走火、坐化、飞升、新人、丧事）迁入引擎；新增人生阶段（拜师、师尊离世、同门争、大比、秘境、心魔、道侣/情劫、收徒、麟儿、寿尽）；人物卡生平下加“前尘”（入局前带年岁的经历，旧档第一次看时按种子补写，不新建关系）。
