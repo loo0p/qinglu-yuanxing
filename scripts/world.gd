@@ -63,6 +63,8 @@ const T = {
 	"撞见": [1, 10, true, 99, 0, 0, 1.0],
 	# v0.9.1：求药 / 赔罪 / 托付 / 问道
 	"求药": [0, 2, true, 99, 0, 0, 1.0], "赔罪": [0, -6, true, 99, 0, 0, 1.0], "托付": [1, -4, true, 99, 0, 0, 1.0], "问道": [0, -5, true, 99, 0, 0, 1.0],
+	# v0.10：插手（meddle.gd）——风声是找上门的消息，插手是她从传闻/心事里自己去管
+	"风声": [1, 4, true, 99, 0, 0, 1.0], "插手": [1, 2, true, 99, 0, 0, 1.0],
 }
 ## 信物（v0.8）：结下深交时双方各留一件旧物；人没了，东西可能流落坊市
 const KEEPSAKES = ["半截断玉簪", "一卷写满批注的旧丹经", "一枚墨麟片", "一只旧铜铃", "一方绣了兰草的帕子", "一枚刻了字的桃木符",
@@ -151,6 +153,7 @@ const HINT = {"温柔": ["{ta}把伞往她这边偏了偏", "{ta}说话时声音
 
 ## v0.9 人物自主：性格 × 动机 × 记忆 → 每日行动（见 scripts/agency.gd）
 const AG = preload("res://scripts/agency.gd")
+const MD = preload("res://scripts/meddle.gd")
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
 const ROAD_OK = ["偶遇", "求助", "朱果之争", "劫修拦路", "劫修伏击", "天材地宝", "秘境", "重逢", "宝地相争", "寻凶", "坊市传闻", "旧友死讯", "暗涌", "报恩"]
 var w: Dictionary = {}
@@ -1322,6 +1325,8 @@ func _hint(n: Dictionary) -> String:
 
 ## 呈现：{speaker: id(0=旁白), text, opts:[[id,label]]}
 func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
+	if tid in MD.TIDS:
+		return MD.present(self, tid, roles, ctx)
 	if tid in AG.TIDS:
 		return AG.present(self, tid, roles, ctx)
 	var n: Dictionary = C(roles["B"]) if roles.has("B") else {}
@@ -1702,6 +1707,8 @@ func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
 	return mine + rng.randf() * a > theirs + rng.randf() * b
 
 func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
+	if tid in MD.TIDS:
+		return MD.resolve(self, tid, roles, ctx, oid)
 	if tid in AG.TIDS:
 		return AG.resolve(self, tid, roles, ctx, oid)
 	var p := P()

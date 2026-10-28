@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.9.2 试玩版"
+const VERSION = "v0.10 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2366,7 +2366,7 @@ func _story() -> void:
 		"寻仇": "bg_shandao", "截道": "bg_shandao", "失窃": "courtyard", "示好": "bg_chasi", "馈赠": "bg_chasi", "结伴": "bg_shandao",
 		"交易": "bg_fangshi", "讨债": "bg_fangshi", "求援": "bg_yeyu", "示警": "bg_yeyu", "求教": "bg_chasi", "还情": "bg_chasi",
 		"挑战": "bg_leitai", "流言": "bg_fangshi", "叛门": "bg_yeyu", "劝和": "bg_chasi", "夺宝": "bg_houshan", "邀游": "bg_dongfu", "撞见": "bg_shandao",
-		"求药": "courtyard", "赔罪": "bg_chasi", "托付": "bg_yeyu", "问道": "bg_chasi"}
+		"求药": "courtyard", "赔罪": "bg_chasi", "托付": "bg_yeyu", "问道": "bg_chasi", "风声": "bg_fangshi", "插手": "bg_yeyu"}
 	# 选项多（节令、拍卖会……）时按钮紧凑些，并把场景往上挪，让画面露在对话框上方
 	var n_opt = ev["opts"].size() if ev["stage"] == "ask" else 1
 	var opt_h = 46 if n_opt >= 3 else 50
@@ -2411,6 +2411,16 @@ func _story_pick(oid: String) -> void:
 		sfx("fail")
 	elif res.contains("感悟 +") or res.contains("灵石"):
 		sfx("success")
+
+## 插手（v0.10）：从传闻或心事页打开那件事
+func _meddle(pid: int) -> void:
+	if not g.world.pending().is_empty():
+		g.notice("眼下还有一件事没了结。")
+		return
+	if g.world.MD.open(g.world, pid):
+		modal = {"kind": "story"}
+		sheet = ""
+		sfx("page")
 
 func _jianghu() -> void:
 	_stage_image("bg_home", 0.72)
@@ -2465,7 +2475,17 @@ func _jianghu() -> void:
 	if news.is_empty():
 		L("山里很静，没听见什么。", 13, C_DIM, nc)
 	for i in range(news.size() - 1, maxi(-1, news.size() - 13), -1):
-		L("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nc)
+		# v0.10：“听说某某要……”的传闻，日子没到之前可以插手
+		var pid: int = w.MD.news_pid(w, news[i])
+		if pid >= 0:
+			var nr = row(nc, 6)
+			LW("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nr)
+			var mb = B("插手", func(): _meddle(pid), true, nr, 40)
+			mb.size_flags_horizontal = Control.SIZE_SHRINK_END
+			mb.custom_minimum_size.x = 64
+			mb.add_theme_font_size_override("font_size", 14)
+		else:
+			L("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nc)
 
 func _person() -> void:
 	var w = g.world
@@ -2532,6 +2552,12 @@ func _person() -> void:
 					L("（再熟些，才看得出%s心里放不下什么。）" % w.ta(c), 13, C_DIM, cc)
 					break
 				L(ln, 14 if i == 0 else 13, C_TEXT if i == 0 else C_DIM, cc)
+			# v0.10：她已经听说了这个人在谋的事（传闻、风声），日子没到就还能管
+			var mpid: int = w.MD.plot_of(w, c)
+			if mpid >= 0:
+				var pt: Dictionary = w.MD.get_plot(w, mpid)
+				L("听说：%s" % w.MD.leak(w, pt), 13, C_WARN, cc)
+				B("插手这件事", func(): _meddle(mpid), true, cc, 44)
 		"rel":
 			var ks = c["rel"].keys()
 			ks.sort_custom(func(a, b): return _rel_depth(c["rel"][a]) > _rel_depth(c["rel"][b]))
@@ -2785,6 +2811,61 @@ func _dev(cmd: String) -> String:
 			person_id = int(cx["id"])
 			person_tab = "why"
 			modal = {"kind": "person"}
+			_save()
+			refresh()
+		"mdpick":
+			# 调试：插手事件点第一个选项，看结果页
+			var ev3: Dictionary = g.world.pending()
+			if not ev3.is_empty() and ev3["stage"] == "ask":
+				g.world.choose(String(ev3["opts"][0][0]))
+			modal = {"kind": "story"}
+			_save()
+			refresh()
+		_ when cmd.begins_with("md:") or cmd == "mdnews":
+			# 调试（v0.10 插手）：md:风声 / md:风声@路 / md:插手:夺宝 / mdnews（江湖页带“插手”的传闻）
+			_dev("jianghu")
+			tab = "home"
+			var wd = g.world
+			for i in 12:
+				wd.tick(true)
+				wd.auto_choose()
+			var spec3 := cmd.substr(3).split("@") if cmd != "mdnews" else PackedStringArray(["插手"])
+			var head := String(spec3[0]).split(":")
+			var v3 := String(head[1]) if head.size() > 1 else "寻仇"
+			var ns3: Array = wd.acquaintances().filter(func(x): return x["alive"])
+			for c in wd.npcs():
+				if not c in ns3:
+					ns3.append(c)
+			var a3: Dictionary = ns3[0]
+			var b3: Dictionary = {}
+			for c in ns3:
+				if c != a3 and (v3 != "示好" or c["sex"] != a3["sex"]):
+					b3 = c
+					break
+			for pt in wd.MD.plots(wd):
+				if int(pt["a"]) == int(a3["id"]):
+					pt["p"] = 2
+			var pid3 := int(wd.w.get("pln", 0))
+			wd.MD.plan(wd, a3, v3, {} if v3 == "叛门" else b3, -1, true)
+			var pt3: Dictionary = wd.MD.get_plot(wd, pid3)
+			pt3["k"] = 1
+			if wd.w["news"].filter(func(n): return n.size() > 4 and int(n[4]) == pid3).is_empty():
+				wd.rumor(wd.MD.leak(wd, pt3), [a3], "谋")
+				wd.w["news"][-1].append(pid3)
+			wd.w["agq"] = wd.w["agq"].filter(func(it): return String(it[1]) != "风声")
+			wd.close()
+			if spec3.size() > 1:
+				wd.w["here"] = "后山"
+			if cmd == "mdnews":
+				tab = "jianghu"
+				modal = {}
+				get_tree().create_timer(0.4).timeout.connect(func(): scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value))
+			elif String(head[0]) == "插手":
+				wd.MD.open(wd, pid3)
+				modal = {"kind": "story"}
+			else:
+				var inf3: Dictionary = ns3[2] if ns3[2] != b3 else ns3[3]
+				wd.fire("风声", {"B": int(inf3["id"]), "X": int(a3["id"]), "V": int(pt3["b"])}, {"pid": pid3, "aid": -1, "ov": 1 if spec3.size() > 1 else 0})
 			_save()
 			refresh()
 		_ when cmd.begins_with("ag:"):

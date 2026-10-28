@@ -111,6 +111,33 @@ func _go() -> void:
 		var back := click("回江湖")
 		jh = jh and back
 	log_lines.append("江湖页 / 人物卡：" + ("PASS" if jh else "FAIL"))
+	# v0.10 插手：江湖页的“听说某某要……”传闻带“插手”按钮，点开是一件可选的事，选完写进她的生平
+	var md_ok := false
+	if gw:
+		gw.close()
+		var ns: Array = gw.npcs()
+		for pt in gw.MD.plots(gw):
+			pt["p"] = 2
+		var pid: int = int(gw.w.get("pln", 0))
+		gw.MD.plan(gw, ns[0], "寻仇", ns[1], -1, true)
+		var pt0: Dictionary = gw.MD.get_plot(gw, pid)
+		if gw.w["news"].filter(func(n): return n.size() > 4 and int(n[4]) == pid).is_empty():
+			gw.rumor(gw.MD.leak(gw, pt0), [ns[0]], "谋")
+			gw.w["news"][-1].append(pid)
+		main.tab = "jianghu"
+		main.modal = {}
+		main.refresh()
+		var mb = _find("插手")
+		if mb:
+			mb.pressed.emit()
+			md_ok = main.modal.get("kind", "") == "story" and String(gw.pending().get("tid", "")) == "插手"
+			var n0: int = main.g.world.P()["log"].size()
+			drain_story()
+			md_ok = md_ok and gw.pending().is_empty() and (int(pt0["p"]) != 0 or int(pt0.get("ig", 0)) == 1)
+			md_ok = md_ok and gw.P()["log"].size() > n0
+	log_lines.append("江湖页传闻“插手”：" + ("PASS" if md_ok else "FAIL"))
+	ok = ok and md_ok
+	main.modal = {}
 	main.tab = "home"
 	main.refresh()
 	ok = ok and jh

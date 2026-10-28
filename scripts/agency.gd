@@ -27,7 +27,7 @@ const DRIVE_VERBS = {
 	"破境": ["闭关", "探秘", "夺宝", "求教", "论道"], "复仇": ["寻仇", "造谣", "截杀"], "求偶": ["示好", "馈赠", "结伴"],
 	"求财": ["交易", "截杀", "偷窃", "探秘", "讨债", "夺宝"], "护人": ["求援", "寻仇", "示警"], "拜师": ["求教"],
 	"报恩": ["还情", "馈赠", "示警"], "扬名": ["挑战", "夺宝"], "叛门": ["叛门"], "探秘": ["探秘", "结伴", "夺宝"],
-	"收徒": ["收徒"], "压人": ["造谣", "挑战"], "交游": ["结伴", "交易", "劝和", "馈赠", "论道"],
+	"收徒": ["收徒"], "压人": ["造谣", "挑战"], "交游": ["结伴", "交易", "劝和", "馈赠", "论道", "讨债", "示警"],
 	"疗伤": ["求药", "闭关"], "赎过": ["赔罪", "馈赠"], "后事": ["托付"],
 }
 const DRIVE_WORD = {"破境": "想破境", "复仇": "要报仇", "求偶": "动了心", "求财": "缺灵石", "护人": "要护着一个人", "拜师": "想拜个师父",
@@ -256,10 +256,10 @@ static func rethink(W, c: Dictionary) -> void:
 		var bad := false
 		for k in W._ids(c["rel"]):
 			var t3: Dictionary = W.C(k)
-			if not t3.is_empty() and t3["sect"] == c["sect"] and int(W._rel(c, t3)["g"]) >= 40:
+			if not t3.is_empty() and t3["sect"] == c["sect"] and int(W._rel(c, t3)["g"]) >= 30:
 				bad = true
-		if bad or (px(c, "野") > 0.7 and px(c, "侠") < 0.3):
-			push.call("叛门", 0, 0.22 + 0.2 * px(c, "野"), "在%s待不下去了" % c["sect"], -1)
+		if bad or (px(c, "野") > 0.58 and px(c, "侠") < 0.4):
+			push.call("叛门", 0, 0.32 + 0.3 * px(c, "野"), "在%s待不下去了" % c["sect"], -1)
 	push.call("探秘", 0, 0.08 + 0.45 * px(c, "奇"), "听说有处秘地", -1)
 	if lv >= 9:
 		var has_d := false
@@ -367,6 +367,7 @@ static func daily(W) -> void:
 			continue
 		keep.append(it)
 	W.w["agq"] = keep
+	W.MD.daily(W)
 
 static func log_act(W, c: Dictionary, v: String, t, k: String, cause: int) -> int:
 	var aid := int(W.w.get("agn", 0))
@@ -384,12 +385,30 @@ static func _targets(W, c: Dictionary, v: String, dr: Dictionary) -> Array:
 		# 护人去寻仇：找的是盯上她护着的人的那个
 		var pr: Dictionary = W.C(dr["t"])
 		return hunters_of(W, pr).slice(0, 2) if not pr.is_empty() else []
+	if v == "示警" and not (dk in ["护人", "报恩"] and int(dr["t"]) > 0):
+		# 四处走动的人听说谁被盯上了：去提醒自己看得上的那几个
+		var hv := []
+		for k in W._ids(c["rel"]):
+			var o: Dictionary = W.C(k)
+			if not o.is_empty() and o["alive"] and o != c and W.opinion(c, o) > 0 and not hunters_of(W, o).is_empty():
+				hv.append(o)
+		if W.known(c) and W.opinion(c, W.P()) > 0 and not hunters_of(W, W.P()).is_empty():
+			hv.append(W.P())
+		return hv.slice(0, 4)
 	if (v in AIMED or dk in ["复仇", "压人", "求偶", "报恩"]) and int(dr["t"]) > 0:
 		var t: Dictionary = W.C(dr["t"])
 		if v == "示警" or v == "求援":
 			# 护人/报恩：去找能帮忙的人、或去提醒被盯上的人
 			return _helpers(W, c, t) if v == "求援" else ([t] if not hunters_of(W, t).is_empty() else [])
 		return [t] if not t.is_empty() and t["alive"] else []
+	if v == "讨债":
+		# 讨债只找欠着自己的人（v0.10：以前是随手抽 5 个人，欠账的人很少被抽中）
+		var dv := []
+		for k in W._ids(c["rel"]):
+			var o2: Dictionary = W.C(k)
+			if not o2.is_empty() and o2["alive"] and o2 != c and int(W._rel(c, o2).get("owe", 0)) > 0:
+				dv.append(o2)
+		return dv.slice(0, 4)
 	var out := []
 	var pool: Array = W.npcs().filter(func(x): return x != c)
 	for x in W._sample(pool, 5):
@@ -449,7 +468,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 		"偷窃":
 			if px(c, "侠") > 0.6 and not cause:
 				return 0.0
-			s = [UC.consider(px(c, "贪"), "log", 0.0), UC.consider(px(c, "慎"), "lin", 0.0, 0.2), UC.consider(1.0 - px(c, "侠"), "lin"), UC.consider(1.0 - op, "lin", 0.0, 0.2), opp]
+			s = [UC.consider(px(c, "贪"), "log", 0.0), UC.consider(px(c, "慎"), "lin", 0.0, 0.2), UC.consider(1.0 - px(c, "侠"), "lin"), UC.consider(1.0 - op, "lin", 0.0, 0.2), opp * (1.3 if isp else 1.0)]
 		"示好":
 			if t.is_empty() or t["sex"] == c["sex"] or op < 0.6:
 				return 0.0
@@ -494,7 +513,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 				return 0.0
 			s = [UC.consider((px(c, "奇") + px(c, "野")) / 2.0, "lin", 0.0, 0.3), UC.consider(1.0 - absf(pw - 0.5) * 1.2, "lin"), UC.consider(op, "log", 0.0), opp, 0.6]
 		"示警":
-			if t.is_empty():
+			if t.is_empty() or hunters_of(W, t).is_empty():
 				return 0.0
 			s = [UC.consider(px(c, "侠"), "lin", 0.0, 0.3), UC.consider(op, "log", 0.0), opp if isp else 1.0]
 		"还情":
@@ -513,7 +532,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 		"叛门":
 			s = [0.7]
 		"劝和":
-			if t.is_empty() or px(c, "善") < 0.45:
+			if t.is_empty() or px(c, "善") < 0.4:
 				return 0.0
 			var foe: Dictionary = _foe_of(W, t, c)
 			if foe.is_empty():
@@ -571,6 +590,9 @@ static func act(W, c: Dictionary) -> bool:
 	W._flag_add("ag:" + v)
 	if not t.is_empty() and t["player"]:
 		_intent(W, c, v, {}, aid)
+		return true
+	# v0.10：有些事要过几日才动手，风声可能走漏，她可以插手（scripts/meddle.gd）
+	if W.MD.plan(W, c, v, t, aid):
 		return true
 	if v in ["寻仇", "截杀", "挑战", "偷窃"] and not t.is_empty():
 		# 路上同一处、或一成多的机会，她会撞见
@@ -736,7 +758,9 @@ static func _add_ls(c: Dictionary, d: int) -> int:
 	return int(c["ls"]) - b
 
 static func _win(W, a: Dictionary, b: Dictionary, ea: float = 4.0, eb: float = 4.0) -> bool:
-	return float(a["lv"]) + W.rng.randf() * ea > float(b["lv"]) + W.rng.randf() * eb
+	# v0.10：她插了手（帮一把 / 递了话）时，那一方多几分胜算；edge 只在结算那一刻存在，不进存档
+	var e: Dictionary = W.w.get("edge", {})
+	return float(a["lv"]) + float(e.get(str(int(a["id"])), 0)) + W.rng.randf() * ea > float(b["lv"]) + float(e.get(str(int(b["id"])), 0)) + W.rng.randf() * eb
 
 ## 一件事了结了：把那条记忆标成“了”，下回重想
 static func _settle(c: Dictionary, src_oid: int, kinds: Array) -> void:
@@ -905,7 +929,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			else:
 				W.R(b, a)["f"] = int(W.R(b, a)["f"]) + 2
 				W.chron(a, "和%s做了一笔买卖。" % bn)
-				if _ls(b) < 4 and W.rng.randf() < 0.5:
+				if _ls(b) < 7 and W.rng.randf() < 0.55:
 					W.R(a, b)["owe"] = int(W._rel(a, b).get("owe", 0)) + 5
 					W.chron(b, "赊了%s五块灵石的账。" % an)
 		"讨债":
