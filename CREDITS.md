@@ -44,3 +44,7 @@
 ## v0.12 事件引擎（`addons/storylet_engine/`）
 - **GDTracery** — Althar93 — Apache-2.0 — https://github.com/Althar93/GDTracery （commit f87e454480）。`addons/storylet_engine/vendor/tracery.gd` 由其拷入并改动（加选择回调、去掉 class_name、改用引擎种子 RNG，改动写在文件头）；许可证全文：`addons/storylet_engine/vendor/LICENSE-GDTracery.txt`。GDTracery 移植自 Kate Compton 的 Tracery（Apache-2.0）。（v0.9 时写“未引入 GDTracery 代码”，自 v0.12 起改为引入。）
 - 只借思路、未拷代码：StoryNexus / Fallen London 的 storylet 与 quality、Emily Short《Beyond Branching》；Dendry（MIT）；Elan Ruskin（Valve）GDC 2012 规则库演讲；RimWorld 说书人；Crusader Kings III 事件脚本结构；Wildermyth 的角色选角；Caves of Qud 的 Sultan 生平生成（Grinblat & Bucklew 2017）；Expressionist（James Ryan，MIT）；鬼谷八荒。调研与取舍见 `docs/design/event-engine-research.md`。
+
+## v0.14 行囊与装备（`scripts/gear.gd`、`data/items.json`）
+- **GLoot** — Peter Kish — MIT — https://github.com/peter-kish/gloot （v3.0.2）。`scripts/vendor/gloot/prototype.gd`、`proto_tree.gd` 由其 `addons/gloot/core/` 拷入并改动（去掉 class_name、自引用改无类型、deserialize 直接读 Dictionary 并支持多层后置 inherits，改动写在文件头）；许可证全文：`scripts/vendor/gloot/LICENSE`。物品模板用它的 prototree 格式（子原型继承父属性）。GLoot 的背包 / UI 控件没有引入。
+- 只借思路、未拷代码：Diablo / Path of Exile 的“品阶 + 前后缀词缀（同组互斥）”；鬼谷八荒、了不起的修仙模拟器的法宝 / 储物袋分级。

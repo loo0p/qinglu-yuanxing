@@ -520,7 +520,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					W.fav(n, 2)
 					return "她用四块灵石换了%s。%s收了灵石，又多送了一句吉利话。" % [gd[2], nm]
 				"spar":
-					var win: bool = W._roll(float(W.plv()), float(n["lv"]) * 0.8, 5.0, 5.0)
+					var win: bool = W._roll(float(W.plv()) + W.Gear.edge(W, n), float(n["lv"]) * 0.8, 5.0, 5.0)   # v0.14：法宝
 					if win:
 						W._wu(5)
 						if W.tag(n, "傲气") or k == "压人":

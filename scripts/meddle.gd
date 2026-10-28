@@ -308,7 +308,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 	var f := _fmt(W, pt)
 	var aid := int(pt["aid"])
 	var v := String(pt["v"])
-	var pl := float(W.plv())
+	var pl: float = float(W.plv()) + W.Gear.edge(W, {})   # v0.14：她的法宝（插手时对面是谁不定，只算她这边）
 	var pn: String = W.pn()
 	var out := ""
 	pt["o"] = oid

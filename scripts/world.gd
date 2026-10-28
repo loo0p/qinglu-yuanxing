@@ -219,6 +219,7 @@ const HINT = {"温柔": ["{ta}把伞往她这边偏了偏", "{ta}说话时声音
 const AG = preload("res://scripts/agency.gd")
 const MD = preload("res://scripts/meddle.gd")
 const TV = preload("res://scripts/travel.gd")
+const Gear = preload("res://scripts/gear.gd")   # v0.14：行囊装备
 const SG = preload("res://scripts/saga.gd")   # v0.12：可插拔事件引擎的胶水层（内容在 data/packs）
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
 ## v0.12.1（Gemini v5 评审）：所有“要处多久 / 隔多久 / 见过几回”的门槛都在这一张表里，
@@ -628,6 +629,7 @@ func _sync_player() -> void:
 
 func _inj(days: int) -> void:
 	if g != null:
+		days = Gear.on_injury(g, days)   # v0.14：法衣减伤、护身符挡一回、法宝法衣磨损
 		g.s["injured"] = maxi(int(g.s.get("injured", 0)), days)
 
 func _wu(n: int) -> void:
@@ -914,6 +916,7 @@ func die(c: Dictionary, how: String) -> void:
 					chron(o, "听闻%s%s，三日不语。" % [c["name"], how])
 				if not o["player"] and (tag(o, "记仇") or tag(o, "痴情")):
 					o["goal"] = "报仇"
+	Gear.on_death(self, c)   # v0.14：遗物给道侣 / 徒弟，没人接就落在死处
 	saga().emit("death", c, {"how": how})
 
 func ascend(c: Dictionary) -> void:
@@ -2238,7 +2241,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 	var p := P()
 	var n: Dictionary = C(roles["B"]) if roles.has("B") else {}
 	var nm: String = n.get("name", "")
-	var pl := float(plv())
+	var pl := float(plv()) + Gear.edge(self, n)   # v0.14：法宝
 	var out := ""
 	match tid:
 		"偶遇":

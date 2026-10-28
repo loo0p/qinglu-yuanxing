@@ -5,9 +5,10 @@ extends RefCounted
 ## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
 ## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
 
-const SAVE_VERSION := 3      # v0.6 v2：江湖与立绘；v0.13 v3：回合=月、境界往后、去掉旧开局的亲戚设定（v1/v2 读入时迁移）
+const SAVE_VERSION := 4      # v0.14 v4：行囊装备（s.gear；v3 读入时补一只布囊，原物不动）； v0.6 v2：江湖与立绘；v0.13 v3：回合=月、境界往后、去掉旧开局的亲戚设定（v1/v2 读入时迁移）
 const World = preload("res://scripts/world.gd")
 const TV = preload("res://scripts/travel.gd")
+const Gear = preload("res://scripts/gear.gd")
 const FIELD_DAYS := 6
 const FIELD_YIELD := 2
 const RECIPES := {
@@ -106,6 +107,7 @@ func new_game(name: String, cherish: String, seed: int = -1, with_world: bool = 
 		"stats": {"biguan_days": 0, "trip_days": 0, "heavy": 0, "light": 0, "revisit": 0, "started_ms": Time.get_ticks_msec()},
 		"rng": 0,
 	}
+	Gear.ensure(self)
 	_log("%s 十六岁，外门落选，租下后山脚下的旧洞府青庐，做了散修。" % name)
 	world = null
 	if with_world:
@@ -123,11 +125,12 @@ func to_dict() -> Dictionary:
 	return s.duplicate(true)
 
 func from_dict(d: Dictionary) -> bool:
-	if not d.has("v") or not (int(d["v"]) in [1, 2, SAVE_VERSION]):
+	if not d.has("v") or not (int(d["v"]) in [1, 2, 3, SAVE_VERSION]):
 		return false
 	s = d.duplicate(true)
 	if int(s["v"]) < 3:
 		_migrate_v3()
+	Gear.ensure(self)   # v3 → v4：只补字段，原有行囊、仓库、灵石都不动
 	s["v"] = SAVE_VERSION   # v1 → v2：字段只增不减；江湖由界面层决定是否补开（migrate_world）
 	world = null
 	if s.has("world") and s["world"] is Dictionary:
@@ -322,7 +325,7 @@ func _pack_add_one(id: String, key: bool) -> bool:
 		if sl["id"] == id and int(sl["n"]) < SLOT_STACK and bool(sl["key"]) == key:
 			sl["n"] = int(sl["n"]) + 1
 			return true
-	if s["pack"].size() < PACK_SLOTS:
+	if s["pack"].size() < Gear.cells(self):   # v0.14：格数看储物袋（布囊 6 格 = 原先的 PACK_SLOTS）
 		s["pack"].append({"id": id, "n": 1, "key": key})
 		return true
 	return false
@@ -387,6 +390,7 @@ func gain(v: int, k: String) -> void:
 func add_wu(v: int) -> void:
 	if v <= 0:
 		return
+	v = Gear.wu_bonus(self, v)
 	var room := maxi(0, WU_SOFTCAP - I("ganwu"))
 	var full := mini(v, room)
 	var half := int((v - full) / 2)
@@ -431,7 +435,8 @@ func tick(mode: String) -> void:
 	if mode == "road" or (mode == "busy" and away()):
 		s["stats"]["trip_days"] = int(s["stats"]["trip_days"]) + 1
 		if I("ration") > 0:
-			s["ration"] = I("ration") - 1
+			if not Gear.ration_saved(self):   # v0.14：戴着“辟谷”的戒指，攒够了省一颗
+				s["ration"] = I("ration") - 1
 		else:
 			s["hunger_days"] = I("hunger_days") + 1
 			s["shouyuan"] = I("shouyuan") - 1
@@ -447,11 +452,12 @@ func tick(mode: String) -> void:
 			s["unstable"] = I("unstable") - 1
 		var r := mini(cap, I("ganwu"))
 		s["ganwu"] = I("ganwu") - r
-		gain(biguan_xw(), "biguan")
+		gain(Gear.xw_bonus(self, biguan_xw()), "biguan")   # v0.14：玉佩等加成；没佩东西时原样
 		gain(r, "ganwu")
 	if (mode == "road" or mode == "busy") and I("ration") > 0:
 		s["flags"].erase("hungry")
 	s["shouyuan"] = I("shouyuan") - 1
+	Gear.monthly(self)
 	# ④ 世事检查
 	# v0.13：不再有“第 23 个月前”的倒计时——向阳坡每年五到八月结果；入夏时还没筑基、手里没赤阳果，就捎个话
 	var cm := World.cal(I("day"))
@@ -1558,6 +1564,9 @@ func answer_xinmo(i: int) -> Dictionary:
 		return _gate_pass()
 	s["loc"] = "home"
 	s["unstable"] = 3
+	if Gear.on_xinmo_fail(self):
+		s["unstable"] = 1
+		_log("静心符烧成了灰，道心稳住了些。")
 	pchron("冲关，心魔一问没有过去。")
 	if I("plv") < 9:
 		_log("心魔劫未过：她答的，与她做过的对不上。筑基丹还在，先闭关 3 个月（炼化减半）。")

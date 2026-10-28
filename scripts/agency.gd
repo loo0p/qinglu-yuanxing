@@ -775,7 +775,8 @@ static func _add_ls(c: Dictionary, d: int) -> int:
 static func _win(W, a: Dictionary, b: Dictionary, ea: float = 4.0, eb: float = 4.0) -> bool:
 	# v0.10：她插了手（帮一把 / 递了话）时，那一方多几分胜算；edge 只在结算那一刻存在，不进存档
 	var e: Dictionary = W.w.get("edge", {})
-	return float(a["lv"]) + float(e.get(str(int(a["id"])), 0)) + W.rng.randf() * ea > float(b["lv"]) + float(e.get(str(int(b["id"])), 0)) + W.rng.randf() * eb
+	# v0.14：法宝的斗法加成（不额外掷骰子，随机序列不变）
+	return float(a["lv"]) + float(e.get(str(int(a["id"])), 0)) + W.Gear.pw_of(W, a) + W.rng.randf() * ea > float(b["lv"]) + float(e.get(str(int(b["id"])), 0)) + W.Gear.pw_of(W, b) + W.rng.randf() * eb
 
 ## 一件事了结了：把那条记忆标成“了”，下回重想
 static func _settle(c: Dictionary, src_oid: int, kinds: Array) -> void:
@@ -821,6 +822,12 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			W.R(ls2, wn)["g"] = int(W.R(ls2, wn)["g"]) + 15
 			W.chron(wn, "在%s与%s争%s，争到了手。" % [pl, ls2["name"], prize])
 			W.chron(ls2, "在%s与%s争%s，落了下风。" % [pl, wn["name"], prize])
+			# v0.14：输的那边身上最值钱的法器，隔一回被夺走一回（按日子定，不掷骰子）
+			var loot = W.Gear.best_of(W, ls2)
+			if loot != null and (int(W.w["day"]) + int(wn["id"])) % 2 == 0:
+				W.Gear.transfer(W, ls2, wn, loot, "%s在%s从%s手里夺去。" % [wn["name"], pl, ls2["name"]])
+				W.chron(wn, "顺手夺了%s的%s。" % [ls2["name"], loot["n"]])
+				W.chron(ls2, "%s被%s夺了去。" % [loot["n"], wn["name"]])
 			drift(wn, "傲", 0.02)
 			if W.rng.randf() < 0.35:
 				W.rumor(W.pv("夺宝闻", ["{w}与{l}在{p}为{x}动了手，{w}占了上风。", "{w}在{p}截下了{l}看中的{x}。"]).format({"w": wn["name"], "l": ls2["name"], "p": pl, "x": prize}), [wn, ls2])
@@ -1390,7 +1397,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 	var nm: String = n["name"]
 	var aid := int(ctx.get("aid", -1))
 	var at := _at(W, ctx, tid)
-	var pl := float(W.plv())
+	var pl: float = float(W.plv()) + W.Gear.edge(W, n)   # v0.14：双方的法宝
 	var tb: String = W._tb(n)
 	var out := ""
 	var fresh: bool = W.meet(n)
@@ -1479,6 +1486,12 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						_add_ls(n, -got2)
 						W.R(p, n)["g"] = int(W.R(p, n)["g"]) + 25
 						out = "她没打过。%s拿走了%s块灵石。\n（受伤：闭关炼化减半两个月）" % [nm, W.cnum(-got2)]
+						# v0.14：随身最值钱的那件也被搜了去（储物袋、符不算）
+						var loot = W.Gear.her_best_carried(W.g) if W.g != null else null
+						if loot != null and W.Gear.value(loot) >= 20:
+							W.Gear.transfer(W, p, n, loot, "%s在%s截道，从她身上搜去。" % [nm, at])
+							out += "\n%s还从她身上搜走了%s。" % [nm, loot["n"]]
+							W.chron(p, "%s被%s搜了去。" % [loot["n"], nm])
 						W.chron(p, "在%s遭%s劫掠，带伤而回。" % [at, nm])
 						W.chron(n, "在%s劫了%s。" % [at, W.pn()])
 				"name", "bluff":
