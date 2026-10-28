@@ -8,7 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.14 试玩版"
+const VERSION = "v0.14.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2225,9 +2225,14 @@ func _cult() -> void:
 	var c = card()
 	L("闭关：田和丹炉照常走；闭满一年，江湖的事不找上门", 13, C_DIM, c)
 	var r = row(c)
+	var stalled: bool = g.at_gate()
 	for pr in [["一月", "days", 1], ["三月", "days", 3], ["一年", "years", 1], ["十年", "years", 10]]:
 		var pp: Array = pr
-		B(pp[0], func(): _seclude(pp[1], pp[2]), true, r, 46)
+		B(pp[0], func(): _seclude(pp[1], pp[2]), not (stalled and pp[1] == "years"), r, 46)
+	if stalled:
+		# v0.14.1：修为满了，长闭关一个月就会出关——不让点，指去冲关 / 备药
+		var w2: String = g.can_breakthrough()
+		LW("修为已到%s的关口，长闭关坐不出东西了。%s" % [g.gate_name(), ("下面可以冲关。" if w2 == "" else "冲关还差：%s。一月、三月仍可坐着等（田和丹炉照走）。" % w2)], 12, C_WARN, c)
 	var r2 = row(c)
 	B("炼完为止（约 %d 个月）" % int(ceil(s["ganwu"] / 20.0)), func(): _seclude("refine", 1), s["ganwu"] > 0, r2, 42)
 	B("闭到修为圆满", func(): _seclude("gate", 1), not g.at_gate(), r2, 42)
