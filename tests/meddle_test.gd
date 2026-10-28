@@ -2,7 +2,7 @@ extends SceneTree
 ## 插手（v0.10，scripts/meddle.gd）测试：
 ## ① 每一种“谋着的事” × 风声/插手 × 在家/路上 × 每个选项：都有结果文字、无占位符、正文 ≤170 字，
 ##    除“不插手”外都把她写进当事人的记忆，事情的状态跟着变；
-## ② 8 局 × 100 日（随机插手）：谋事、走漏、风声在家/路上、各选项次数；插手与“不管”的反事实对照，结局确有不同；打印 2–3 条例子；
+## ② 12 局 × 100 日（随机插手）：谋事、走漏、风声在家/路上、各选项次数；插手与“不管”的反事实对照，结局确有不同；打印 2–3 条例子；
 ## ③ 少见的动作（讨债、劝和、叛门、示警、失窃）都出现；节奏仍是在家 ~0.5、路上 ~0.3 件/日、最长连着有事 ≤3.2 日；
 ## ④ 带插手的局存读档往返一致；没有 plots 键的旧档照常读、照常跑。
 const W = preload("res://scripts/world.gd")
@@ -182,7 +182,7 @@ func _init() -> void:
 	ok(no_mem.is_empty(), "每个插手选项都把她写进当事人的记忆（%s）" % "；".join(no_mem.slice(0, 6)))
 	ok(no_state.is_empty(), "插手后事情状态跟着变：不能再插手、到日子了结；不管 = 放下（%s）" % "；".join(no_state.slice(0, 6)))
 	ok(opt_seen.size() >= 30, "（事, 选项）组合 ≥30（%d）" % opt_seen.size())
-	# ② ③ 8 局 × 100 日，随机插手
+	# ② ③ 12 局 × 100 日（v0.13 合并 v0.12.1 后 8 局只抽到 8 种选项：样本太少，加到 12 局；每个选项都能出的穷举在 ①），随机插手
 	var n_plot := 0
 	var n_leak := 0
 	var fs_home := 0
@@ -197,7 +197,7 @@ func _init() -> void:
 	var leak_txt := {}
 	var res_txt := {}
 	var n_res := 0
-	for sd in range(201, 209):
+	for sd in range(201, 213):
 		var x = W.new()
 		x.create(sd, "苏青禾")
 		var pr := RandomNumberGenerator.new()
@@ -288,7 +288,7 @@ func _init() -> void:
 			if later.is_empty() and mems.is_empty():
 				continue
 			examples.append("【局%d 第%d日】%s → 她选「%s」：%s ‖ 若不管：%s ‖ 之后：%s ‖ %s" % [sd, it["d"], MD.leak(x, pt), it["label"], String(it["res"]).replace("\n", ""), it["cfa"], "；".join(later.slice(0, 2)) if not later.is_empty() else "（无）", "；".join(mems.slice(0, 2))])
-	lines.append("8 局 × 100 日：谋事 %d 件、走漏成传闻 %d 条（不同说法 %d）、风声 在家 %d / 路上 %d、从传闻插手 %d 次；选项分布 %s" % [n_plot, n_leak, leak_txt.size(), fs_home, fs_road, opens, JSON.stringify(by_opt)])
+	lines.append("12 局 × 100 日：谋事 %d 件、走漏成传闻 %d 条（不同说法 %d）、风声 在家 %d / 路上 %d、从传闻插手 %d 次；选项分布 %s" % [n_plot, n_leak, leak_txt.size(), fs_home, fs_road, opens, JSON.stringify(by_opt)])
 	lines.append("插手 vs 不管（反事实）：比了 %d 次，结局不同 %d 次" % [compared, changed])
 	lines.append("动作计数：讨债 %d、劝和 %d、叛门 %d、示警 %d、偷窃 %d；她面前：失窃 %d、讨债 %d、示警 %d、劝和 %d、叛门 %d" % [int(verbs.get("讨债", 0)), int(verbs.get("劝和", 0)), int(verbs.get("叛门", 0)), int(verbs.get("示警", 0)), int(verbs.get("偷窃", 0)), int(p_tids.get("失窃", 0)), int(p_tids.get("讨债", 0)), int(p_tids.get("示警", 0)), int(p_tids.get("劝和", 0)), int(p_tids.get("叛门", 0))])
 	for e in examples:
