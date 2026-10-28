@@ -159,6 +159,35 @@ const MD = preload("res://scripts/meddle.gd")
 const TV = preload("res://scripts/travel.gd")
 const SG = preload("res://scripts/saga.gd")   # v0.12：可插拔事件引擎的胶水层（内容在 data/packs）
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
+## v0.11.5（Gemini v5 评审）：所有“要处多久 / 隔多久 / 见过几回”的门槛都在这一张表里，
+## 时间一格是一“步”（眼下 1 步 = 1 日；改成按月推进时把 UNIT 换成 "month"，取第二列）。
+## 次数类（见过几回、好感多少）两列相同，与时间单位无关。
+const UNIT := "day"
+const PACE := {
+	"apology_gap": [10, 12],      # 赔罪：那件事过去多少步，才说得出“当年”
+	"friend_n": [3, 5],           # 旧友：一同经历过几件事
+	"friend_f": [15, 25],         # 旧友：她对他的好感
+	"crush_known": [14, 24],      # 暗涌：相识多少步
+	"crush_n": [3, 4],
+	"crush_f": [30, 30],
+	"romance_known": [30, 36],    # 表白：相识多少步
+	"romance_n": [6, 8],
+	"romance_f": [55, 65],        # 表白的人对她
+	"romance_pf": [30, 50],       # 她对表白的人
+	"romance_cd": [20, 24],       # 被拒之后、再问之前至少隔多少步
+	"sworn_known": [20, 24],      # 结义
+	"sworn_n": [5, 6],
+	"debt_elder": [15, 15],       # 旧债上门：债主至少比她年长几岁（替前人讨旧账）
+	"grudge_recent": [40, 24],    # 借庐：这么多步之内伤过她，算“前嫌未消”
+	"defeat_cd": [30, 36],        # 寻仇 / 挑战落败后，境界没追上之前的冷却
+	"hunt_mark": [20, 6],         # 寻凶：打听到的落脚处在世界图上标多久
+	"hunt_nag": [25, 12],         # 寻凶：同一个人两条线索之间至少隔多久
+	"wealth_decay": [12, 6],      # 露财：多少步后消一半
+}
+
+static func pace(k: String) -> int:
+	return int(PACE[k][0 if UNIT == "day" else 1])
+
 const ROAD_OK = ["偶遇", "求助", "朱果之争", "劫修拦路", "劫修伏击", "天材地宝", "秘境", "重逢", "宝地相争", "寻凶", "坊市传闻", "旧友死讯", "暗涌", "报恩"]
 var w: Dictionary = {}
 var g = null
