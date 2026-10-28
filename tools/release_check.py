@@ -197,7 +197,7 @@ with sync_playwright() as p:
         clear_dialogs()
         if state().get('loc') == 'roam': break
     res['gate']['month'] = (max(int(state().get('day') or 0), 1) - 1) % 12 + 1
-    res['gate']['auc'] = tap_scroll('这个月有拍卖会', 1200, 4)
+    res['gate']['auc'] = tap('拍卖会', 1200) or tap_scroll('拍卖会', 1200, 4)   # 游历页没有底栏，按钮可以贴底
     step('v14_auc', res['gate']['auc'])
     tap('收起', 800)
     for _ in range(8):
