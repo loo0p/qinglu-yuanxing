@@ -3191,7 +3191,8 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 func _life_pre(pre: Array, cc: VBoxContainer) -> void:
 	var hr = row(cc, 8)
 	H("前尘", 20, C_ACCENT, hr)
-	var sub = L("她住进青庐之前 · %d 件" % pre.size(), 13, C_DIM, hr)
+	var sub = L("入局之前 · %d 件" % pre.size(), 13, C_DIM, hr)
+	var re := RegEx.create_from_string("^[零一二三四五六七八九十百]+岁(那年|时)?，?")
 	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for i in range(pre.size() - 1, -1, -1):
 		var e: Array = pre[i]
@@ -3200,7 +3201,7 @@ func _life_pre(pre: Array, cc: VBoxContainer) -> void:
 		dl.custom_minimum_size = Vector2(52, 0)
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var tl = L(String(e[1]), 14, C_TEXT, er)
+		var tl = L(re.sub(String(e[1]), "", false), 14, C_TEXT, er)   # 左边已标了年岁，句首的“十三岁，”不再重复
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -3228,6 +3229,25 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"settings":
 			show_settings = true
+			refresh()
+		"saga":
+			# 调试（v0.12）：跑 200 日，打开江湖里履历最长的人的生平（含前尘），全部月份展开
+			_dev("jianghu")
+			for i in 160:
+				g.tick("biguan")
+				g.world.auto_choose()
+			g.world.close()
+			var best = null
+			for c in g.world.npcs():
+				if best == null or c["log"].size() > best["log"].size():
+					best = c
+			tab = "jianghu"
+			person_id = int(best["id"])
+			person_tab = "life"
+			life_all = true
+			modal = {"kind": "person"}
+			g.notices.clear()
+			_save()
 			refresh()
 		"extra":
 			# 调试：灵脉第五点的二选一（第一次历练回来后）

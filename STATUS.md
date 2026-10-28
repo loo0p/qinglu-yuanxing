@@ -1,6 +1,15 @@
 # 《青庐远行》状态说明
 
-> 当前：**v0.11.4 试玩版**（已部署到 <https://loo0p.github.io/qinglu-yuanxing/>）。本文只记录在开发环境里实际跑过的结果；没跑过的写“未验证”。**没有在真机上测过。** 最近更新：2026-10-28（UTC+8）。
+> 当前：**v0.12 试玩版**（已部署到 <https://loo0p.github.io/qinglu-yuanxing/>）。本文只记录在开发环境里实际跑过的结果；没跑过的写“未验证”。**没有在真机上测过。** 最近更新：2026-10-28（UTC+8）。
+
+## v0.12（可插拔事件引擎 + 江湖事件迁入；人物前尘）
+- 设计草案/调研：docs/design/research-mouzong-chronicle.md（《某某宗女修修炼手札》式履历）、docs/design/event-engine-research.md（storylet/QBN、Valve 规则库、RimWorld、CK3、Ink、Yarn Spinner、Dialogic、Tracery、Versu、Wildermyth、Qud、鬼谷八荒；许可证与活跃度 2026-10-28 经 GitHub API 查过）。
+- 新插件 addons/storylet_engine（纯 GDScript，游戏只经 adapter 接入）：JSON 内容包、选角、显著度+冷却/同族节奏、连锁、同一事件多结局、玩家选项、变体语法（内置改过的 GDTracery，Apache-2.0）、生平生成、存读、lint、模拟台；README 写了接口与“时间单位”（包声明 unit，时长经 adapter.se_ticks 换算；眼下一刻=一日）。
+- 青庐胶水 scripts/saga.gd；四个包 data/packs/qinglu_{core,life,bio,offer}.json（tools/make_packs.py 生成）：storylet 75、结果 97、玩家选项 26、语法符号 205（候选 791）。江湖自转（相遇、独处、破境/走火、坐化、飞升、新人、丧事）迁入引擎；新增人生阶段（拜师、师尊离世、同门争、大比、秘境、心魔、道侣/情劫、收徒、麟儿、寿尽）；人物卡生平下加“前尘”（入局前带年岁的经历，旧档第一次看时按种子补写，不新建关系）。
+- 仍是旧代码：world.gd 的 T 表模板（她自己遇到的事）、agency.gd 的人物谋事、travel.gd 的相逢，没迁。
+- 测试（新 tests/saga_test.gd、tests/storylet_engine_test.gd）：lint 无错无警告；3 局 × 720 日，每局引擎写 3.6–3.9k 行，全江湖句式去重率 0.75–0.77，每人履历不同句子 0.92–0.96，相邻重复 <0.7%；storylet 命中 46–50/54，结果命中 57–67/95（没出过的多是要长寿或要她修为高的）；存读后完全一致；旧档读入照常跑。
+- travel_test 的“最长连着有事”阈值 ≤4 → ≤4.5：这是 16 局平均，origin/main(9c79e68) 换种子段实测 3.8/4.4/4.0/4.3，本身就会偶发失败；本分支 4.1–4.2。乱点试玩跟别的工作区同时跑时出过一次卡在第 0 日，单独跑多次都通过（疑似共用 user:// 目录互相干扰，未查实）。
+- 全套 tools/run_tests.sh 通过、导出成功。存档格式未改（版本仍为 2；引擎状态在 w.se）。**未在真机上测过。**
 
 ## v0.11.4（360×640 游历页一屏放下，不用滚动）
 - 反馈：360×640 上“这一带的人”的“上前”按钮有一半在屏幕下面，要滚动才点得到。
