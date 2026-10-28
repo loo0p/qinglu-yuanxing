@@ -1884,7 +1884,7 @@ func _modal() -> void:
 				var nw = card()
 				H("山外", 20, C_ACCENT, nw)
 				for t in sm["news"]:
-					L("· " + String(t), 13, C_TEXT, nw)
+					L("·" + String(t), 13, C_TEXT, nw).autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			if sm.has("world"):
 				var w = card()
 				H("世事", 20, C_WARN, w)
@@ -1904,9 +1904,12 @@ func _modal() -> void:
 			L("寿元余 %d 年" % g.shou_years(), 13, C_WARN, c)
 			if not sq.get("lines", []).is_empty():
 				var nw = card()
-				H("这些年，山外" + ("（共 %d 件，只记了要紧的）" % int(sq.get("n_news", 0)) if int(sq.get("n_news", 0)) > sq["lines"].size() else ""), 18, C_ACCENT, nw)
+				H("这些年，山外", 18, C_ACCENT, nw)
+				if int(sq.get("n_news", 0)) > sq["lines"].size():
+					L("共 %d 件，只记了要紧的" % int(sq.get("n_news", 0)), 12, C_DIM, nw)
 				for tl in sq["lines"]:
-					LW("· " + String(tl), 13, C_TEXT, nw)
+					# v0.13 修：“· ”后面的空格是唯一断词点，整句中文被挤到下一行、圆点单独一行；改成逐字折行
+					LW("·" + String(tl), 13, C_TEXT, nw).autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			B("推开静室的门", func(): modal = {}, true, footer, 52)
 		"thought":
 			_stage_image(_trip_bg(), 0.3)
