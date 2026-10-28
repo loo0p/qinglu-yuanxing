@@ -136,12 +136,12 @@ func _go() -> void:
 	log_lines.append("新手提示（新局出现、记下后消失）：" + ("PASS" if gd_ok else "FAIL"))
 	ok = ok and gd_ok
 	# v0.12.1：底栏页签不折行
-	var nav_ok := true
+	var wrap_ok := true
 	for b in buttons(main.footer, []):
 		if b.autowrap_mode != TextServer.AUTOWRAP_OFF:
-			nav_ok = false
-	log_lines.append("底栏页签不折行：" + ("PASS" if nav_ok else "FAIL"))
-	ok = ok and nav_ok
+			wrap_ok = false
+	log_lines.append("底栏页签不折行：" + ("PASS" if wrap_ok else "FAIL"))
+	ok = ok and wrap_ok
 	# v0.13：没有路书了——去后山游历，一月逛一处，碰上手记里写过的事（地点奇遇）就照常选，选完回到游历
 	var vg_ok := roam_until_vignette("后山", 30) and play_vignette()
 	vg_ok = vg_ok and seq(["回青庐", "进屋"]) and main.g.s["loc"] == "home"
