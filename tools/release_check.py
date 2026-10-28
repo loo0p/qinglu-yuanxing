@@ -23,7 +23,7 @@ with sync_playwright() as p:
     res['has_dev_hook'] = pg.evaluate('typeof window.qinglu_dev !== "undefined"')
     pg.wait_for_timeout(1500)
     def btns():
-        d = json.loads(pg.evaluate('window.qinglu_btns()'))
+        d = json.loads(pg.evaluate('(window.qinglu_btns(), window.qinglu_btns_out)'))
         sx = pg.evaluate('window.innerWidth') / d['w']; sy = pg.evaluate('window.innerHeight') / d['h']
         return [(t.replace('● ', ''), x * sx, y * sy) for t, x, y in d['b']]
     def state():
@@ -37,16 +37,15 @@ with sync_playwright() as p:
         # 对话点完（▼ / 继续 / 知道了 / 记下了），事件有选项就点第一个
         for _ in range(n):
             st = state()
-            if st.get('modal', '') == '' and st.get('loc') != 'trip':
-                return
             names = [t for t, _, _ in btns()]
-            for k in ['记下了', '知道了', '继续', '▼', '推开静室的门', '进屋']:
-                if any(t.startswith(k) for t in names):
-                    tap(k); break
-            else:
-                cand = [t for t in names if t and t not in NAV and len(t) >= 2]
-                if not cand: return
-                tap(cand[0])
+            hit = [k for k in ['记下了', '知道了', '继续', '▼', '推开静室的门', '进屋'] if any(t.startswith(k) for t in names)]
+            if hit:
+                res.setdefault('log', []).append(hit[0]); tap(hit[0]); continue
+            if st.get('modal', '') == '' and st.get('loc') != 'trip' and any(t in NAV for t in names):
+                return  # 底栏露出来了 = 没有挡着的面板（灵脉/选择面板 modal 也可能是空的）
+            cand = [t for t in names if t and t not in NAV and len(t) >= 2 and t not in ('设置', '♪')]
+            if not cand: return
+            res.setdefault('log', []).append(cand[0]); tap(cand[0])
     def step(name, ok):
         pg.screenshot(path=f'{out}/{pre}_{W}x{H}_{name}.png')
         res['steps'].append([name, bool(ok), state().get('tab'), state().get('loc'), state().get('day')])

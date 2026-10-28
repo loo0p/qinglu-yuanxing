@@ -924,7 +924,8 @@ func _hook_web() -> void:
 	if w:
 		w.qinglu_save = js_cb
 		# v0.13：只读的“屏上按钮表”（文字 + 位置），玩家版也有——发布前/上线后用无头浏览器点一遍玩家版（不改任何状态）
-		btn_cb = JavaScriptBridge.create_callback(func(_a): return _btn_table())
+		# Godot 的 JS 回调不能直接返回值：写到 window.qinglu_btns_out 上
+		btn_cb = JavaScriptBridge.create_callback(func(_a): w.qinglu_btns_out = _btn_table())
 		w.qinglu_btns = btn_cb
 		# 调试钩子只在调试导出里有（截图/验收用）；玩家版（release 导出）没有
 		if OS.is_debug_build():
@@ -1315,6 +1316,16 @@ func _nav() -> void:
 				b.add_theme_stylebox_override(stn, tsb)
 			for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 				b.add_theme_color_override(fcn, C_ACCENT)
+		else:
+			# v0.13 修：没选中的页签用默认底框，左右内边距大，五个页签时“青庐”被挤成竖排两行（截图里看到的）；
+			# 这里把左右内边距收到 4，跟选中的一致，并且不许折行
+			for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+				var sb0 = b.get_theme_stylebox(st)
+				if sb0 != null:
+					var sb1 = sb0.duplicate()
+					sb1.content_margin_left = 4
+					sb1.content_margin_right = 4
+					b.add_theme_stylebox_override(st, sb1)
 		b.add_theme_font_size_override("font_size", 13 if tabs.size() > 4 else 14)
 		if tabs.size() > 4:
 			b.add_theme_constant_override("h_separation", 1)
@@ -1807,7 +1818,12 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 			type_tw = tw
 			type_label = tl
 	if not done:
-		var adv = B("▼", func(): _advance(), true, v, 44)
+		var adv = B("▼", func(): pass, true, v, 44)
+		# v0.13 修：B() 把回调包在 _press（240ms 防连点）里，_advance 翻页时又走一次 _press，第二次被防连点吞掉——
+		# 结果点“▼”本身只能把字显完、永远翻不了页（点对话框别处可以）。这里直接接 _advance。
+		for cn in adv.pressed.get_connections():
+			adv.pressed.disconnect(cn["callable"])
+		adv.pressed.connect(func(): _advance())
 		adv.flat = true
 		adv.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		adv.add_theme_color_override("font_color", C_GOLD)
