@@ -553,7 +553,11 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 			s = [UC.consider(px(c, "善"), "lin", 0.0, 0.3), UC.consider(op, "log", 0.05), opp if isp else 1.0]
 		_:
 			return 0.0
-	return UC.product(s) * (0.5 + u)
+	var mul := 1.0
+	# v0.11.5：她露了财，贪心又不讲侠义的人会盯上她（Gemini v5 P1#11）
+	if isp and v in ["偷窃", "截杀", "夺宝"] and px(c, "贪") > 0.6 and px(c, "侠") < 0.4:
+		mul += 1.5 * W.exposed()
+	return UC.product(s) * (0.5 + u) * mul
 
 ## t 的一个仇家（给劝和用；排除说和的人自己）
 static func _foe_of(W, t: Dictionary, not_c: Dictionary) -> Dictionary:
@@ -823,6 +827,9 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 		"寻仇":
 			if b.is_empty() or not b["alive"]:
 				_settle(a, int(b.get("id", 0)), [])
+				return
+			if W.cowed(a, b):
+				W.chron(a, "在%s远远望见%s，按住了剑，转身走了。" % [pl, bn])
 				return
 			if _win(W, a, b, 4.0, 3.5):
 				b["inj"] = maxi(int(b["inj"]), 18)

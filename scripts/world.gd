@@ -321,6 +321,19 @@ static func lifespan(lv: int) -> int:
 func realm(c: Dictionary) -> String:
 	return realm_name(int(c["lv"]))
 
+## 事件对话框上的说话人：认得的写“名字 · 宗门”，不知名的写“宗门 · 境界”——不再写“陌生人”（Gemini v5 P1#10.4）
+func speaker_title(ev: Dictionary) -> String:
+	var sid := int(ev.get("speaker", 0))
+	if sid <= 0:
+		return ""
+	var c := C(sid)
+	if c.is_empty():
+		return ""
+	if ev.get("anon", false) and String(ev.get("stage", "ask")) == "ask":
+		return "%s · %s" % [c["sect"], realm(c)]
+	var sub := String(c["sect"]) if String(c["sect"]) != "散修" else realm(c)
+	return "%s · %s" % [c["name"], sub]
+
 func side(c: Dictionary) -> String:
 	return SECTS.get(c["sect"], "中")
 
@@ -525,6 +538,8 @@ func _wu(n: int) -> void:
 func _ling(n: int) -> int:
 	if g == null:
 		return n
+	if n >= 15:
+		w["wx"] = int(w["day"])   # 一下进账不少，坊市里有人看见了
 	var before := int(g.s.get("lingshi", 0))
 	g.s["lingshi"] = maxi(0, before + n)
 	return int(g.s["lingshi"]) - before
@@ -1070,6 +1085,15 @@ func in_danger(c: Dictionary) -> String:
 	return ""
 
 ## 侠义之人（性格“侠”> 0.6 或带“侠义”）只对血海深仇下死手（Gemini v5 P1#6）
+## 露财：刚得了一笔（wealth_decay 内渐淡），或身上灵石多到藏不住；0..1
+func exposed() -> float:
+	var x := 0.0
+	if w.has("wx"):
+		x = clampf(1.0 - float(int(w["day"]) - int(w["wx"])) / float(pace("wealth_decay")), 0.0, 1.0)
+	if g != null:
+		x = maxf(x, clampf((float(g.s.get("lingshi", 0)) - 80.0) / 200.0, 0.0, 1.0))
+	return x
+
 func xia(c: Dictionary) -> bool:
 	return tag(c, "侠义") or (not c["player"] and AG.px(c, "侠") > 0.6)
 
@@ -1085,6 +1109,8 @@ func may_kill(k: Dictionary, v: Dictionary) -> bool:
 
 ## 寻仇 / 挑战落败：记下败给了谁、那时对方几层；冷却期内、境界没追上，不再一头撞上去
 func note_defeat(a: Dictionary, b: Dictionary) -> void:
+	if cowed(a, b):
+		w["rash"] = int(w.get("rash", 0)) + 1   # 冷却期内、修为没长又去撞——测试盯着这个数为 0
 	var bt: Dictionary = a.get("beat", {})
 	bt[str(int(b["id"]))] = [int(w["day"]), plv() if b["player"] else int(b["lv"]), int(a["lv"])]
 	a["beat"] = bt

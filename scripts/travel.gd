@@ -1,7 +1,7 @@
 extends RefCounted
 ## v0.11 去处与游历（travel.gd）
 ## 世界是一张逐步展开的地图：一开始只认得青庐左近（后山、坊市），别处先是“传闻”。
-## 解锁不排章节：修为够了、风声听多了、熟人引路、插手过那里的事——哪条先到算哪条。
+## 解锁不排章节：修为够了、坊市买了舆图、熟人引路、插手过那里的事——哪条先到算哪条（风声只让她“耳闻”）。
 ## 到了一处地方，每天挑一个小去处游历；碰上谁，看的是眼下真在那里的人（人物按自己的念头在各地走动），
 ## 再加上几个过路的生面孔。地点只调权重，任何事都不绑死在某处。
 ## 全部状态是 world.w 里的可选键（unl / uwhy / heard / yl），旧档读入时按进度补齐，存档版本不变。
@@ -43,8 +43,8 @@ const PL = {
 const UNL = {
 	"寒潭": {"lay": 2, "hl": [2, 1], "flag": "hantan_visited"},
 	"药王谷": {"lay": 4, "hl": [3, 2], "guide": true},
-	"青云宗": {"lay": 4, "hl": [3, 2], "guide": true, "ev": ["宗门招徒", "入门试炼"]},
-	"云梦泽": {"lay": 4, "hl": [3, 2], "guide": true},
+	"青云宗": {"lay": 5, "hl": [3, 2], "guide": true, "ev": ["宗门招徒", "入门试炼"]},
+	"云梦泽": {"lay": 5, "hl": [3, 3], "guide": true},
 	"玄霜谷": {"lay": 5, "hl": [3, 3], "guide": true},
 	"落霞宫": {"lay": 5, "hl": [3, 3], "guide": true},
 	"万剑门": {"lay": 5, "hl": [3, 3], "guide": true},
@@ -156,10 +156,38 @@ static func why(W, p: String) -> String:
 			return "经过那回%s，她知道%s在哪了。" % [e, p]
 	if lay >= int(u["lay"]):
 		return "修到炼气%s层，%s的路她走得了了。" % [LAYER_CN[mini(8, int(u["lay"]) - 1)], p]
-	var hl: Array = u["hl"]
-	if heard_n(W, p) >= int(hl[0]) and lay >= int(hl[1]):
-		return "风声听得多了，她大致摸清了去%s的路。" % p
+	# v0.11.5：风声只让她“耳闻”（图上一个“？”），听得再多也不等于认得路（Gemini v5 P1#9）。
+	# 认得要靠：修为够了、在坊市买一张舆图、熟人引路、或经历过那里的事（请柬、招徒…）
 	return ""
+
+## 耳闻：听过风声、还不认得路
+static func heard_only(W, p: String) -> bool:
+	return not unlocked(W, p) and heard_n(W, p) > 0
+
+## 舆图：坊市里有卖，听过风声、修为也够得上那一带（hl[1]）才买得到；越远越贵
+static func map_cost(p: String) -> int:
+	return 6 * int(PL.get(p, {"d": 2})["d"])
+
+static func can_buy_map(W, p: String) -> String:
+	var u: Dictionary = UNL.get(p, {})
+	if u.is_empty() or unlocked(W, p):
+		return "不必"
+	if not unlocked(W, "坊市"):
+		return "还不认得坊市"
+	if heard_n(W, p) < 1:
+		return "没听说过那里"
+	if _layer(W) < int(u["hl"][1]):
+		return "修为还到不了那一带（炼气%s层）" % LAYER_CN[mini(8, int(u["hl"][1]) - 1)]
+	if W.g != null and int(W.g.s.get("lingshi", 0)) < map_cost(p):
+		return "灵石不够（要 %d）" % map_cost(p)
+	return ""
+
+static func buy_map(W, p: String) -> bool:
+	if can_buy_map(W, p) != "":
+		return false
+	W._ling(-map_cost(p))
+	unlock(W, p, "在坊市的旧货摊上买了一张去%s的舆图。" % p)
+	return true
 
 ## 还差什么（给“传闻”卡片看）
 static func need(W, p: String) -> String:
@@ -167,7 +195,7 @@ static func need(W, p: String) -> String:
 	var bits := []
 	bits.append("修到炼气%s层" % LAYER_CN[mini(8, int(u.get("lay", 1)) - 1)])
 	var hl: Array = u.get("hl", [9, 9])
-	bits.append("多听些风声（%d/%d）" % [mini(heard_n(W, p), int(hl[0])), int(hl[0])])
+	bits.append("修到炼气%s层后在坊市买张舆图" % LAYER_CN[mini(8, int(hl[1]) - 1)])
 	if u.get("guide", false):
 		bits.append("有熟人引路")
 	return "或".join(bits)
@@ -210,10 +238,11 @@ static func _guide_pick(W) -> Array:
 		if c["player"] or not W.known(c) or int(c["inj"]) > 12:
 			continue
 		var op: float = W.opinion(c, p)
-		if op < 12.0 and not W._close_p(c):
+		if op < 20.0 and not W._close_p(c):
 			continue
 		for pl in [String(W.SECT_HOME.get(c["sect"], "")), String(c["place"])]:
-			if PL.has(pl) and not unlocked(W, pl) and bool(UNL.get(pl, {}).get("guide", false)):
+			# v0.11.5：引路的人得真处得来，也不把修为还够不上那一带的她领过去
+			if PL.has(pl) and not unlocked(W, pl) and bool(UNL.get(pl, {}).get("guide", false)) and _layer(W) >= int(UNL[pl]["hl"][1]):
 				best.append([c, pl])
 				break
 	return best

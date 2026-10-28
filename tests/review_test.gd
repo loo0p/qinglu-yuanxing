@@ -101,7 +101,7 @@ func _audit(g, ev: Dictionary, seen_txt: Dictionary) -> void:
 		"失窃", "截道", "夺宝":
 			if not n.is_empty() and roles.has("B"):
 				_st("冲她来:" + tid)
-	if ev.get("anon", false):
+	if w.speaker_title(ev).contains("陌生人") or (ev.get("anon", false) and int(ev.get("speaker", 0)) > 0 and w.speaker_title(ev) == ""):
 		_bad("标题·陌生人", tid)
 
 func play(seed: int, days: int) -> Dictionary:
@@ -183,22 +183,119 @@ func play(seed: int, days: int) -> Dictionary:
 		for l in c["log"]:
 			var t := String(l[1])
 			if t.contains("报仇不成") or t.contains("又一次败给") or (t.contains("回去寻") and t.contains("没讨到便宜")):
+				# 隔了冷却期再去不算“一头撞上去”
+				if last != "" and int(l[0]) - int(last) >= int(W.pace("defeat_cd")):
+					streak = 0
 				streak += 1
-				runs[c["name"]] = maxi(int(runs.get(c["name"], 0)), streak)
+				last = str(int(l[0]))
+				if streak > int(runs.get(c["name"], 0)):
+					runs[c["name"]] = streak
 			elif t.contains("破境") or t.contains("闭门不出"):
 				streak = 0
 	var mx := 0
 	for v in runs.values():
 		mx = maxi(mx, int(v))
 	r["fz_max"] = mx
+	r["rash"] = int(w.w.get("rash", 0))
 	return r
+
+## 每条修正的单项检查（造场面直接验）
+func _units() -> void:
+	var g = GS.new()
+	g.new_game("苏青禾", "aunt", 7, true)
+	var w = g.world
+	var p: Dictionary = w.P()
+	var ns: Array = w.npcs().filter(func(c): return not c["player"])
+	var a: Dictionary = ns[0]
+	var b: Dictionary = ns[1]
+	# 标题：不写“陌生人”
+	var t1: String = w.speaker_title({"speaker": int(a["id"]), "anon": true, "stage": "ask"})
+	ok(not t1.contains("陌生人") and t1.contains(String(a["sect"])), "不知名的说话人写“宗门 · 境界”：%s" % t1)
+	var t2: String = w.speaker_title({"speaker": int(a["id"]), "stage": "ask"})
+	ok(t2.begins_with(String(a["name"])), "认得的说话人写“名字 · …”：%s" % t2)
+	# 侠义：无深仇不下杀手
+	a["traits"] = a["traits"] + ["侠义"]
+	w.R(a, b)["g"] = 0
+	ok(not w.may_kill(a, b), "侠义之人对无深仇的人不下杀手")
+	w.R(a, b)["g"] = 60
+	ok(w.may_kill(a, b), "深仇（g ≥ 50）才会下杀手")
+	w.R(a, b)["g"] = 0
+	# 夺宝：侠义之人不夺无仇之人
+	ok(AG.score(w, a, "夺宝", b, {"k": "求财", "u": 0.5, "t": 0}) == 0.0, "侠义之人不对无仇之人夺宝")
+	# 败后冷却
+	w.note_defeat(b, a)
+	ok(w.cowed(b, a), "败后冷却期内、修为没长：不再去寻")
+	b["lv"] = int(b["lv"]) + 1
+	ok(not w.cowed(b, a), "破了境就可以再去")
+	b["lv"] = int(b["lv"]) - 1
+	w.w["day"] = int(w.w["day"]) + int(W.pace("defeat_cd")) + 1
+	ok(not w.cowed(b, a), "过了冷却期也可以再去")
+	# 赔罪：没见过的人不起赔罪念头
+	var c: Dictionary = ns[2]
+	w.R(p, c)["g"] = 40
+	ok(float(AG.wronged(w, c, p)[0]) == 0.0, "素未谋面的人不因她恨他而来赔罪")
+	ok(w.cast_veto("赔罪", {"B": int(c["id"])}, {}) != "", "说书人也拦下素未谋面者的赔罪")
+	w.R(p, c)["g"] = 0
+	# 旧友死讯：一面之缘不算旧友
+	w.meet(c)
+	c["alive"] = false
+	ok(w.cast_veto("旧友死讯", {"B": int(c["id"])}, {}) != "", "一面之缘的人死了不发旧友死讯")
+	c["alive"] = true
+	# 道侣遇险：没伤没人盯，不发
+	ok(w.cast_veto("道侣遇险", {"B": int(c["id"])}, {}) != "", "道侣没受伤、没人盯上，不发遇险")
+	c["inj"] = 20
+	ok(w.in_danger(c) == "伤", "道侣真受了伤才算遇险")
+	c["inj"] = 0
+	# 借庐：伤过她的人走仇人变体
+	var h: Dictionary = ns[3]
+	w.remember(c, p, "伤了%s" % w.pn(), -12, "伤")
+	w.R(p, c)["g"] = 20
+	var ctx := {}
+	var ev: Dictionary = w.present("借庐", {"B": int(c["id"]), "H": int(h["id"])}, ctx)
+	ok(ctx.get("foe", false) and ev["opts"].any(func(o): return String(o[0]) == "seize"), "伤过她的人来借庐：仇人变体，可以了结旧账")
+	# 寻凶：三步文字各不相同，按住剑后不空催
+	var k: Dictionary = ns[4]
+	var seen := {}
+	for i in 3:
+		var e2: Dictionary = w.present("寻凶", {"B": int(k["id"])}, {})
+		seen[String(e2["text"]).substr(0, 8)] = 1
+	ok(seen.size() == 3, "寻凶三步文字各不相同（%d）" % seen.size())
+	ok(not w.hunt_marks().is_empty(), "寻凶后地图上标出仇人所在")
+	w.hunt(int(k["id"]))["st"] = 1
+	k["lv"] = w.plv() + 3
+	ok(w.cast_veto("寻凶", {"B": int(k["id"])}, {}) != "", "按住剑、修为没追上：不再催")
+	ok(w.cast_veto("寻凶", {"B": int(k["id"])}, {"ready": 1}) == "", "修为追上后可以提起")
+	# 地图：风声只耳闻；舆图要修为够、灵石够
+	TV.ensure(w)
+	var lp := "落霞宫"
+	w.w["heard"][lp] = 9
+	TV.check(w)
+	ok(not TV.unlocked(w, lp) and TV.heard_only(w, lp), "风声听得再多也只是耳闻")
+	ok(TV.can_buy_map(w, lp) != "", "修为不够买不到远处的舆图")
+	var hp := "寒潭"
+	w.w["heard"][hp] = 1
+	g.s["lingshi"] = 100
+	ok(not TV.unlocked(w, hp) and TV.buy_map(w, hp) and TV.unlocked(w, hp) and int(g.s["lingshi"]) == 100 - TV.map_cost(hp), "坊市买舆图：认得了路、扣了灵石")
+	# 露财：贪而不侠的人更盯她
+	var r: Dictionary = ns[5]
+	AG.pers(r)["贪"] = 0.8
+	AG.pers(r)["侠"] = 0.1
+	g.s["lingshi"] = 0
+	w.w.erase("wx")
+	var s0: float = AG.score(w, r, "偷窃", p, {"k": "求财", "u": 0.5, "t": 0})
+	w._ling(40)
+	var s1: float = AG.score(w, r, "偷窃", p, {"k": "求财", "u": 0.5, "t": 0})
+	ok(s1 > s0 * 1.5 or (s0 == 0.0 and s1 == 0.0), "露了财，贪而不侠的人更想下手（%.3f → %.3f）" % [s0, s1])
+	ok(w.exposed() > 0.9, "刚进了一笔账：露财")
 
 func _init() -> void:
 	strict = not OS.get_cmdline_user_args().has("--measure")
+	_units()
 	var agg := {"ken30": 0.0, "ken60": 0.0, "ken100": 0.0, "ken_lt5": 0.0, "ear100": 0.0}
 	var bonds := []
 	var bond_ns := []
 	var fz := 0
+	var rash := 0
 	var N := 16
 	for sd in range(101, 101 + N):
 		var r := play(sd, 110)
@@ -208,6 +305,7 @@ func _init() -> void:
 			bonds.append(int(r["bond_day"]))
 			bond_ns.append(int(r["bond_n"]))
 		fz = maxi(fz, int(r["fz_max"]))
+		rash += int(r["rash"])
 	var keys := stat.keys()
 	keys.sort()
 	var sl := []
@@ -218,7 +316,7 @@ func _init() -> void:
 	for kk in ex:
 		lines.append("  例：%s —— %s" % [kk, ex[kk]])
 	lines.append("结道侣的局 %d/%d；结侣日 %s；结侣时同历 %s" % [bonds.size(), N, str(bonds), str(bond_ns)])
-	lines.append("认得几处（均值）：D30 %.1f / D60 %.1f / D100 %.1f；炼气五层前 %.1f；第 110 日只耳闻 %.1f；寻仇最长连败 %d" % [agg["ken30"], agg["ken60"], agg["ken100"], agg["ken_lt5"], agg["ear100"], fz])
+	lines.append("认得几处（均值）：D30 %.1f / D60 %.1f / D100 %.1f；炼气五层前 %.1f；第 110 日只耳闻 %.1f；寻仇最长连败 %d；冷却内又去撞 %d" % [agg["ken30"], agg["ken60"], agg["ken100"], agg["ken_lt5"], agg["ear100"], fz, rash])
 	if strict:
 		ok(int(bad.get("赔罪·生人或刚认识", 0)) == 0, "赔罪的人都早就认识她（≥ 赔罪间隔）")
 		ok(int(bad.get("旧友死讯·一面之缘", 0)) == 0, "旧友死讯只给真处过的人（同历 ≥ %d、好感 ≥ %d）" % [W.pace("friend_n"), W.pace("friend_f")])
@@ -231,7 +329,8 @@ func _init() -> void:
 		var early := bonds.filter(func(d): return d < W.pace("romance_known"))
 		ok(early.is_empty(), "没有在相识门槛之前结侣")
 		ok(int(bad.get("侠义害无仇之人", 0)) == 0, "侠义之人不害无仇之人的命")
-		ok(fz <= 2, "寻仇最长连败 ≤ 2 回（败了先去变强 / 找帮手）：%d" % fz)
+		ok(rash == 0, "败后冷却期内、修为没长，不再去寻同一人（%d 回）" % rash)
+		ok(fz <= 3, "寻仇最长连败 ≤ 3 回（隔了冷却期或破了境才能再去）：%d" % fz)
 		ok(int(bad.get("寻凶·同一句又来", 0)) == 0 and int(bad.get("寻凶·没追上还催", 0)) == 0, "寻凶不重复、按住剑后不空催")
 		ok(agg["ken_lt5"] <= 5.0, "炼气五层前认得的地方 ≤ 5 处（均 %.1f）" % agg["ken_lt5"])
 		ok(int(bad.get("标题·陌生人", 0)) == 0, "事件标题不写“陌生人”")

@@ -2234,6 +2234,20 @@ func _depart() -> void:
 			var ds = _sb(Color(0.985, 0.97, 0.935, 0.55), Color(0.29, 0.25, 0.2, 0.35), 16, 1, 4)
 			b2.add_theme_stylebox_override("normal", ds)
 			b2.add_theme_stylebox_override("hover", ds)
+	# v0.11.5：打听到的仇人落脚处，在图上标一下（寻凶之后一段时间内，跟着人走）
+	var hm: Dictionary = W.hunt_marks()
+	for hp in hm:
+		if not TV.PL.has(hp) or not (TV.unlocked(W, hp) or TV.heard_n(W, hp) > 0):
+			continue
+		var hat = _at(r, Vector2(TV.PL[hp]["xy"][0], TV.PL[hp]["xy"][1]))
+		var mk = Label.new()
+		mk.text = "仇·" + "、".join(hm[hp])
+		mk.add_theme_font_size_override("font_size", 12)
+		mk.add_theme_color_override("font_color", Color("#8A1F1F"))
+		mk.add_theme_stylebox_override("normal", _sb(Color(1.0, 0.94, 0.9, 0.9), Color("#8A1F1F"), 6, 1, 2))
+		mk.position = hat + Vector2(-30, 24)
+		mk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.add_child(mk)
 	_spacer()
 	var n_un = TV.places(W).size()
 	var tip = L("认得 %d 处 · 点地名看看，“？”是只听过风声的地方" % n_un, 13, C_INK, footer)
@@ -2249,6 +2263,12 @@ func _sheet_place(v: Node) -> void:
 	_wl(String(pl["hint"]), 14, C_DIM, v)
 	if not TV.unlocked(W, p):
 		_wl("还去不了。要么%s。" % TV.need(W, p), 14, C_WARN, v)
+		# v0.11.5：风声只是耳闻；坊市里买一张舆图才认得路
+		var why_no: String = TV.can_buy_map(W, p)
+		var mb2 = B("买一张去%s的舆图（%d 灵石）" % [p, TV.map_cost(p)], func(): TV.buy_map(W, p); refresh(), why_no == "", v, 44)
+		if why_no != "":
+			mb2.tooltip_text = why_no
+			_wl("（%s）" % why_no, 13, C_DIM, v)
 		return
 	var d := TV.dist(TV.HOME, p)
 	var nm := []
@@ -2883,7 +2903,7 @@ func _story() -> void:
 	if sid > 0:
 		var c = g.world.C(sid)
 		spec = npc_spec(c)
-		spk = "陌生人" if (ev.get("anon", false) and ev["stage"] == "ask") else String(c["name"])
+		spk = g.world.speaker_title(ev)
 	var text = String(ev["text"]) if ev["stage"] == "ask" else String(ev.get("result", ""))
 	if not dialog(spk, "", text, true, spec):
 		return
