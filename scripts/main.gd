@@ -94,6 +94,7 @@ var fx_layer: Control
 var bag_icon: Control
 var js_cb = null
 var dev_cb = null
+var btn_cb = null
 var font_body: Font
 var font_brush: Font
 var tex_cache = {}
@@ -922,6 +923,9 @@ func _hook_web() -> void:
 	var w = JavaScriptBridge.get_interface("window")
 	if w:
 		w.qinglu_save = js_cb
+		# v0.13：只读的“屏上按钮表”（文字 + 位置），玩家版也有——发布前/上线后用无头浏览器点一遍玩家版（不改任何状态）
+		btn_cb = JavaScriptBridge.create_callback(func(_a): return _btn_table())
+		w.qinglu_btns = btn_cb
 		# 调试钩子只在调试导出里有（截图/验收用）；玩家版（release 导出）没有
 		if OS.is_debug_build():
 			dev_cb = JavaScriptBridge.create_callback(func(a): return _dev(String(a[0]) if a.size() > 0 else ""))
@@ -931,10 +935,24 @@ func _hook_web() -> void:
 			window.addEventListener('pagehide', function(){ if (window.qinglu_save) window.qinglu_save(); });
 		""", true)
 
+func _btn_table() -> String:
+	var out := []
+	var vs: Vector2 = get_viewport().get_visible_rect().size
+	var st := [self as Node]
+	while not st.is_empty():
+		var n: Node = st.pop_back()
+		for ch in n.get_children():
+			st.append(ch)
+		if n is BaseButton and (n as BaseButton).is_visible_in_tree() and not (n as BaseButton).disabled:
+			var r: Rect2 = (n as Control).get_global_rect()
+			var tx := String((n as Button).text) if n is Button else ""
+			out.append([tx, r.position.x + r.size.x / 2.0, r.position.y + r.size.y / 2.0])
+	return JSON.stringify({"w": vs.x, "h": vs.y, "b": out})
+
 func _continue(from_legacy: bool = false) -> void:
 	var d = (legacy if from_legacy else store).load_data()
 	if d == null or not g.from_dict(d["state"]):
-		modal = {"kind": "msg", "text": "存档读不出来（版本不符或已损坏）。旧档没有删除。"}
+		modal = {"kind": "msg", "text": "这份存档这一版还读不了（可能是更新版本存的）。存档原样留着，没有删，也没有改。"}
 		return
 	play_ms_base = int(g.s.get("play_ms", 0))
 	session_start = Time.get_ticks_msec()
