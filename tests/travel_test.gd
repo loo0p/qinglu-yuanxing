@@ -83,7 +83,7 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 				left = 3 + k % 3
 		else:
 			var here := String(g.s["roam"]["pl"])
-			# v0.11.5：风声只耳闻——到坊市时，像玩家一样买一张耳闻过的地方的舆图
+			# v0.12.1：风声只耳闻——到坊市时，像玩家一样买一张耳闻过的地方的舆图
 			if here == "坊市":
 				var lk: Array = TV.locked(g.world)
 				lk.reverse()   # 想去远处的先买
@@ -201,7 +201,7 @@ func _init() -> void:
 	for p in TV.ORDER:
 		if not ever.has(p) and p != "血煞门":
 			miss.append(p)
-	# v0.11.5：风声不再开路；血煞门要炼气八层，或五层后在坊市买舆图——100 日局里未必走得到，不再要求
+	# v0.12.1：风声不再开路；血煞门要炼气八层，或五层后在坊市买舆图——100 日局里未必走得到，不再要求
 	ok(miss.is_empty(), "除血煞门外每一处都在某局里解锁过（没解锁过：%s）" % ", ".join(miss))
 	ok(whys.size() >= 4, "解锁理由至少 4 种（%s）" % ", ".join(whys.keys()))
 	lines.append("节奏：在家 %.2f 件/日（%d 日），游历 %.2f 件/日（%d 日），赶路 %.2f 件/日（%d 日），最长连着有事 %.1f 日" % [he / maxf(1, hd), int(hd), re / maxf(1, rd), int(rd), te / maxf(1, td), int(td), smax])
@@ -302,7 +302,7 @@ func _init() -> void:
 		od["world"].erase(kk)
 	var o2 = GS.new()
 	ok(o2.from_dict(od), "没有去处数据的旧档照常读入")
-	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.11.5）")
+	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.12.1）")
 	o2.biguan_day()
 	ok(int(o2.s["day"]) == 1 and o2.s["v"] == 2, "旧档补齐后照常过日子，存档版本仍是 2")
 	# ⑥ 每个选项都过一遍

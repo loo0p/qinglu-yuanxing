@@ -6,7 +6,7 @@ extends Control
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.12 试玩版"
+const VERSION = "v0.12.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1256,8 +1256,12 @@ func _nav() -> void:
 		# 选中的页签不再加“● ”（5 个页签时会把“青庐”挤成两行），改用底色 + 主色字
 		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
 		if tab == t[0]:
-			b.add_theme_stylebox_override("normal", _sb(Color(C_ACCENT.r, C_ACCENT.g, C_ACCENT.b, 0.16), C_ACCENT, 8, 1, 4))
-			b.add_theme_color_override("font_color", C_ACCENT)
+			# v0.12.1：选中态每个状态都给定底色与字色——手机上点过之后按钮停在 hover/focus，主题默认字色同底色撞色，“历练”看不见了（Gemini v5 P1#10.5）
+			var tsb = _sb(Color(C_ACCENT.r, C_ACCENT.g, C_ACCENT.b, 0.16), C_ACCENT, 8, 1, 4)
+			for stn in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+				b.add_theme_stylebox_override(stn, tsb)
+			for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+				b.add_theme_color_override(fcn, C_ACCENT)
 		b.add_theme_font_size_override("font_size", 13 if tabs.size() > 4 else 14)
 		if tabs.size() > 4:
 			b.add_theme_constant_override("h_separation", 1)
@@ -1638,7 +1642,7 @@ func _hero_roll(seed_v) -> Dictionary:
 func npc_spec(c: Dictionary) -> Dictionary:
 	if c.get("player", false):
 		return g.s.get("portrait", {})
-	return PLib.roll(int(c["pseed"]), g.world.portrait_opts(c))
+	return g.world.portrait_spec(c)
 
 ## 选中态：朱红描边
 func _mark(b: Button) -> void:
@@ -2234,7 +2238,7 @@ func _depart() -> void:
 			var ds = _sb(Color(0.985, 0.97, 0.935, 0.55), Color(0.29, 0.25, 0.2, 0.35), 16, 1, 4)
 			b2.add_theme_stylebox_override("normal", ds)
 			b2.add_theme_stylebox_override("hover", ds)
-	# v0.11.5：打听到的仇人落脚处，在图上标一下（寻凶之后一段时间内，跟着人走）
+	# v0.12.1：打听到的仇人落脚处，在图上标一下（寻凶之后一段时间内，跟着人走）
 	var hm: Dictionary = W.hunt_marks()
 	for hp in hm:
 		if not TV.PL.has(hp) or not (TV.unlocked(W, hp) or TV.heard_n(W, hp) > 0):
@@ -2263,7 +2267,7 @@ func _sheet_place(v: Node) -> void:
 	_wl(String(pl["hint"]), 14, C_DIM, v)
 	if not TV.unlocked(W, p):
 		_wl("还去不了。要么%s。" % TV.need(W, p), 14, C_WARN, v)
-		# v0.11.5：风声只是耳闻；坊市里买一张舆图才认得路
+		# v0.12.1：风声只是耳闻；坊市里买一张舆图才认得路
 		var why_no: String = TV.can_buy_map(W, p)
 		var mb2 = B("买一张去%s的舆图（%d 灵石）" % [p, TV.map_cost(p)], func(): TV.buy_map(W, p); refresh(), why_no == "", v, 44)
 		if why_no != "":

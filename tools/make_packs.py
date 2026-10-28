@@ -179,7 +179,7 @@ meet("meet_beiqi", "背弃", 3.0, [{"id": "ok", "effects": [
         iff("g.trt(B, '记仇') or g.trt(B, '痴情')", {"op": "goal", "who": "B", "value": "'报仇'", "gt": "A"})]}],
      when="g.is_partner(A, B) and (g.trt(A, '薄情') or g.trt(A, '阴狠')) and se.chance(0.3)")
 meet("meet_fuchou", "复仇", 12.0, [
-    # v0.11.5（Gemini v5 P1#6）：侠义之人赢了也不下杀手，除非深仇；输了记下“败给谁”，冷却期内、修为没长不再去
+    # v0.12.1（Gemini v5 P1#6）：侠义之人赢了也不下杀手，除非深仇；输了记下“败给谁”，冷却期内、修为没长不再去
     {"id": "ok", "first": True, "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3) and g.may_kill(A, B)", "effects": [
         chron("A", "#v_fuchou_ok#", o="B"), {"op": "die", "who": "B", "how": "被{w}寻仇所杀", "vars": {"w": "A"}}, {"op": "goal", "who": "A", "value": "g.newgoal()"}]},
     {"id": "spare", "first": True, "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3)", "effects": [

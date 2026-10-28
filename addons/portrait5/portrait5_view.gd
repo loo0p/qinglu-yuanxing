@@ -76,6 +76,9 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 	elif out.get("base", "") == "base_m4":
 		var f4: Dictionary = out.get("feats", {})
 		out.base = M4_TO[absi(hash(str(f4.get("eyes", "")) + str(f4.get("mouth", "")))) % M4_TO.size()]
+	# v0.12.1：胸前阴阳鱼补子（robe_f8）读成“贴了个太极贴纸”，换成同形的素袍 robe_f9（只改画法）
+	if out.get("robe", "") == "robe_f8@base_f":
+		out.robe = "robe_f9@base_f"
 	# v0.10.2：鼻梁横疤（scar_nose）在小图上读成“鼻头肿了一块”，不再画（其余疤痕照旧）
 	if out.has("marks") and "scar_nose" in out.marks:
 		out.marks = out.marks.filter(func(m): return m != "scar_nose")

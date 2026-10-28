@@ -141,7 +141,7 @@ static func top_mem(W, c: Dictionary, t: Dictionary, sign: int) -> Array:
 ## t 心里记着 c 的多少不是（t 是她时看她对 c 的怨 g）：[分量, 那条记忆]
 static func wronged(W, c: Dictionary, t: Dictionary) -> Array:
 	if t["player"]:
-		# v0.11.5：要真见过她、真有一件过去了些时候的旧事，才起“赔罪”的念头（素未谋面的人不来说“当年对不住”）
+		# v0.12.1：要真见过她、真有一件过去了些时候的旧事，才起“赔罪”的念头（素未谋面的人不来说“当年对不住”）
 		if W.met_ago(c) < W.pace("apology_gap") or not W.wronged_p(c):
 			return [0.0, []]
 		return [clampf(float(W._rel(t, c)["g"]) / 40.0, 0.0, 1.5), []]
@@ -221,7 +221,7 @@ static func rethink(W, c: Dictionary) -> void:
 		var dare := lerpf(1.0, clampf(0.5 + float(lv - int(t["lv"]) if not t["player"] else lv - W.plv()) / 6.0, 0.1, 1.0), px(c, "慎"))
 		var m = best_g[2]
 		if W.cowed(c, t):
-			dare *= 0.05   # 败过、还没追上：先去变强（v0.11.5）
+			dare *= 0.05   # 败过、还没追上：先去变强（v0.12.1）
 		push.call("复仇", int(t["id"]), minf(1.2, float(best_g[0])) * (0.3 + 0.8 * px(c, "仇")) * dare, String(m[2]) if m != null else "与%s有旧怨" % t["name"], int(m[5]) if m != null and m.size() > 5 else -1)
 	if float(best_d[0]) > 0.12:
 		var m2 = best_d[2]
@@ -458,7 +458,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 			s = [UC.consider(maxf(px(c, "奇"), px(c, "贪")), "lin", 0.0, 0.25), opp if not t.is_empty() else 1.0, 0.7]
 		"夺宝":
 			if not t.is_empty() and W.xia(c) and not cause:
-				return 0.0   # 侠义之人不夺无仇之人的宝（v0.11.5）
+				return 0.0   # 侠义之人不夺无仇之人的宝（v0.12.1）
 			s = [UC.consider(maxf(px(c, "贪"), px(c, "野")), "log", 0.0, 0.05), UC.consider(1.0 - px(c, "善"), "lin", 0.0, 0.3), opp, 0.6]
 		"求教":
 			if t.is_empty() or pw > (0.66 if isp else 0.45):
@@ -468,7 +468,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 			if gr < 0.1 and String(dr["k"]) != "护人":
 				return 0.0
 			if W.cowed(c, t):
-				return 0.0   # 上回败了，修为没追上之前不去（v0.11.5）
+				return 0.0   # 上回败了，修为没追上之前不去（v0.12.1）
 			s = [UC.consider(maxf(gr, 0.3 if String(dr["k"]) == "护人" else 0.0), "lin", 0.0, 0.2), UC.consider(px(c, "仇"), "lin", 0.0, 0.3), UC.consider(lerpf(1.0, pw, px(c, "慎")), "lin", 0.0, 0.1), opp]
 		"截杀":
 			if px(c, "侠") > 0.6 and not cause:
@@ -554,7 +554,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 		_:
 			return 0.0
 	var mul := 1.0
-	# v0.11.5：她露了财，贪心又不讲侠义的人会盯上她（Gemini v5 P1#11）
+	# v0.12.1：她露了财，贪心又不讲侠义的人会盯上她（Gemini v5 P1#11）
 	if isp and v in ["偷窃", "截杀", "夺宝"] and px(c, "贪") > 0.6 and px(c, "侠") < 0.4:
 		mul += 1.5 * W.exposed()
 	return UC.product(s) * (0.5 + u) * mul
@@ -852,7 +852,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 				W.chron(b, "%s寻上门来，被打退了。" % an)
 				mem(W, a, b, "又败在%s手里" % bn, -12, "辱", aid)
 				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 15
-				W.note_defeat(a, b)   # v0.11.5：记下败给了谁；冷却期内、修为没追上前不再去（Gemini v5 P1#6）
+				W.note_defeat(a, b)   # v0.12.1：记下败给了谁；冷却期内、修为没追上前不再去（Gemini v5 P1#6）
 				drift(a, "仇", 0.02)
 				# 败了：沉得住气的人先去变强，心软的人干脆放下，剩下的去找帮手——不再一头撞上去
 				if fz >= 2 and px(a, "善") > 0.55 and px(a, "仇") < 0.6:

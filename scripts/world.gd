@@ -159,7 +159,7 @@ const MD = preload("res://scripts/meddle.gd")
 const TV = preload("res://scripts/travel.gd")
 const SG = preload("res://scripts/saga.gd")   # v0.12：可插拔事件引擎的胶水层（内容在 data/packs）
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
-## v0.11.5（Gemini v5 评审）：所有“要处多久 / 隔多久 / 见过几回”的门槛都在这一张表里，
+## v0.12.1（Gemini v5 评审）：所有“要处多久 / 隔多久 / 见过几回”的门槛都在这一张表里，
 ## 时间一格是一“步”（眼下 1 步 = 1 日；改成按月推进时把 UNIT 换成 "month"，取第二列）。
 ## 次数类（见过几回、好感多少）两列相同，与时间单位无关。
 const UNIT := "day"
@@ -232,7 +232,7 @@ func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 	chron(P(), "自姑母家出来，住进后山脚下的青庐。")
 	for c in npcs():
 		c["pre"] = saga().bio(c)   # v0.12 前尘：入局之前的履历（带年岁），也会结下师承、旧情
-	# v0.11.5：不再开局指定“命定之人”与一场排好日子的离别（Gemini v5 P0#3）；缘分与生死都从人自己的来往里长出来
+	# v0.12.1：不再开局指定“命定之人”与一场排好日子的离别（Gemini v5 P0#3）；缘分与生死都从人自己的来往里长出来
 	_save_rng()
 
 func attach(gs, d: Dictionary) -> void:
@@ -241,7 +241,7 @@ func attach(gs, d: Dictionary) -> void:
 	se_ad = null
 	rng.seed = int(w.get("rng_seed", 0))
 	rng.state = String(w.get("rng", "0")).to_int()
-	# v0.11.5：旧档里的故事线（w.arc）照旧读进来，但不再补种、不再免死、不再排离别；队列里剩下的缘分事件过选角门槛才发
+	# v0.12.1：旧档里的故事线（w.arc）照旧读进来，但不再补种、不再免死、不再排离别；队列里剩下的缘分事件过选角门槛才发
 
 func _save_rng() -> void:
 	w["rng"] = str(rng.state)   # 64 位整数：存成字符串，JSON 的浮点会丢精度
@@ -511,6 +511,42 @@ func portrait_opts(c: Dictionary) -> Dictionary:
 		o["robe_tint"] = SECT_TINT[c["sect"]]
 	return o
 
+## v0.12.1 立绘的画时修正（Gemini v5 P2#12）：只改“怎么画”，不改抽签与存档——同一个人每次看都一样，旧档人物也跟着变顺眼
+## - 36 岁以下（且非老相）：不用方长脸底模 base_m5、不长胡子（“嗜战”的粗人除外可留短须）
+## - 袍色：宗门各有一组色（青云月白/青、药王竹青、万剑玄黑/银、落霞绯、血煞暗红…），散修只取素白、鸦青、赭石、竹青、浅灰这些低饱和色
+## - 胸前阴阳鱼补子那件袍（robe_f8）换成同形的素袍 robe_f9：在 Portrait5View.render_spec 里改，主角也算
+## 发型（刘海、鬓发）与脸型不动：不新加高额头、不换五官
+const SECT_PAL = {
+	"青云宗": [[226, 230, 226], [112, 150, 128], [190, 208, 196]],
+	"玄霜谷": [[200, 214, 226], [222, 230, 236], [150, 170, 190]],
+	"落霞宫": [[196, 128, 136], [214, 168, 170], [168, 104, 116]],
+	"万剑门": [[52, 54, 60], [170, 174, 182], [96, 100, 110]],
+	"药王谷": [[104, 140, 104], [140, 170, 126], [86, 118, 92]],
+	"血煞门": [[110, 34, 36], [80, 28, 30], [132, 52, 50]],
+	"阴骨教": [[60, 56, 70], [84, 78, 92], [44, 42, 52]],
+	"散修": [[228, 224, 214], [62, 72, 82], [138, 114, 94], [112, 140, 112], [176, 176, 172]],
+}
+const YOUNG_BASE_TO = ["base_m", "base_m2", "base_m3"]
+
+func portrait_spec(c: Dictionary) -> Dictionary:
+	var o := portrait_opts(c)
+	var sp: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
+	return portrait_fix(c, sp, o)
+
+func portrait_fix(c: Dictionary, sp: Dictionary, o: Dictionary = {}) -> Dictionary:
+	if o.is_empty():
+		o = portrait_opts(c)
+	var h := absi(int(c["pseed"]) * 2654435761) % 997
+	if not o["elder"] and float(c["age"]) < 36.0:
+		if str(sp.get("base")) == "base_m5":
+			sp["base"] = YOUNG_BASE_TO[h % YOUNG_BASE_TO.size()]
+		if sp.get("beard") != null and (not tag(c, "嗜战") or str(sp["beard"]) == "beard_m5@base_m5"):
+			sp["beard"] = null
+	var pal: Array = SECT_PAL.get(String(c["sect"]), [])
+	if not pal.is_empty():
+		sp["robe_tint"] = pal[h % pal.size()]
+	return sp
+
 # ================================================================ 主角同步（境界来自青庐的修为）
 func plv() -> int:
 	if g == null:
@@ -622,7 +658,7 @@ func solo(c: Dictionary) -> void:
 
 ## 缘分线上那个人，在表白之前不让江湖把他写死或配给别人（重伤代替身死）
 func _protected(c: Dictionary) -> bool:
-	return false   # v0.11.5：取消“命定之人”的免死（旧档里的 w.arc.fated 也不再护着）
+	return false   # v0.12.1：取消“命定之人”的免死（旧档里的 w.arc.fated 也不再护着）
 
 func die(c: Dictionary, how: String) -> void:
 	if _protected(c) and not (pn() in how):
@@ -711,7 +747,7 @@ func storyteller(home: bool = true) -> void:
 	# v0.9：连着两天都有事，第三天歇一歇（路上的事也算在内）
 	if int(w.get("last_ev", -9)) >= day - 1 and int(w.get("last_ev2", -9)) >= day - 2:
 		return
-	# v0.11.5：排好日子的缘分线拿掉后，在家的事少了一成，底数从 0.35 提到 0.40 补回来
+	# v0.12.1：排好日子的缘分线拿掉后，在家的事少了一成，底数从 0.35 提到 0.40 补回来
 	var p_event := 0.40 + int(w["since_major"]) * 0.012
 	# 喘口气（v0.7.3）：昨天刚出过事，今天随机事件的机会减半多（故事线、节令不受影响），免得回到青庐天天有人敲门
 	if int(w.get("last_ev", -9)) >= day - 1:
@@ -855,7 +891,7 @@ func _arc_adjust(tid: String, roles: Dictionary, ctx: Dictionary) -> String:
 	return tid
 
 func _arc_tick() -> void:
-	return   # v0.11.5：不再按日子安排“认识的人被害”；旧友死讯只来自江湖里真发生的死
+	return   # v0.12.1：不再按日子安排“认识的人被害”；旧友死讯只来自江湖里真发生的死
 	var arc: Dictionary = w.get("arc", {})
 	if arc.is_empty() or arc.get("death_done", true) or int(w["day"]) < int(arc["death_day"]) or int(w["day"]) > int(arc["death_day"]) + 14:
 		return
@@ -992,7 +1028,7 @@ func sig(c: Dictionary) -> Array:
 	if c.has("sig"):
 		return c["sig"]
 	var out: Array = SIG_LIKE.get(c["likes"][0], ["那双眼睛", "眼神很静"])
-	var sp: Dictionary = Portrait5Lib.roll(int(c["pseed"]), portrait_opts(c))
+	var sp: Dictionary = portrait_spec(c)
 	if not sp["marks"].is_empty() and SIG_MARK.has(sp["marks"][0]) and (int(c["pseed"]) % 3) != 0:
 		out = SIG_MARK[sp["marks"][0]]
 	c["sig"] = out
@@ -1018,7 +1054,7 @@ func _swap_ks(c: Dictionary) -> String:
 		"\n两人换了信物：她收下%s，%s收下%s。" % [ks, c["name"], my]])
 
 ## 返回 roles（{角色: id}）或 null
-# ---------------------------------------------------------------- v0.11.5 选角硬前提（Gemini v5 P0#2）
+# ---------------------------------------------------------------- v0.12.1 选角硬前提（Gemini v5 P0#2）
 ## 她与 c 初识至今多少步（-1 = 没见过；旧档没有 m0 = 早就认识，从第 0 步算）
 func met_ago(c: Dictionary) -> int:
 	var r := _rel(P(), c)
@@ -1231,7 +1267,7 @@ func bind(tid: String) -> Variant:
 		"表白":
 			if partner(p) != null:
 				return null
-			# v0.11.5：慢得多——相识够久、同历够多、彼此好感都高，且一起扛过一件有分量的事（PACE 表）
+			# v0.12.1：慢得多——相识够久、同历够多、彼此好感都高，且一起扛过一件有分量的事（PACE 表）
 			return _r1(_pick(func(c): return romance_ok(c)))
 		"旧友死讯":
 			for c in npcs(false):
@@ -1314,7 +1350,7 @@ func bind(tid: String) -> Variant:
 			var pl6 := plv()
 			return _r1(_pick(func(c): return known(c) and int(c["lv"]) < 17 and (int(R(c, p)["g"]) >= 10 or int(R(p, c)["g"]) >= 10 or absi(int(c["lv"]) - pl6) <= 2)))
 		"旧债上门":
-			# v0.11.5：替前人讨旧账的得是长辈（比她大 debt_elder 岁以上），或真借过她东西的人
+			# v0.12.1：替前人讨旧账的得是长辈（比她大 debt_elder 岁以上），或真借过她东西的人
 			return _r1(_pick(func(c): return int(c["lv"]) >= 2 and int(_rel(c, p)["g"]) < 30 and not _close_p(c) and (float(c["age"]) >= float(p["age"]) + float(pace("debt_elder")) or int(_rel(c, p).get("owe", 0)) > 0), func(c): return 1.0 + float(tag(c, "贪财") or tag(c, "圆滑")) * 3.0))
 		"节令":
 			return {} if festival_today() != "" else null
@@ -1382,7 +1418,7 @@ func meet(c: Dictionary) -> bool:
 	r["m"] = 1
 	R(c, p)["m"] = 1
 	if first:
-		r["m0"] = int(w["day"])   # v0.11.5：哪一步初识（选角门槛看“相识多久”；旧档没有这个键 = 早就认识）
+		r["m0"] = int(w["day"])   # v0.12.1：哪一步初识（选角门槛看“相识多久”；旧档没有这个键 = 早就认识）
 		r["lv0"] = [int(c["lv"]), plv()]   # v0.8：初见时彼此的境界（日后“昔日仰望，今日平视”）
 		var who: String = c["sect"] if c["sect"] == "散修" else c["sect"] + "修士"
 		chron(p, "初识%s——%s，%s，%s、%s。" % [c["name"], who, realm(c), c["traits"][0], c["traits"][1]])
@@ -1414,7 +1450,7 @@ func looks_old(c: Dictionary) -> bool:
 	var o := portrait_opts(c)
 	if o["elder"]:
 		return true
-	return Portrait5Lib.roll(int(c["pseed"]), o)["beard"] != null
+	return portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), o), o)["beard"] != null
 
 ## 没有合适的熟人时，现生一个年轻、境界不高于她的后辈（早就认识，总喊她“姐姐”）
 func _spawn_shidi() -> Dictionary:
@@ -1548,7 +1584,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			return {"speaker": 0, "text": pv("死讯起", ["坊市有人说起%s——%s。", "一封没有落款的信：%s，%s。", "过路的散修说，%s%s。她手里的茶凉了。"]) % [nm, how],
 				"opts": [_o("bury", "去收殓"), _o("bow", "遥遥一拜")]}
 		"寻凶":
-			# v0.11.5：寻凶分几步走（Gemini v5 P1#8）——头一回是线索，再一回是追近，修为追上后是“时候到了”；每步文字不同，地图上标出仇人所在
+			# v0.12.1：寻凶分几步走（Gemini v5 P1#8）——头一回是线索，再一回是追近，修为追上后是“时候到了”；每步文字不同，地图上标出仇人所在
 			var hs := hunt(int(n["id"]))
 			var hk3 := int(hs["k"])
 			hs["d"] = int(w["day"])
@@ -1633,7 +1669,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			return {"speaker": int(n["id"]), "text": tasks[k],
 				"opts": [_o("do", "照做"), _o("skip", "推说有事")]}
 		"道侣遇险":
-			# v0.11.5：只在道侣真受了伤、或真有人冲着他去时才来（Gemini v5 P0#3）
+			# v0.12.1：只在道侣真受了伤、或真有人冲着他去时才来（Gemini v5 P0#3）
 			var dg := in_danger(n)
 			ctx["why"] = dg
 			ctx["pl"] = String(n["place"])
@@ -1898,7 +1934,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 		"借庐":
 			var h := C(roles["H"])
 			if hurt_p(n, pace("grudge_recent")) or int(_rel(P(), n)["g"]) > 0:
-				# v0.11.5：伤过她的人走投无路找上门——得先认这笔账，她也可以趁这时了结（Gemini v5 P0#2）
+				# v0.12.1：伤过她的人走投无路找上门——得先认这笔账，她也可以趁这时了结（Gemini v5 P0#2）
 				ctx["foe"] = true
 				return {"speaker": int(n["id"]), "text": pv("借庐仇", ["柴门被叩了三下。门外是%s，浑身是血：“我知道我伤过你……%s在后头，我没处去了。”" % [n["name"], h["name"]],
 					"雨里有人翻进篱笆，是%s。%s抬头看见是她，苦笑了一下：“偏偏是你这儿。%s追了我三天。”" % [n["name"], _tb(n), h["name"]]]),

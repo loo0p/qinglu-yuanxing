@@ -208,6 +208,30 @@ func _units() -> void:
 	var ns: Array = w.npcs().filter(func(c): return not c["player"])
 	var a: Dictionary = ns[0]
 	var b: Dictionary = ns[1]
+	# 立绘（画时修正，不改抽签）
+	var young_bad := 0
+	var san_bad := 0
+	var tot := 0
+	for i in 400:
+		var c := {"id": 9000 + i, "pseed": 777 + i * 31, "age": 18.0 + float(i % 17), "sex": "男" if i % 3 != 0 else "女", "sect": w.SECT_LIST[i % w.SECT_LIST.size()], "lv": 2, "pv": 10, "player": false, "traits": []}
+		var sp: Dictionary = w.portrait_spec(c)
+		var o: Dictionary = w.portrait_opts(c)
+		if o["elder"]:
+			continue
+		tot += 1
+		if sp["base"] == "base_m5" or sp.get("beard") != null:
+			young_bad += 1
+		if c["sect"] == "散修" and Color8(int(sp["robe_tint"][0]), int(sp["robe_tint"][1]), int(sp["robe_tint"][2])).s > 0.35:
+			san_bad += 1
+		var raw: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
+		if raw.get("feats") != sp.get("feats") or raw.get("hair") != sp.get("hair") or raw.get("marks") != sp.get("marks"):
+			young_bad += 1000
+	ok(tot > 100 and young_bad == 0, "36 岁以下不用 base_m5、不长胡子，五官发型不动（%d 人）" % tot)
+	ok(san_bad == 0, "散修袍色都是低饱和色")
+	ok(Portrait5View.render_spec({"base": "base_f", "robe": "robe_f8@base_f", "feats": {}}).robe == "robe_f9@base_f", "阴阳鱼补子袍改画素袍")
+	var cq := {"pseed": 5, "age": 20.0, "sex": "女", "sect": "青云宗", "lv": 2, "pv": 10, "player": false, "traits": []}
+	ok(w.portrait_spec(cq)["robe_tint"] in w.SECT_PAL["青云宗"], "宗门袍色取自本门色组")
+	ok(w.portrait_spec(cq) == w.portrait_spec(cq), "同一人每次画出来一样")
 	# 标题：不写“陌生人”
 	var t1: String = w.speaker_title({"speaker": int(a["id"]), "anon": true, "stage": "ask"})
 	ok(not t1.contains("陌生人") and t1.contains(String(a["sect"])), "不知名的说话人写“宗门 · 境界”：%s" % t1)

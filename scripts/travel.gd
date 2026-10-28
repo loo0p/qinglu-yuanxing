@@ -156,7 +156,7 @@ static func why(W, p: String) -> String:
 			return "经过那回%s，她知道%s在哪了。" % [e, p]
 	if lay >= int(u["lay"]):
 		return "修到炼气%s层，%s的路她走得了了。" % [LAYER_CN[mini(8, int(u["lay"]) - 1)], p]
-	# v0.11.5：风声只让她“耳闻”（图上一个“？”），听得再多也不等于认得路（Gemini v5 P1#9）。
+	# v0.12.1：风声只让她“耳闻”（图上一个“？”），听得再多也不等于认得路（Gemini v5 P1#9）。
 	# 认得要靠：修为够了、在坊市买一张舆图、熟人引路、或经历过那里的事（请柬、招徒…）
 	return ""
 
@@ -241,7 +241,7 @@ static func _guide_pick(W) -> Array:
 		if op < 20.0 and not W._close_p(c):
 			continue
 		for pl in [String(W.SECT_HOME.get(c["sect"], "")), String(c["place"])]:
-			# v0.11.5：引路的人得真处得来，也不把修为还够不上那一带的她领过去
+			# v0.12.1：引路的人得真处得来，也不把修为还够不上那一带的她领过去
 			if PL.has(pl) and not unlocked(W, pl) and bool(UNL.get(pl, {}).get("guide", false)) and _layer(W) >= int(UNL[pl]["hl"][1]):
 				best.append([c, pl])
 				break
