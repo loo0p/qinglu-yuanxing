@@ -155,7 +155,7 @@ func _init() -> void:
 	var n_log := int(d["log"].size())
 	var g6 = GS.new()
 	var loaded: bool = g6.from_dict(d)
-	ok(loaded and int(g6.s["v"]) == 3, "v2 档（含旧开局字段）读成 v3，不报错")
+	ok(loaded and int(g6.s["v"]) == GS.SAVE_VERSION, "v2 档（含旧开局字段）读成当前版本 v%d，不报错（v0.14 起 v4）" % GS.SAVE_VERSION)
 	ok(int(g6.s["day"]) == 30 and int(g6.s["log"].size()) >= n_log, "迁移后经历一件不丢（第 N 日记作第 N 月）")
 	ok(not g6.s["ended"] and int(g6.s["plv"]) == 9 and g6.s["loc"] == "home", "旧档的筑基结局 → 从筑基初期接着修")
 	ok(not g6.s.has("aunt_ration") and String(g6.s["cherish"]) != "aunt", "旧开局的亲戚字段并掉（干粮入仓）")
