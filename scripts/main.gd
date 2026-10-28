@@ -1290,6 +1290,8 @@ func _nav() -> void:
 			b.add_theme_constant_override("h_separation", 1)
 		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.add_theme_constant_override("icon_max_width", 20)
+		# v0.12.1：页签名只有两个字，不许折行（未选中的页签默认边距大，“青庐”会被挤成上下两行）
+		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 # ------------------------------------------------------------ 底部抽屉
 func _sheet() -> void:

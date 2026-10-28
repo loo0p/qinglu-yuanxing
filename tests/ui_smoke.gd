@@ -104,6 +104,13 @@ func _go() -> void:
 	main.tab = "home"; main.refresh()
 	log_lines.append("新手提示（新局出现、记下后消失）：" + ("PASS" if gd_ok else "FAIL"))
 	ok = ok and gd_ok
+	# v0.12.1：底栏页签不折行
+	var nav_ok := true
+	for b in buttons(main.footer, []):
+		if b.autowrap_mode != TextServer.AUTOWRAP_OFF:
+			nav_ok = false
+	log_lines.append("底栏页签不折行：" + ("PASS" if nav_ok else "FAIL"))
+	ok = ok and nav_ok
 	ok = ok and seq(["历练", "后山", "出发：后山"])
 	ok = ok and seq(["溪边", "贴上避水符", "继续", "溪畔野地", "采一把续骨草", "继续", "葛老三", "递上续骨草", "继续", "古松残碑", "拓下碑文", "继续", "归途", "回青庐", "回家", "进屋"])
 	ok = ok and seq(["开第三块阳田", "修炼", "2 日"]) if false else ok and seq(["开第三块阳田", "修炼"])
