@@ -19,6 +19,7 @@
 - 模拟（tests/review_test.gd，16 局 × 110 日，改前基线 /workspace/yunxiu/reviews-v5/sim_before.txt）：穿帮 135→0；结道侣 5/16→0/16；炼气五层前认得 9.4→4.9 处；寻仇最长连败 7→3，冷却内再犯 0。
 - 测试：新增 tests/review_test.gd（进 run_tests，900 s）；world/travel/ui_smoke 按新规则改了断言。跑测试时设 XDG_DATA_HOME 隔开 user://，否则与别的工作区同时跑 ui_smoke 会互相改存档。
 - 存档格式未改（版本仍为 2，新键都可缺省）；旧档不再补种命定之人。**未在真机上测过。**
+- 线上核对（2026-10-29 00:29 北京时间部署完成，提交 8d610e0）：https://loo0p.github.io/qinglu-yuanxing/ 返回 200，标题页写“v0.12.1 试玩版”；桌面无头 Chrome（390×844，模拟触控）随机点 240 下 + 底栏青庐/历练/行记/江湖，再按顺序走 新游戏→历练地图→坊市游历→相逢（标题“傅凝霜 · 药王谷”）→点画像卡看生平，控制台 0 报错。截图 build/shots/live_390x844_*.png。这是无头桌面浏览器，不是真机。
 
 ## v0.12（可插拔事件引擎 + 江湖事件迁入；人物前尘）
 - **热修（同为 v0.12）**：9beeb63 上线后玩家版打不开（标题页卡住）。原因：玩家版 Web 模板是瘦身自编的（regex 模块关、deprecated=no），编辑器/无头测试里都有，测不出来——① main.gd 前尘去年岁前缀用了 RegEx；② 引擎里 vendor/tracery.gd 用 RegEx；③ portrait5_view.gd 的 Color8()（10-28 18:41 立绘提交 f12d4c2 引入，已废弃 API，玩家版没有，说明那之后线上其实已经打不开）。全部改成手写/等价写法；tools/run_tests.sh 开头加了“运行期脚本不许用 RegEx”的检查；已用玩家版导出在无头 Chrome（390×844）里打开、乱点 120 下，控制台 0 报错。**以后发布前请用玩家版 build/web 在浏览器里开一下**，只跑测试不够。
