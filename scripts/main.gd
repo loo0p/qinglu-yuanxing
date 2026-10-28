@@ -1278,8 +1278,9 @@ func _nav() -> void:
 		# 选中的页签不再加“● ”（5 个页签时会把“青庐”挤成两行），改用底色 + 主色字
 		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
 		if tab == t[0]:
-			# v0.12.1：选中态每个状态都给定底色与字色——手机上点过之后按钮停在 hover/focus，主题默认字色同底色撞色，“历练”看不见了（Gemini v5 P1#10.5）
-			var tsb = _sb(Color(C_ACCENT.r, C_ACCENT.g, C_ACCENT.b, 0.16), C_ACCENT, 8, 1, 4)
+			# v0.12.1：选中态每个状态都给定底色与字色——手机上点过之后按钮停在 hover/focus；且底色要不透明（Gemini v5 P1#10.5）
+			# 底色不能透：历练页底下是深色地图，原来 16% 的主色底透出地图，主色字就看不见了
+			var tsb = _sb(Color("#F6F0E2").lerp(C_ACCENT, 0.14), C_ACCENT, 8, 2, 4)
 			for stn in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
 				b.add_theme_stylebox_override(stn, tsb)
 			for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
