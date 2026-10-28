@@ -14,7 +14,7 @@ for n in ["por_heroine", "por_aunt", "por_turtle", "por_gelaosan"]:
     im = Image.open(os.path.join(S, n + ".jpg")).convert("RGB").resize((256, 256), Image.LANCZOS)
     save(im, n + ".webp", 76)
 # 江湖事件背景：不进 pck，放 web_portrait/bg/（网页版按需下载）
-for n in ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai"]:
+for n in ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai", "map_world"]:
     im = Image.open(os.path.join(S, n + ".jpg")).convert("RGB").resize((540, 960), Image.LANCZOS)
     os.makedirs(os.path.join(R, "web_portrait/bg"), exist_ok=True)
     im.save(os.path.join(R, "web_portrait/bg", n + ".webp"), "WEBP", quality=66, method=6)

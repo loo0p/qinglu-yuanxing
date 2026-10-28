@@ -10,6 +10,7 @@ timeout 300 $G --headless --path . -s res://tests/world_test.gd
 timeout 300 $G --headless --path . -s res://tests/ui_smoke.gd
 timeout 300 $G --headless --path . -s res://tests/agency_test.gd
 timeout 300 $G --headless --path . -s res://tests/meddle_test.gd
+timeout 300 $G --headless --path . -s res://tests/travel_test.gd
 timeout 300 $G --headless --path . -s res://tests/play_random.gd
 mkdir -p build/web build/web_debug
 $G --headless --path . --export-release "Web" build/web/index.html >/dev/null 2>&1

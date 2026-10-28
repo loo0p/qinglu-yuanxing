@@ -6,6 +6,7 @@ extends RefCounted
 
 const SAVE_VERSION := 2      # v0.6：加了江湖（world）与主角立绘（portrait）；v1 档读入时迁移
 const World = preload("res://scripts/world.gd")
+const TV = preload("res://scripts/travel.gd")
 const FIELD_DAYS := 6
 const FIELD_YIELD := 2
 const RECIPES := {
@@ -155,7 +156,7 @@ func total_n(id: String) -> int:
 
 ## 当前可用数量：路上只算随身行囊 + 采药篓；在家算仓 + 行囊
 func avail_n(id: String) -> int:
-	if s["loc"] == "trip":
+	if away():
 		return pack_n(id) + basket_n(id)
 	return store_n(id) + pack_n(id)
 
@@ -194,7 +195,7 @@ func _store_add(id: String, n: int) -> void:
 func add_item(id: String, n: int) -> void:
 	if n <= 0:
 		return
-	if s["loc"] != "trip":
+	if not away():
 		_store_add(id, n)
 		return
 	if _is_pack_kind(id):
@@ -239,7 +240,7 @@ func consume(id: String, n: int) -> bool:
 	if avail_n(id) < n:
 		return false
 	var left := n
-	if s["loc"] == "trip":
+	if away():
 		var b := mini(left, basket_n(id))
 		if b > 0:
 			s["basket"][id] = basket_n(id) - b
@@ -356,7 +357,7 @@ func tick(mode: String) -> void:
 		_log("寿元耗尽。她回到青庐静室，在灯下坐化。")
 	if world != null:
 		# v0.9：路上（历练）也会碰上事；心魔/结局时世界只过日子
-		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"], mode == "road" and s["loc"] == "trip" and not s["ended"])
+		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"], mode == "road" and away() and not s["ended"])
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 
@@ -392,6 +393,10 @@ func snapshot(mode: String = "") -> Dictionary:
 # ---------------------------------------------------------------- 在家操作（0 日）
 func at_home() -> bool:
 	return s["loc"] == "home" and not s["ended"]
+
+## 出门在外（走路书 trip，或在某处游历 roam）：物品进采药篓、只能用随身的
+func away() -> bool:
+	return s["loc"] in ["trip", "roam"]
 
 func can_enqueue(name: String) -> String:
 	if not at_home():
@@ -729,7 +734,7 @@ func cond_reason(c) -> String:
 		if c.has("has_item"):
 			for id in c["has_item"]:
 				if avail_n(id) < int(c["has_item"][id]):
-					return "需%s ×%d（%s）" % [NAMES.get(id, id), int(c["has_item"][id]), "行囊里" if s["loc"] == "trip" else "仓里"]
+					return "需%s ×%d（%s）" % [NAMES.get(id, id), int(c["has_item"][id]), "行囊里" if away() else "仓里"]
 		if c.has("min_layer") and layer() < int(c["min_layer"]):
 			return "需炼气%d层" % int(c["min_layer"])
 	return "条件不足"
@@ -973,7 +978,7 @@ func come_home(turned_back: bool) -> Dictionary:
 		_log("世事：听说向阳坡的赤阳果熟了，第 %d 日前去才摘得到。" % XIANGYANG_DEADLINE)
 	# 江湖：出门这几天山外发生的事（优先认识的人），回家时一并听说
 	if world != null:
-		var w0 := int(s["trip"].get("w0", 0))
+		var w0 := int(s["trip"].get("w0", s.get("roam", {}).get("w0", 0)))
 		var fresh := []
 		for x in world.w["news"]:
 			if int(x[0]) > w0:
@@ -989,9 +994,118 @@ func come_home(turned_back: bool) -> Dictionary:
 		if not lines.is_empty():
 			sum["news"] = lines
 	s["trip"] = {}
+	s["roam"] = {}
 	s["last_home"] = sum
 	_log("推开柴门，回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
 	return sum
+
+# ---------------------------------------------------------------- v0.11 游历：去一处地方，每天挑个小去处走走
+## s["roam"] = {pl 所在, w0 出门时江湖日, d0 出门日, si 今天去的小去处, days 游历了几日, log 最近几行}
+func roam() -> Dictionary:
+	return s.get("roam", {}) if s["loc"] == "roam" else {}
+
+func can_roam(pl: String) -> String:
+	if world == null:
+		return "江湖未开"
+	if not TV.PL.has(pl):
+		return "没有这个地方"
+	if not TV.unlocked(world, pl):
+		return "还不认得路"
+	if not s["pending_overflow"].is_empty():
+		return "行囊满了，先腾一格"
+	return ""
+
+func start_roam(pl: String) -> bool:
+	if not at_home() or can_roam(pl) != "":
+		return false
+	s["loc"] = "roam"
+	s["roam"] = {"pl": pl, "w0": int(world.w["day"]), "d0": I("day"), "si": -1, "days": 0, "log": []}
+	_log("出发去%s。" % pl)
+	_walk(TV.dist(TV.HOME, pl), pl)
+	return true
+
+func roam_note(t: String) -> void:
+	if s["loc"] != "roam":
+		return
+	var lg: Array = s["roam"].get("log", [])
+	lg.append([I("day"), t])
+	s["roam"]["log"] = lg.slice(-5)
+
+func _walk(d: int, pl: String) -> void:
+	for i in d:
+		if s["loc"] != "roam":
+			return
+		tick("road")
+	roam_note("走了%d日，到了%s。" % [d, pl])
+
+## 游历一日：去第 i 个小去处（耗 1 日、1 份干粮）
+func roam_spot(i: int) -> Dictionary:
+	if s["loc"] != "roam" or s["ended"] or not world.pending().is_empty() or not s["pending_overflow"].is_empty():
+		return {}
+	tick("road")
+	if s["loc"] != "roam":
+		return {}
+	var pl := String(s["roam"]["pl"])
+	var r: Dictionary = TV.roam_day(world, pl, i)
+	for id in r["items"]:
+		add_item(String(id), int(r["items"][id]))
+	if int(r["ls"]) > 0:
+		s["lingshi"] = I("lingshi") + int(r["ls"])
+	if int(r["wu"]) > 0:
+		add_wu(int(r["wu"]))
+	s["roam"]["si"] = i
+	s["roam"]["days"] = int(s["roam"]["days"]) + 1
+	roam_note(String(r["text"]))
+	return r
+
+## 从这里去另一处已认得的地方
+func roam_move(pl: String) -> bool:
+	if s["loc"] != "roam" or not world.pending().is_empty() or can_roam(pl) != "" or pl == String(s["roam"]["pl"]):
+		return false
+	var d := TV.dist(String(s["roam"]["pl"]), pl)
+	s["roam"]["pl"] = pl
+	s["roam"]["si"] = -1
+	_log("动身去%s。" % pl)
+	_walk(d, pl)
+	return true
+
+func roam_home_days() -> int:
+	return TV.dist(String(s["roam"].get("pl", TV.HOME)), TV.HOME) if s["loc"] == "roam" else 0
+
+func roam_home() -> Dictionary:
+	if s["loc"] != "roam" or not world.pending().is_empty():
+		return {}
+	var d := roam_home_days()
+	for i in d:
+		tick("road")
+		if s["loc"] != "roam":
+			return {}
+	_log("从%s回来，路上走了 %d 日。" % [s["roam"]["pl"], d])
+	return come_home(false)
+
+## 坊市里能补干粮
+func roam_buy_ration() -> bool:
+	if s["loc"] != "roam" or String(s["roam"]["pl"]) != "坊市" or I("lingshi") < 1 or I("ration") >= RATION_CAP:
+		return false
+	s["lingshi"] = I("lingshi") - 1
+	s["ration"] = I("ration") + 1
+	return true
+
+## 后山、寒潭：沿姑母画的老路书走一趟（原来的路线，成了这两处的支线）
+func roam_route() -> bool:
+	if s["loc"] != "roam" or not world.pending().is_empty():
+		return false
+	var rid := String(TV.PL[String(s["roam"]["pl"])].get("route", ""))
+	if rid == "" or not routes.has(rid):
+		return false
+	var w0 := int(s["roam"]["w0"])
+	s["loc"] = "home"
+	if not start_trip(rid):
+		s["loc"] = "roam"
+		return false
+	s["trip"]["w0"] = w0
+	s["roam"] = {}
+	return true
 
 # ---------------------------------------------------------------- 冲关与心魔（§2.6 / §6）
 func can_breakthrough() -> String:

@@ -670,6 +670,8 @@ static func take(W, road: bool) -> Array:
 			wt *= 0.15
 		if road == (String(it[1]) in ROADISH):
 			wt *= 1.5
+		if String(it[1]) == "引路":
+			wt *= 0.4   # v0.11：引路不急，等得起，别挤掉要紧的事
 		if W.w["last"].has(String(it[1])) and int(W.w["day"]) - int(W.w["last"][String(it[1])]) < 8:
 			wt *= 0.2   # 同一类事别扎堆
 		var lw: Dictionary = W.w.get("last_who", {})
@@ -800,14 +802,15 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			var ab := [a, b] if _win(W, a, b) else [b, a]
 			var wn: Dictionary = ab[0]
 			var ls2: Dictionary = ab[1]
+			var prize: String = W._ch(TREASURE)   # v0.11：争的是什么，各回不同（原先总写“一株灵药”）
 			_add_ls(wn, 8)
-			mem(W, ls2, wn, "%s在%s夺了我看中的灵物" % [wn["name"], pl], -15, "夺", aid)
+			mem(W, ls2, wn, "%s在%s夺了我看中的%s" % [wn["name"], pl, prize], -15, "夺", aid)
 			W.R(ls2, wn)["g"] = int(W.R(ls2, wn)["g"]) + 15
-			W.chron(wn, "在%s与%s争一株灵药，争到了手。" % [pl, ls2["name"]])
-			W.chron(ls2, "在%s与%s争一株灵药，落了下风。" % [pl, wn["name"]])
+			W.chron(wn, "在%s与%s争%s，争到了手。" % [pl, ls2["name"], prize])
+			W.chron(ls2, "在%s与%s争%s，落了下风。" % [pl, wn["name"], prize])
 			drift(wn, "傲", 0.02)
 			if W.rng.randf() < 0.35:
-				W.rumor(W.pv("夺宝闻", ["{w}与{l}在{p}为一株灵药动了手，{w}占了上风。", "{w}在{p}截下了{l}看中的东西。"]).format({"w": wn["name"], "l": ls2["name"], "p": pl}), [wn, ls2])
+				W.rumor(W.pv("夺宝闻", ["{w}与{l}在{p}为{x}动了手，{w}占了上风。", "{w}在{p}截下了{l}看中的{x}。"]).format({"w": wn["name"], "l": ls2["name"], "p": pl, "x": prize}), [wn, ls2])
 		"寻仇":
 			if b.is_empty() or not b["alive"]:
 				_settle(a, int(b.get("id", 0)), [])

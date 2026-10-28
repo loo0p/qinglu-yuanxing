@@ -9,7 +9,7 @@ const F_GIV = ["青", "禾", "晚", "照", "知", "微", "小", "满", "清", "�
 const M_GIV = ["长", "风", "子", "衡", "怀", "瑾", "承", "远", "墨", "白", "景", "行", "云", "起", "少", "游", "临", "川", "慎", "之", "明", "寒", "山", "逸", "尘", "砚", "秋"]
 const SECTS = {"青云宗": "正", "玄霜谷": "正", "落霞宫": "正", "万剑门": "正", "药王谷": "正", "散修": "中", "血煞门": "魔", "阴骨教": "魔"}
 const SECT_LIST = ["青云宗", "玄霜谷", "落霞宫", "万剑门", "药王谷", "散修", "血煞门", "阴骨教"]
-const PLACES = ["青庐", "后山", "寒潭", "坊市", "青云宗", "玄霜谷", "落霞宫", "万剑门", "药王谷", "血煞门", "古战场", "云梦泽"]
+const PLACES = ["青庐", "后山", "寒潭", "坊市", "青云宗", "玄霜谷", "落霞宫", "万剑门", "药王谷", "血煞门", "古战场", "云梦泽", "秘境"]
 const SECT_HOME = {"青云宗": "青云宗", "玄霜谷": "玄霜谷", "落霞宫": "落霞宫", "万剑门": "万剑门", "药王谷": "药王谷", "散修": "坊市", "血煞门": "血煞门", "阴骨教": "古战场"}
 ## 宗门袍色（立绘用）；散修随机
 const SECT_TINT = {"青云宗": [72, 96, 130], "玄霜谷": [200, 214, 226], "落霞宫": [176, 120, 132], "万剑门": [112, 116, 124], "药王谷": [104, 140, 104], "血煞门": [120, 40, 40], "阴骨教": [60, 56, 70]}
@@ -65,6 +65,8 @@ const T = {
 	"求药": [0, 2, true, 99, 0, 0, 1.0], "赔罪": [0, -6, true, 99, 0, 0, 1.0], "托付": [1, -4, true, 99, 0, 0, 1.0], "问道": [0, -5, true, 99, 0, 0, 1.0],
 	# v0.10：插手（meddle.gd）——风声是找上门的消息，插手是她从传闻/心事里自己去管
 	"风声": [1, 4, true, 99, 0, 0, 1.0], "插手": [1, 2, true, 99, 0, 0, 1.0],
+	# v0.11：游历中碰上的人（travel.gd）、熟人引路
+	"相逢": [0, 0, true, 999, 0, 0, 1.0], "引路": [0, -3, true, 99, 0, 0, 1.0],
 }
 ## 信物（v0.8）：结下深交时双方各留一件旧物；人没了，东西可能流落坊市
 const KEEPSAKES = ["半截断玉簪", "一卷写满批注的旧丹经", "一枚墨麟片", "一只旧铜铃", "一方绣了兰草的帕子", "一枚刻了字的桃木符",
@@ -154,6 +156,7 @@ const HINT = {"温柔": ["{ta}把伞往她这边偏了偏", "{ta}说话时声音
 ## v0.9 人物自主：性格 × 动机 × 记忆 → 每日行动（见 scripts/agency.gd）
 const AG = preload("res://scripts/agency.gd")
 const MD = preload("res://scripts/meddle.gd")
+const TV = preload("res://scripts/travel.gd")
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
 const ROAD_OK = ["偶遇", "求助", "朱果之争", "劫修拦路", "劫修伏击", "天材地宝", "秘境", "重逢", "宝地相争", "寻凶", "坊市传闻", "旧友死讯", "暗涌", "报恩"]
 var w: Dictionary = {}
@@ -356,6 +359,7 @@ func rumor(text: String, who: Array = [], kind: String = "") -> void:
 	for c in who:
 		ids.append(int(c["id"]))
 	w["news"].append([int(w["day"]), text, ids, kind])
+	TV.hear(self, text)
 	if w["news"].size() > 60:
 		w["news"].pop_front()
 
@@ -507,8 +511,6 @@ func tick(home: bool = true, road: bool = true) -> void:
 		if int(c["lv"]) >= 18 and rng.randf() < 0.01:
 			ascend(c)
 			continue
-		if rng.randf() < 0.06:
-			c["place"] = SECT_HOME[c["sect"]] if rng.randf() < 0.4 else _ch(PLACES.slice(1))
 	var byp := {}
 	for c in npcs():
 		if not byp.has(c["place"]):
@@ -530,12 +532,15 @@ func tick(home: bool = true, road: bool = true) -> void:
 	if rng.randf() < 0.04 and npcs().size() < 30:
 		newcomer()
 	AG.daily(self)
+	TV.daily(self)   # v0.11：人按念头在各地走动；她的去处逐步解锁
 	_arc_tick()
 	if (home or road) and w["pending"].is_empty():
 		storyteller(home)
 	_save_rng()
 
 func _road_place() -> String:
+	if g != null and String(g.s.get("loc", "")) == "roam":
+		return String(g.s.get("roam", {}).get("pl", "后山"))
 	if g != null:
 		var rid := String(g.s.get("trip", {}).get("route", ""))
 		if rid != "" and g.routes.has(rid):
@@ -1328,6 +1333,8 @@ func _hint(n: Dictionary) -> String:
 
 ## 呈现：{speaker: id(0=旁白), text, opts:[[id,label]]}
 func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
+	if tid in TV.TIDS:
+		return TV.present(self, tid, roles, ctx)
 	if tid in MD.TIDS:
 		return MD.present(self, tid, roles, ctx)
 	if tid in AG.TIDS:
@@ -1658,6 +1665,13 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				"opts": [_o("a", "让%s进门" % a3["name"]), _o("b", "护住%s" % b3["name"]), _o("both", "以自身修为强保两边")]}
 		"暗涌":
 			var like: String = {"桂花糕": "桂花糕", "古琴": "琴谱", "好剑": "新剑穗", "丹方": "手抄的丹方", "灵茶": "新茶", "旧书": "旧书", "梅花": "梅花糕", "烈酒": "松子", "星图": "星图拓片", "木簪": "木簪"}.get(n["likes"][0], "松子")
+			var hr := String(w.get("here", "青庐"))
+			if hr != "青庐":   # v0.11：在外游历时，暗涌也发生在外头
+				return {"speaker": int(n["id"]), "text": pv("暗涌路", [
+					"%s下起冷雨，她和%s困在石窟里三日。她入定醒来，身上盖着%s的外袍，人已在洞口擦剑。" % [hr, nm, "对方" if n["sex"] == "女" else "他"],
+					"她在%s借宿打坐，夜里窗外有人窥探，被一道剑气斩断了退路。推窗时只剩树梢在晃——那剑意，像是%s的。" % [hr, nm],
+					"她在%s落脚的第二天，门口多了一包%s，没留名。她追出去，只看见一个背影：%s。" % [hr, like, sig(n)[1]]]),
+					"opts": [_o("keep", "不说破"), _o("ask", "问一句")]}
 			return {"speaker": int(n["id"]), "text": pv("暗涌", [
 				"去寒潭的路上下起冷雨，她和%s困在石窟里三日。她入定醒来，身上盖着%s的外袍，人已在洞口擦剑。" % [nm, "对方" if n["sex"] == "女" else "他"],
 				"她在静室冲一处关窍，窗外有人窥探，被一道剑气斩断了退路。推门时只剩树梢在晃——那剑意，像是%s的。" % nm,
@@ -1710,8 +1724,13 @@ func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
 	return mine + rng.randf() * a > theirs + rng.randf() * b
 
 func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
+	if tid in TV.TIDS:
+		return TV.resolve(self, tid, roles, ctx, oid)
 	if tid in MD.TIDS:
-		return MD.resolve(self, tid, roles, ctx, oid)
+		var mr := MD.resolve(self, tid, roles, ctx, oid)
+		if tid == "插手":
+			TV.on_meddle(self, int(ctx.get("pid", -1)))
+		return mr
 	if tid in AG.TIDS:
 		return AG.resolve(self, tid, roles, ctx, oid)
 	var p := P()
