@@ -13,6 +13,7 @@ timeout 300 $G --headless --path . -s res://tests/ui_smoke.gd
 timeout 300 $G --headless --path . -s res://tests/agency_test.gd
 timeout 300 $G --headless --path . -s res://tests/meddle_test.gd
 timeout 300 $G --headless --path . -s res://tests/travel_test.gd
+timeout 300 $G --headless --path . -s res://tests/gear_test.gd
 timeout 300 $G --headless --path . -s res://tests/storylet_engine_test.gd
 timeout 600 $G --headless --path . -s res://tests/saga_test.gd
 timeout 900 $G --headless --path . -s res://tests/review_test.gd

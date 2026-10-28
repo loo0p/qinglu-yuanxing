@@ -74,7 +74,7 @@ func _go() -> void:
 			# 对话框的 ▼ 是“读下去”，玩家总会点；其余随机
 			var adv = bs.filter(func(b): return b.text == "▼")
 			# 换页签/返回这类按钮权重 1，能推进事情的按钮权重 3（真人不会一直来回切页签）
-			var NAV := ["", "♪", "♪×", "青庐", "历练", "行记", "江湖", "修炼", "返回", "收起", "回江湖", "关系", "生平", "● 生平", "记得她", "她的生平", "心事", "● 心事", "● 关系", "● 记得她"]
+			var NAV := ["", "♪", "♪×", "青庐", "历练", "行记", "行囊", "江湖", "修炼", "返回", "收起", "回江湖", "关系", "生平", "● 生平", "记得她", "她的生平", "心事", "● 心事", "● 关系", "● 记得她"]
 			var pool := []
 			for x in bs:
 				for k in (1 if x.text in NAV else 3):
@@ -92,12 +92,15 @@ func _go() -> void:
 				in_person = 0
 			screens["%s|%s|%s" % [main.screen, main.modal.get("kind", ""), main.sheet]] = 1
 			var here := "%s/%s/%s 按钮：%s" % [main.screen, main.modal.get("kind", ""), main.sheet, ", ".join(bs.slice(0, 10).map(func(x): return x.text.replace("\n", "/")))]
+			# v0.14：只翻页、看看的点击（页签、地图上点开一处看看）不算“卡住”——卡住指点了能办事的按钮日子却不动
+			var looking: bool = b.text in NAV or (main.screen == "game" and main.tab == "depart" and b.text.contains("月"))
 			b.pressed.emit()
 			clicks += 1
 			await process_frame
 			var d := int(g.s.get("day", 0))
 			if d == last_day:
-				still += 1
+				if not looking:
+					still += 1
 				if still > worst_still:
 					worst_still = still
 					stuck_at = here

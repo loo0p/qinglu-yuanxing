@@ -75,6 +75,7 @@ var create_name = "苏青禾"
 var create_cherish = "sect"
 var selected_route = "houshan"
 var sel_place = ""       # v0.11 世界图上点开的地方
+var new_seed := -1   # 测试用：下一局的种子（-1 = 随机）；乱点试玩靠它每回都一样
 var dev_roam_pl := "坊市"  # 调试：roam:<地名> 在哪处游历
 var preset_save_mode = false
 var play_ms_base = 0
@@ -615,7 +616,7 @@ const MIN_FONT := 13     # 最小字号：360×640 下 11–12px 太小
 ## 句号就和前一个字绑在一起，行尾放不下时连前一个字一起拉到下一行。只用于会自动换行的正文 Label。
 const ZW := "\u200b"
 const NO_START := "，。、；：？！）」』》〉】”’…—·％,.;:?!)]%~"
-const NO_END := "（「『《〈【“‘([("
+const NO_END := "（「『《〈【“‘([(·"   # v0.14：“·”起头的条目，点和第一个字粘在一起（原先改成任意处折行，句号会掉到行首）
 
 static func kt(t: String) -> String:
 	if t.length() < 2:
@@ -1885,7 +1886,7 @@ func _modal() -> void:
 				var nw = card()
 				H("山外", 20, C_ACCENT, nw)
 				for t in sm["news"]:
-					L("·" + String(t), 13, C_TEXT, nw).autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+					L("·" + String(t), 13, C_TEXT, nw)
 			if sm.has("world"):
 				var w = card()
 				H("世事", 20, C_WARN, w)
@@ -1909,8 +1910,13 @@ func _modal() -> void:
 				if int(sq.get("n_news", 0)) > sq["lines"].size():
 					L("共 %d 件，只记了要紧的" % int(sq.get("n_news", 0)), 12, C_DIM, nw)
 				for tl in sq["lines"]:
-					# v0.13 修：“· ”后面的空格是唯一断词点，整句中文被挤到下一行、圆点单独一行；改成逐字折行
-					LW("·" + String(tl), 13, C_TEXT, nw).autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+					# v0.13：去掉“· ”后的空格；v0.14：“·”进 NO_END，和第一个字粘住，按词折行（句号不再落到行首）
+					LW("·" + String(tl), 13, C_TEXT, nw)
+			if not sq.get("people", []).is_empty():
+				var pc2 = card()
+				H("故人", 18, C_ACCENT, pc2)
+				LW("；".join(sq["people"]) + "。", 13, C_TEXT, pc2)
+				L("（都记进了她的履历：生平 → 她在江湖里的生平）", 12, C_DIM, pc2)
 			B("推开静室的门", func(): modal = {}, true, footer, 52)
 		"thought":
 			_stage_image(_trip_bg(), 0.3)

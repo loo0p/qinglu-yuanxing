@@ -478,9 +478,10 @@ func remember(c: Dictionary, o, text: String, wt: int, kind: String = "", aid: i
 		c["mem"].sort_custom(func(x, y): return absf(float(x[3])) - (d - float(x[0])) * 0.05 < absf(float(y[3])) - (d - float(y[0])) * 0.05)
 		c["mem"].pop_front()
 
+const PLOG_CAP := 300   # v0.14：她自己的履历留得长些（几十年闭关也写进去）；别人仍是 120
 func chron(c: Dictionary, text: String) -> void:
 	c["log"].append([int(w["day"]), text])
-	if c["log"].size() > 120:
+	if c["log"].size() > (PLOG_CAP if c.get("player", false) else 120):
 		c["log"].pop_front()
 
 func rumor(text: String, who: Array = [], kind: String = "") -> void:
