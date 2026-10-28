@@ -14,7 +14,7 @@ def g(k, *alts): G[k] = list(alts)
 
 HOST_VARS = ["p", "s", "r", "age", "ta", "y", "pn", "jie"]
 HOST_OPS = ["rel", "meet", "tag", "mem", "inj", "home", "move", "die", "rumor", "goal", "lv", "xp", "sect", "wflag",
-            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark", "beat"]
+            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark", "beat", "gen_item", "give_item", "take_item", "pick_lost"]
 
 def chron(who, text, **vars):
     o = {"op": "chron", "who": who, "text": text}
@@ -554,10 +554,40 @@ G["v_df_l"] += ["在{p}与{o}斗法，被对方的#df_how#所破，#df_l_end#。
 G["v_df_draw"] += ["在{p}与{o}斗法，#df_how#对#df_how#，谁也没占到便宜。", "和{o}在{p}打了一夜，天亮时各自退走。"]
 G["v_spar"] += ["与{o}在{p}切磋#df_how#，互有胜负。", "在{p}请{o}喂了几招#df_how#，受益不浅。"]
 
+# ================================================================ qinglu_gear：v0.14 法宝与人（炼器、寻宝、赠物、夺宝结仇、捡到遗物、送她东西）
+GEAR = [
+    {"id": "lianqi", "trigger": "actor", "weight": "0.12 * int(g.lv(A) >= 9)", "when": NB, "actor_cooldown": 120,
+     "effects": [{"op": "gen_item", "who": "A", "origin": "{A}闭关炼成。"}, chron("A", "闭门炼器，炼成一件{itg}{it}。"), chance(0.4, rumor("听说{A}炼成了一件{itg}，叫{it}。", kind="宝"))]},
+    {"id": "xunqi", "trigger": "actor", "weight": "0.15 * int(g.lv(A) >= 3)", "when": NB + " and g.gear_n(A) < 3", "actor_cooldown": 60,
+     "outcomes": [
+        {"id": "find", "weight": "0.35 + 0.3 * int(g.trt(A, '好奇'))", "effects": [{"op": "gen_item", "who": "A", "origin": "{A}在{p}一处旧洞府里寻得。"}, chron("A", "在{p}一处旧洞府里寻到一件{it}。")]},
+        {"id": "none", "weight": 1.0, "effects": [chron("A", "在{p}寻宝数日，一无所获。")]}]},
+    {"id": "zengqi", "trigger": "actor", "weight": 0.3, "when": NB + " and g.partner(A) != null and g.gear_n(A) >= 2", "actor_cooldown": 200,
+     "roles": [{"name": "B", "fixed": "g.partner(A)"}],
+     "effects": [{"op": "give_item", "a": "A", "b": "B", "h": "{A}赠给道侣{B}。"}, chron("A", "把一件{it}赠给了{B}。"), chron("B", "{A}送来一件{it}，贴身收着。"), rel("B", "A", f=5)]},
+    {"id": "duoqi", "trigger": "actor", "weight": "0.2 + 0.5 * int(g.trt(A, '贪财')) + 0.4 * int(g.trt(A, '阴狠'))", "when": NB + " and g.lv(A) >= 3", "actor_cooldown": 60,
+     "roles": [{"name": "B", "where": "int(SELF.id) != 1 and g.has_gear(SELF, 'fabao') and not g.bonded(A, SELF) and not g.prot(SELF) and abs(g.lv(SELF) - g.lv(A)) <= 3 and (g.foes(A, SELF) or g.trt(A, '贪财'))"}],
+     "outcomes": [
+        {"id": "win", "first": True, "when": "g.lv(A) + g.gear_pw(A) + se.roll(0, 4) > g.lv(B) + g.gear_pw(B) + se.roll(0, 4)", "effects": [
+            {"op": "take_item", "a": "A", "b": "B", "h": "{A}在{p}从{B}手里夺去。"}, chron("A", "在{p}截住{B}，夺了{B}的{it}。"), chron("B", "在{p}被{A}截住，{it}被夺了去。"),
+            rel("B", "A", gg=25), mem("B", "A", "{A}夺了我的{it}", -20, "夺"), rumor("听说{A}为一件{it}截了{B}的道。", ("A", "B"), "宝"),
+            iff("g.trt(B, '记仇')", {"op": "goal", "who": "B", "value": "'报仇'", "gt": "A"})]},
+        {"id": "lose", "first": True, "effects": [{"op": "inj", "who": "A", "days": 10}, chron("A", "想夺{B}的法宝，反被打伤。"), chron("B", "在{p}打退了来夺宝的{A}。"), rel("B", "A", gg=10)]}]},
+    {"id": "shiyi", "trigger": "actor", "weight": "1.5 * int(g.lost_here(A))", "when": NB,
+     "effects": [{"op": "pick_lost", "who": "A"}, iff("ctx.it != ''", chron("A", "在{p}捡到一件{it}，上头还刻着{own}的名字。"))]},
+    {"id": "song_ta", "trigger": "actor", "weight": "0.15 * int(g.known(A) and g.opn(A, g.player()) > 30)", "when": NB + " and g.gear_n(A) >= 1", "actor_cooldown": 240,
+     "roles": [{"name": "B", "fixed": "g.player()"}],
+     "effects": [{"op": "give_item", "a": "A", "b": "B", "h": "{A}托人送给{pn}。"}, iff("ctx.it != ''", chron("A", "托人给{pn}送去一件{it}。"), {"op": "pchron", "text": "{A}托人送来一件{it}。"}, mem("A", "B", "送过{pn}一件{it}", 3))]},
+]
+for s in GEAR:
+    _lead(s)
+    s["effects"] = [setv("it", "''"), setv("itg", "''"), setv("own", "''")] + s.get("effects", [])   # 物品 op 往 ctx 里写名字；先声明（lint 认得）
+
 PK = [pack("qinglu_core", "青庐·江湖自转（迁移自 v0.11 world_event / solo）", CORE, G, "两人相遇八种事、独处、破境走火坐化飞升、新人、丧事"),
       pack("qinglu_life", "青庐·人生阶段（v0.12 新增）", LIFE, None, "日常、闭关、同门之争、情愫表白、道侣、麟儿、收徒、心魔、大比、秘境"),
       pack("qinglu_bio", "青庐·前尘", BIO, None, "入青庐之前的经历"),
-      pack("qinglu_offer", "青庐·交给她选的事", OFFER, None, "满月酒、吊唁、观大比、秘境归来、心魔劫、求拜师、情劫")]
+      pack("qinglu_offer", "青庐·交给她选的事", OFFER, None, "满月酒、吊唁、观大比、秘境归来、心魔劫、求拜师、情劫"),
+      pack("qinglu_gear", "青庐·法宝与人（v0.14）", GEAR, None, "炼器、寻宝、赠物、夺宝结仇、捡到遗物、送她东西")]
 for p in PK:
     p.setdefault("unit", "month")   # v0.13：包里的冷却/连锁/min_t 都按“月”读（回合=月）；换算交给 saga.gd 的 se_ticks
     json.dump(p, open(R + "/data/packs/%s.json" % p["id"], "w", encoding="utf-8"), ensure_ascii=False, indent=1)

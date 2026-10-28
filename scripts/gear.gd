@@ -367,7 +367,9 @@ static func _fit_pack(gs) -> void:
 static func give_her(gs, it: Dictionary, how: String) -> void:
 	var W = gs.world
 	var day := int(W.w["day"]) if W != null else int(gs.s.get("day", 0))
-	it["u"] = _uid(gs, null)
+	if it.get("ext", false):   # 从别人手里来的：换成她这边的号
+		it.erase("ext")
+		it["u"] = _uid(gs, null)
 	it["h"].append([day, how])
 	if it.has("c"):
 		var cur = eq(gs, "fu")
@@ -555,6 +557,7 @@ static func transfer(W, from: Dictionary, to: Dictionary, it: Variant, text: Str
 		lst.remove_at(i)
 	if to.get("player", false):
 		if W.g != null:
+			it["ext"] = true
 			give_her(W.g, it, text)
 	elif not to.is_empty():
 		it["h"].append([day, text])

@@ -1,0 +1,415 @@
+{
+ "id": "qinglu_gear",
+ "name": "青庐·法宝与人（v0.14）",
+ "doc": "炼器、寻宝、赠物、夺宝结仇、捡到遗物、送她东西",
+ "host_vars": [
+  "p",
+  "s",
+  "r",
+  "age",
+  "ta",
+  "y",
+  "pn",
+  "jie"
+ ],
+ "host_ops": [
+  "rel",
+  "meet",
+  "tag",
+  "mem",
+  "inj",
+  "home",
+  "move",
+  "die",
+  "rumor",
+  "goal",
+  "lv",
+  "xp",
+  "sect",
+  "wflag",
+  "kid",
+  "spawn",
+  "seclude",
+  "xm",
+  "fav",
+  "ling",
+  "wu",
+  "pinj",
+  "pchron",
+  "mark",
+  "beat",
+  "gen_item",
+  "give_item",
+  "take_item",
+  "pick_lost"
+ ],
+ "storylets": [
+  {
+   "id": "lianqi",
+   "trigger": "actor",
+   "weight": "0.12 * int(g.lv(A) >= 9)",
+   "when": "not g.busy(A)",
+   "actor_cooldown": 120,
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    },
+    {
+     "op": "gen_item",
+     "who": "A",
+     "origin": "{A}闭关炼成。"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "闭门炼器，炼成一件{itg}{it}。"
+    },
+    {
+     "op": "chance",
+     "p": 0.4,
+     "then": [
+      {
+       "op": "rumor",
+       "text": "听说{A}炼成了一件{itg}，叫{it}。",
+       "about": [
+        "A"
+       ],
+       "kind": "宝"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "xunqi",
+   "trigger": "actor",
+   "weight": "0.15 * int(g.lv(A) >= 3)",
+   "when": "not g.busy(A) and g.gear_n(A) < 3",
+   "actor_cooldown": 60,
+   "outcomes": [
+    {
+     "id": "find",
+     "weight": "0.35 + 0.3 * int(g.trt(A, '好奇'))",
+     "effects": [
+      {
+       "op": "gen_item",
+       "who": "A",
+       "origin": "{A}在{p}一处旧洞府里寻得。"
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "在{p}一处旧洞府里寻到一件{it}。"
+      }
+     ]
+    },
+    {
+     "id": "none",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "在{p}寻宝数日，一无所获。"
+      }
+     ]
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    }
+   ]
+  },
+  {
+   "id": "zengqi",
+   "trigger": "actor",
+   "weight": 0.3,
+   "when": "not g.busy(A) and g.partner(A) != null and g.gear_n(A) >= 2",
+   "actor_cooldown": 200,
+   "roles": [
+    {
+     "name": "B",
+     "fixed": "g.partner(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    },
+    {
+     "op": "give_item",
+     "a": "A",
+     "b": "B",
+     "h": "{A}赠给道侣{B}。"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "把一件{it}赠给了{B}。"
+    },
+    {
+     "op": "chron",
+     "who": "B",
+     "text": "{A}送来一件{it}，贴身收着。"
+    },
+    {
+     "op": "rel",
+     "a": "B",
+     "b": "A",
+     "f": 5
+    }
+   ]
+  },
+  {
+   "id": "duoqi",
+   "trigger": "actor",
+   "weight": "0.2 + 0.5 * int(g.trt(A, '贪财')) + 0.4 * int(g.trt(A, '阴狠'))",
+   "when": "not g.busy(A) and g.lv(A) >= 3",
+   "actor_cooldown": 60,
+   "roles": [
+    {
+     "name": "B",
+     "where": "int(SELF.id) != 1 and g.has_gear(SELF, 'fabao') and not g.bonded(A, SELF) and not g.prot(SELF) and abs(g.lv(SELF) - g.lv(A)) <= 3 and (g.foes(A, SELF) or g.trt(A, '贪财'))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "win",
+     "first": true,
+     "when": "g.lv(A) + g.gear_pw(A) + se.roll(0, 4) > g.lv(B) + g.gear_pw(B) + se.roll(0, 4)",
+     "effects": [
+      {
+       "op": "take_item",
+       "a": "A",
+       "b": "B",
+       "h": "{A}在{p}从{B}手里夺去。"
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "在{p}截住{B}，夺了{B}的{it}。"
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "在{p}被{A}截住，{it}被夺了去。"
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "g": 25
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "A",
+       "text": "{A}夺了我的{it}",
+       "wt": -20,
+       "kind": "夺"
+      },
+      {
+       "op": "rumor",
+       "text": "听说{A}为一件{it}截了{B}的道。",
+       "about": [
+        "A",
+        "B"
+       ],
+       "kind": "宝"
+      },
+      {
+       "op": "if",
+       "when": "g.trt(B, '记仇')",
+       "then": [
+        {
+         "op": "goal",
+         "who": "B",
+         "value": "'报仇'",
+         "gt": "A"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "lose",
+     "first": true,
+     "effects": [
+      {
+       "op": "inj",
+       "who": "A",
+       "days": 10
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "想夺{B}的法宝，反被打伤。"
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "在{p}打退了来夺宝的{A}。"
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "g": 10
+      }
+     ]
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    }
+   ]
+  },
+  {
+   "id": "shiyi",
+   "trigger": "actor",
+   "weight": "1.5 * int(g.lost_here(A))",
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    },
+    {
+     "op": "pick_lost",
+     "who": "A"
+    },
+    {
+     "op": "if",
+     "when": "ctx.it != ''",
+     "then": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "在{p}捡到一件{it}，上头还刻着{own}的名字。"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "song_ta",
+   "trigger": "actor",
+   "weight": "0.15 * int(g.known(A) and g.opn(A, g.player()) > 30)",
+   "when": "not g.busy(A) and g.gear_n(A) >= 1",
+   "actor_cooldown": 240,
+   "roles": [
+    {
+     "name": "B",
+     "fixed": "g.player()"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "itg",
+     "value": "''"
+    },
+    {
+     "op": "set",
+     "name": "own",
+     "value": "''"
+    },
+    {
+     "op": "give_item",
+     "a": "A",
+     "b": "B",
+     "h": "{A}托人送给{pn}。"
+    },
+    {
+     "op": "if",
+     "when": "ctx.it != ''",
+     "then": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "托人给{pn}送去一件{it}。"
+      },
+      {
+       "op": "pchron",
+       "text": "{A}托人送来一件{it}。"
+      },
+      {
+       "op": "mem",
+       "who": "A",
+       "about": "B",
+       "text": "送过{pn}一件{it}",
+       "wt": 3
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "unit": "month"
+}

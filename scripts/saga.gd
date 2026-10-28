@@ -5,7 +5,7 @@ extends RefCounted
 ## 引擎状态整块存在 world.w["se"]（JSON 安全，随存档走）；旧档没有这一块，读档时按种子新建，不动已有的人和事。
 const SE = preload("res://addons/storylet_engine/storylet_engine.gd")
 const AG = preload("res://scripts/agency.gd")
-const PACKS := ["qinglu_core", "qinglu_life", "qinglu_bio", "qinglu_offer"]
+const PACKS := ["qinglu_core", "qinglu_life", "qinglu_bio", "qinglu_offer", "qinglu_gear"]
 const CN := ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"]
 static var _cache := {}
 
@@ -268,6 +268,51 @@ func se_op(op: Dictionary, inst, e) -> void:
 			W.chron(W.P(), e.say(op.get("text", ""), inst, "pc", e._op_vars(op, inst)))
 		"mark":
 			eng.st["vars"][e.say(String(op["key"]), inst)] = int(W.w["day"])
+		# v0.14 物品：造一件 / 送一件 / 夺一件。名字放进 ctx.it（品阶 ctx.itg），文本里写 {it}
+		"gen_item":
+			if a == null or a.get("player", false):
+				return
+			var r := RandomNumberGenerator.new()
+			r.seed = e.rng.randi()
+			var sl := String(op.get("slot", ["fabao", "fabao", "yi", "shi"][r.randi() % 4]))
+			var lvx := int(a["lv"])
+			var gd := int(_n(op["grade"], inst, e)) if op.has("grade") else (0 if lvx < 3 else (1 if lvx < 9 else (2 if lvx < 12 else (3 if lvx < 15 else 4))))
+			var arr: Array = W.Gear.BASES[sl]
+			var it: Dictionary = W.Gear.make(null, W, r, String(arr[r.randi() % arr.size()]), gd, e.say(op.get("origin", "{A}炼成。"), inst, "origin", e._op_vars(op, inst)), int(W.w["day"]))
+			W.Gear.npc_gear(W, a).append(it)
+			inst["ctx"]["it"] = String(it["n"])
+			inst["ctx"]["itg"] = W.Gear.grade_name(it)
+		"give_item", "take_item":
+			# give：a 把东西给 b（best=false 给次一等的）；take：a 从 b 手里夺走最好的
+			var b5 = _a(inst, e, op.get("b", "B"))
+			if a == null or b5 == null:
+				return
+			var src: Dictionary = a if k == "give_item" else b5
+			var dst: Dictionary = b5 if k == "give_item" else a
+			var it2 = W.Gear.best_of(W, src)
+			if k == "give_item" and not op.get("best", false) and not src.get("player", false):
+				var lst: Array = W.Gear.npc_gear(W, src).duplicate()
+				lst.sort_custom(func(x, y): return W.Gear.value(x) < W.Gear.value(y))
+				it2 = lst[0] if not lst.is_empty() else null
+			if it2 == null:
+				inst["ctx"]["it"] = ""
+				return
+			var moved: Dictionary = W.Gear.transfer(W, src, dst, it2, e.say(op.get("h", "{A}给了{B}。"), inst, "h", e._op_vars(op, inst)))
+			inst["ctx"]["it"] = String(moved.get("n", ""))
+			inst["ctx"]["itg"] = W.Gear.grade_name(moved) if not moved.is_empty() else ""
+			if dst.get("player", false) and W.g != null and not moved.is_empty():
+				W.g.notice("%s送来一件%s（%s），放在%s。" % [src["name"], moved["n"], W.Gear.grade_name(moved), "青庐" if W.g.at_home() else "行囊里"])
+		"pick_lost":
+			if a == null:
+				return
+			var lost = W.Gear.find_lost(W, String(a["place"]))
+			if lost == null:
+				inst["ctx"]["it"] = ""
+				return
+			lost["h"].append([int(W.w["day"]), "%s在%s捡到。" % [a["name"], a["place"]]])
+			W.Gear.npc_gear(W, a).append(lost)
+			inst["ctx"]["it"] = String(lost["n"])
+			inst["ctx"]["own"] = String(lost.get("owner", "前人"))
 		_:
 			e._err("青庐不认识 op=" + k)
 
@@ -364,6 +409,20 @@ func player():
 	return W.P()
 func known(a) -> bool:
 	return W.known(a)
+## v0.14 物品条件
+func has_gear(a, slot: String = "") -> bool:
+	if a == null:
+		return false
+	for it in (W.Gear.equipped(W.g) if a.get("player", false) and W.g != null else W.Gear.npc_gear(W, a)):
+		if slot == "" or W.Gear.slot_of(it) == slot:
+			return true
+	return false
+func gear_pw(a) -> float:
+	return 0.0 if a == null else W.Gear.pw_of(W, a)
+func gear_n(a) -> int:
+	return 0 if a == null or a.get("player", false) else W.Gear.npc_gear(W, a).size()
+func lost_here(a) -> bool:
+	return a != null and not W.w.get("lost", {}).get(String(a["place"]), []).is_empty()
 func pf(a) -> int:
 	return int(W.R(W.P(), a)["f"])
 func plv() -> int:

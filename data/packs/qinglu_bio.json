@@ -37,7 +37,11 @@
   "pinj",
   "pchron",
   "mark",
-  "beat"
+  "beat",
+  "gen_item",
+  "give_item",
+  "take_item",
+  "pick_lost"
  ],
  "storylets": [
   {
