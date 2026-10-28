@@ -39,3 +39,4 @@
 
 ## v0.11 世界图
 - `art_src/map_world.jpg` / `web_portrait/bg/map_world.webp`（山外世界水墨地图）：为本项目用 AI 图像生成工具生成，由 `tools/make_assets.py` 压缩。未使用第三方图片素材。地点解锁与游历为本项目自写代码，未引入第三方代码。
+- 12 处地点底图 `art_src/pl_*.jpg` → `web_portrait/bg/pl_*.webp`，世界图圆形小景 `assets/img/vig_*.webp`（由底图裁出）：为本项目用 AI 图像生成工具生成（以 bg_houshan 为风格参考），由 `tools/make_assets.py` 缩放压缩，v0.11.2。未使用第三方图片素材。

@@ -82,3 +82,23 @@ a = np.asarray(tk).astype(np.float32); lum = a.mean(axis=2); sat = a.max(axis=2)
 al = (np.clip(((246 - lum) / 22) + sat / 30, 0, 1) * 255).astype(np.uint8)
 Image.fromarray(np.dstack([a.astype(np.uint8), al]), "RGBA").save(os.path.join(D, "token.webp"), "WEBP", quality=85, method=6)
 print("v0.4 assets ok")
+
+# v0.11.2 地点画风：12 处各一张游历底图（不进 pck，按需下载）+ 世界图上的圆形小景（进 pck，很小）
+PL_VIG = {  # 名: (中心 x, 中心 y, 直径占图宽) —— 圆形小景从底图里取最有辨识度的一块
+    "houshan": (0.62, 0.80, 0.50), "fangshi": (0.36, 0.17, 0.44), "hantan": (0.60, 0.17, 0.46),
+    "yaowang": (0.72, 0.26, 0.42), "qingyun": (0.68, 0.13, 0.42), "yunmeng": (0.48, 0.21, 0.52),
+    "xuanshuang": (0.62, 0.26, 0.48), "luoxia": (0.55, 0.20, 0.44), "wanjian": (0.58, 0.24, 0.52),
+    "guzhan": (0.30, 0.83, 0.52), "mijing": (0.50, 0.15, 0.48), "xuesha": (0.50, 0.17, 0.46),
+}
+VS = 112
+yy, xx = np.mgrid[0:VS, 0:VS]; rr = np.sqrt((xx - (VS - 1) / 2) ** 2 + (yy - (VS - 1) / 2) ** 2) / (VS / 2)
+for n, (cx, cy, dw) in PL_VIG.items():
+    im = Image.open(os.path.join(S, "pl_" + n + ".jpg")).convert("RGB")
+    im.resize((540, 960), Image.LANCZOS).save(os.path.join(R, "web_portrait/bg", "pl_" + n + ".webp"), "WEBP", quality=60, method=6)
+    W, H = im.size; d = dw * W
+    c = im.crop((int(cx * W - d / 2), int(cy * H - d / 2), int(cx * W + d / 2), int(cy * H + d / 2))).resize((VS, VS), Image.LANCZOS)
+    a = np.asarray(c).astype(np.float32)
+    ring = np.clip(1 - np.abs(rr - 0.93) / 0.035, 0, 1)[..., None]           # 一圈淡墨边
+    a = a * (1 - ring * 0.75) + np.array([60, 50, 40]) * ring * 0.75
+    al = (np.clip((1.0 - rr) / 0.05, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(np.dstack([a.clip(0, 255).astype(np.uint8), al]), "RGBA").save(os.path.join(D, "vig_" + n + ".webp"), "WEBP", quality=78, method=6)

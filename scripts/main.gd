@@ -6,7 +6,7 @@ extends Control
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.11.1 试玩版"
+const VERSION = "v0.11.2 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -73,6 +73,7 @@ var create_name = "苏青禾"
 var create_cherish = "aunt"
 var selected_route = "houshan"
 var sel_place = ""       # v0.11 世界图上点开的地方
+var dev_roam_pl := "坊市"  # 调试：roam:<地名> 在哪处游历
 var preset_save_mode = false
 var play_ms_base = 0
 var session_start = 0
@@ -223,7 +224,8 @@ func _font(path: String) -> Font:
 
 # ------------------------------------------------------------ 资源
 ## 江湖事件背景（v0.6.5）不进 pck：网页版从 portrait/bg/ 按需下载，下好前先用院子图顶着
-const LAZY_BG = ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai", "map_world"]
+const LAZY_BG = ["bg_chasi", "bg_shandao", "bg_fangshi", "bg_yeyu", "bg_dongfu", "bg_leitai", "map_world",
+	"pl_houshan", "pl_fangshi", "pl_hantan", "pl_yaowang", "pl_qingyun", "pl_yunmeng", "pl_xuanshuang", "pl_luoxia", "pl_wanjian", "pl_guzhan", "pl_mijing", "pl_xuesha"]
 var bg_want := {}
 
 func _bg_fetch(name: String) -> void:
@@ -719,6 +721,8 @@ func row(parent: Node = null, sep: int = 6) -> HBoxContainer:
 
 func card(parent: Node = null) -> VBoxContainer:
 	var p = PanelContainer.new()
+	if not place_look.is_empty():
+		p.add_theme_stylebox_override("panel", _place_card_sb(place_look))
 	(parent if parent else body).add_child(p)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
@@ -1004,6 +1008,7 @@ func _bgm_for_scene() -> String:
 	return "home"
 
 func _refresh() -> void:
+	place_look = {}
 	_clear(stage)
 	_clear(hud)
 	_clear(body)
@@ -1937,10 +1942,101 @@ func _log_tab() -> void:
 		L("第%d日  %s" % [int(lg[i]["day"]), lg[i]["text"]], 13, C_TEXT, lc)
 
 
+# ------------------------------------------------------------ v0.11.2 地点画风：每处一套底图 / 题头 / 纸色 / 边饰 / 世界图小景
+## k 资源名（web_portrait/bg/pl_k.webp 底图，assets/img/vig_k.webp 世界图小景）；paper 卡片纸色；edge 边饰与描边；ink 地名与强调字；
+## wash/wa 底图上罩的一层（颜色/浓淡）；hy 题头取底图哪一段（中心，按图高比例）；motto 题头小字（这地方的气味；只用 fonts/glyphs.txt 里有的字）
+const PLACE_LOOK = {
+	"后山": {"k": "houshan", "paper": Color("#EDF3E6"), "edge": Color("#4E7D45"), "ink": Color("#2C5530"), "wash": Color("#E3EDD8"), "wa": 0.26, "hy": 0.17, "motto": "松风 · 山涧 · 古藤"},
+	"坊市": {"k": "fangshi", "paper": Color("#FBF0E0"), "edge": Color("#B9582A"), "ink": Color("#86361A"), "wash": Color("#F6E3C6"), "wa": 0.28, "hy": 0.15, "motto": "灯火 · 檐角 · 人声"},
+	"寒潭": {"k": "hantan", "paper": Color("#EAEFF4"), "edge": Color("#56718A"), "ink": Color("#2B4760"), "wash": Color("#DDE6EE"), "wa": 0.24, "hy": 0.17, "motto": "寒雾 · 薄冰 · 瀑声"},
+	"药王谷": {"k": "yaowang", "paper": Color("#F5F2DC"), "edge": Color("#7E8A2E"), "ink": Color("#4F5A1A"), "wash": Color("#EEEACB"), "wa": 0.26, "hy": 0.22, "motto": "药圃 · 丹烟 · 日暖"},
+	"青云宗": {"k": "qingyun", "paper": Color("#ECF3F9"), "edge": Color("#3A78A8"), "ink": Color("#1D4B74"), "wash": Color("#E4EEF6"), "wa": 0.20, "hy": 0.15, "motto": "云海 · 石阶 · 鹤影"},
+	"云梦泽": {"k": "yunmeng", "paper": Color("#F2F0E4"), "edge": Color("#7E907A"), "ink": Color("#3F5A48"), "wash": Color("#ECE8DA"), "wa": 0.20, "hy": 0.20, "motto": "芦花 · 渔火 · 烟水"},
+	"玄霜谷": {"k": "xuanshuang", "paper": Color("#F2F0F8"), "edge": Color("#7E77B0"), "ink": Color("#433E78"), "wash": Color("#EAE8F4"), "wa": 0.18, "hy": 0.22, "motto": "落雪 · 冰瀑 · 无声"},
+	"落霞宫": {"k": "luoxia", "paper": Color("#FCEDEA"), "edge": Color("#C2626E"), "ink": Color("#8A3344"), "wash": Color("#F8E0DE"), "wa": 0.22, "hy": 0.20, "motto": "晚霞 · 琴台 · 桃花"},
+	"万剑门": {"k": "wanjian", "paper": Color("#EEEFF0"), "edge": Color("#5E6774"), "ink": Color("#2A313C"), "wash": Color("#E4E6E8"), "wa": 0.22, "hy": 0.24, "motto": "剑痕 · 山风 · 铁色"},
+	"古战场": {"k": "guzhan", "paper": Color("#F4EAD6"), "edge": Color("#94622F"), "ink": Color("#663F1C"), "wash": Color("#EADCC0"), "wa": 0.24, "hy": 0.15, "motto": "黄沙 · 断戟 · 残碑"},
+	"秘境": {"k": "mijing", "paper": Color("#E8F3F0"), "edge": Color("#2A8178"), "ink": Color("#1B5550"), "wash": Color("#CFE6E1"), "wa": 0.12, "hy": 0.15, "motto": "石门 · 灵光 · 深潭"},
+	"血煞门": {"k": "xuesha", "paper": Color("#F6E8E5"), "edge": Color("#8A2626"), "ink": Color("#6A1616"), "wash": Color("#E9C9C3"), "wa": 0.12, "hy": 0.14, "motto": "赤山 · 血池 · 黑鸟"},
+}
+## 当前这一屏用哪处的纸色（_refresh 清空；游历页设上）——card() 照着它换底色和边饰
+var place_look: Dictionary = {}
+
+func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
+	var pc: Color = lk["paper"]
+	var ec: Color = lk["edge"]
+	var sb = _sb(Color(pc.r, pc.g, pc.b, 0.94), Color(ec.r, ec.g, ec.b, 0.55), 8, 1, 10)
+	sb.border_width_left = 4          # 左边一道这地方颜色的“墨条”
+	sb.shadow_color = Color(ec.r, ec.g, ec.b, 0.16)
+	sb.shadow_size = 3
+	return sb
+
+## 游历页题头：取这地方底图最有辨识度的一段 + 地名、小景、气味小字
+func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
+	var vw: float = get_viewport_rect().size.x
+	var h := 118.0 if vw >= 380 else 104.0
+	var box = PanelContainer.new()
+	var fr = _sb(Color(0, 0, 0, 0), lk["edge"], 8, 2, 0)
+	fr.draw_center = false
+	box.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	box.custom_minimum_size = Vector2(0, h)
+	box.clip_contents = true
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(box)
+	var t: Texture2D = tex("pl_" + String(lk["k"]))
+	if t != null:
+		var ts := t.get_size()
+		var bw := vw - 24.0
+		var rh := ts.x * h / bw
+		var at = AtlasTexture.new()
+		at.atlas = t
+		at.region = Rect2(0, clampf(ts.y * float(lk["hy"]) - rh / 2.0, 0.0, ts.y - rh), ts.x, rh)
+		var tr = TextureRect.new()
+		tr.texture = at
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(tr)
+	var ov = VBoxContainer.new()
+	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(ov)
+	# 右上角一枚小签：这地方的气味（松风 · 山涧 · 古藤 …）
+	var tg = HBoxContainer.new()
+	tg.alignment = BoxContainer.ALIGNMENT_END
+	tg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ov.add_child(tg)
+	var pc0: Color = lk["paper"]
+	var ml = L(String(lk["motto"]), 12, lk["ink"], tg)
+	ml.add_theme_stylebox_override("normal", _sb(Color(pc0.r, pc0.g, pc0.b, 0.8), Color(0, 0, 0, 0), 0, 0, 3))
+	var sp = Control.new()
+	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ov.add_child(sp)
+	var rb = PanelContainer.new()
+	var pc: Color = lk["paper"]
+	rb.add_theme_stylebox_override("panel", _sb(Color(pc.r, pc.g, pc.b, 0.86), Color(0, 0, 0, 0), 0, 0, 6))
+	rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ov.add_child(rb)
+	var r = row(rb, 8)
+	IC("vig_" + String(lk["k"]), 34, r)
+	H(p, 24, lk["ink"], r)
+	var sl = L(sub, 13, C_DIM, r)
+	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.clip_text = true
+	var frame = Panel.new()
+	frame.add_theme_stylebox_override("panel", fr)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(frame)
+	return sl
+
 # ------------------------------------------------------------ 出发（路线图预览 + 行囊）
 func _trip_bg() -> String:
 	if g.s.get("loc", "") == "roam":
-		return String(TV.PL.get(String(g.s["roam"].get("pl", "")), {}).get("bg", "bg_shandao"))
+		var rp := String(g.s["roam"].get("pl", ""))
+		if PLACE_LOOK.has(rp):
+			return "pl_" + String(PLACE_LOOK[rp]["k"])
+		return String(TV.PL.get(rp, {}).get("bg", "bg_shandao"))
 	var rid = String(g.s.get("trip", {}).get("route", selected_route)) if g.s.get("loc", "") == "trip" else selected_route
 	return "bg_houshan" if rid == "houshan" else "bg_hantan"
 
@@ -2066,18 +2162,36 @@ func _depart() -> void:
 		if TV.unlocked(W, p):
 			var ka: Array = TV.known_at(W, p)
 			var lab = "%s\n%d日%s" % [p, TV.dist(TV.HOME, p), ("·熟人%d" % ka.size()) if not ka.is_empty() else ""]
-			var b = hotspot(lab, "", at, func(): sel_place = pn; sheet = "place", 84)
-			b.custom_minimum_size = Vector2(84, 46)
-			b.size = Vector2(84, 46)
+			var mlk: Dictionary = PLACE_LOOK.get(p, {})
+			var vig := ("vig_" + String(mlk["k"])) if not mlk.is_empty() else ""
+			var b = hotspot(lab, vig, at, func(): sel_place = pn; sheet = "place", 100)
+			b.custom_minimum_size = Vector2(100, 46)
+			b.size = Vector2(100, 46)
+			b.position.x = at.x - 50.0
 			b.add_theme_font_size_override("font_size", 13)
+			b.add_theme_constant_override("icon_max_width", 30)
+			b.add_theme_constant_override("h_separation", 4)
+			if not mlk.is_empty():
+				# 地名框染成这地方的颜色：纸色底 + 本地边饰 + 本地墨色字
+				var pc: Color = mlk["paper"]
+				var ms = _sb(Color(pc.r, pc.g, pc.b, 0.93), mlk["edge"], 16, 2, 4)
+				b.add_theme_stylebox_override("normal", ms)
+				b.add_theme_stylebox_override("hover", ms)
+				b.add_theme_stylebox_override("focus", ms)
+				b.add_theme_color_override("font_color", mlk["ink"])
+				b.add_theme_color_override("font_hover_color", mlk["ink"])
 			if sel_place == p:
 				var hs = _sb(Color(1.0, 0.95, 0.85, 0.95), C_WARN, 16, 2, 4)
 				b.add_theme_stylebox_override("normal", hs)
 				b.add_theme_stylebox_override("hover", hs)
 		elif TV.heard_n(W, p) > 0:
 			# 听过风声、还去不了：淡淡一个“？”，点开看传闻和还差什么
-			var b2 = hotspot("%s？" % p, "", at, func(): sel_place = pn; sheet = "place", 80)
+			var hlk: Dictionary = PLACE_LOOK.get(p, {})
+			var b2 = hotspot("%s？" % p, ("vig_" + String(hlk["k"])) if not hlk.is_empty() else "", at, func(): sel_place = pn; sheet = "place", 92)
 			b2.add_theme_font_size_override("font_size", 13)
+			b2.add_theme_constant_override("icon_max_width", 24)
+			b2.add_theme_color_override("icon_normal_color", Color(1, 1, 1, 0.4))   # 只听过：小景淡淡的
+			b2.add_theme_color_override("icon_hover_color", Color(1, 1, 1, 0.55))
 			b2.add_theme_color_override("font_color", C_DIM)
 			var ds = _sb(Color(0.985, 0.97, 0.935, 0.55), Color(0.29, 0.25, 0.2, 0.35), 16, 1, 4)
 			b2.add_theme_stylebox_override("normal", ds)
@@ -2170,14 +2284,21 @@ func _roam() -> void:
 	var rm: Dictionary = g.s["roam"]
 	var p := String(rm["pl"])
 	var pl: Dictionary = TV.PL[p]
-	_stage_image(String(pl["bg"]), 0.42)
-	var tag = PanelContainer.new()
-	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.88), Color(0, 0, 0, 0), 8, 0, 6))
-	body.add_child(tag)
-	var tr = row(tag)
-	H(p, 24, C_ACCENT, tr)
-	var sl = L("游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()], 13, C_DIM, tr)
-	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# v0.11.2：每处一套画风——底图、题头、纸色、边饰（PLACE_LOOK）
+	var lk: Dictionary = PLACE_LOOK.get(p, {})
+	if lk.is_empty():
+		_stage_image(String(pl["bg"]), 0.42)
+		var tag = PanelContainer.new()
+		tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.88), Color(0, 0, 0, 0), 8, 0, 6))
+		body.add_child(tag)
+		var tr = row(tag)
+		H(p, 24, C_ACCENT, tr)
+		var sl0 = L("游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()], 13, C_DIM, tr)
+		sl0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	else:
+		_stage_image("pl_" + String(lk["k"]), float(lk["wa"]), lk["wash"])
+		_place_banner(p, lk, "游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()])
+		place_look = lk
 	# 今天去哪：每个小去处 1 日、1 份干粮
 	var sc = card()
 	L("今天去哪儿走走（各 1 日）", 14, C_INK, sc)
@@ -3107,7 +3228,8 @@ func _dev(cmd: String) -> String:
 				sheet = "place"
 			if cmd in ["roam", "meet"]:
 				sheet = ""
-				g.start_roam("坊市")
+				W.w["unl"][dev_roam_pl] = 1
+				g.start_roam(dev_roam_pl)
 				W.close()
 				g.roam_spot(0)
 				W.close()
@@ -3117,6 +3239,20 @@ func _dev(cmd: String) -> String:
 				W.w["appr"] = -1
 				TV.approach(W, int(who[0]["id"]), "坊市", "茶肆")
 			g.notices.clear()
+			_save()
+			refresh()
+		_ when cmd.begins_with("roam:"):
+			# 调试（v0.11.2）：在指定一处游历，看各地画风
+			dev_roam_pl = cmd.substr(5)
+			var rr := _dev("roam")
+			dev_roam_pl = "坊市"
+			return rr
+		"map_all":
+			# 调试（v0.11.2）：12 处全认得，看世界图小景
+			_dev("map")
+			for q in TV.ORDER:
+				g.world.w["unl"][q] = 1
+			g.world.w["heard"] = {}
 			_save()
 			refresh()
 		_ when cmd.begins_with("npcsheet"):
