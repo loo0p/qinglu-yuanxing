@@ -116,6 +116,7 @@ with sync_playwright() as p:
     gear['shop_open'] = tap('器物铺', 1200)
     step('v14_shop', gear['shop_open'])
     goods = [t for t, _, _ in btns() if t.endswith(' 灵石') and ' · ' in t]
+    goods.sort(key=lambda t: ('×' in t, int(t.split(' · ')[-1].split()[0]) if t.split(' · ')[-1].split()[0].isdigit() else 999))   # 先买能装上的、便宜的
     gear['goods'] = goods[:6]
     bought = None
     for gd in goods:
@@ -155,6 +156,7 @@ with sync_playwright() as p:
                 step('v14_unequipped', gear['unequipped'])
     res['gear'] = gear
     clear_dialogs()
+    tap('青庐', 1200)
     ok = tap('静室', 1200) and tap('十年', 6000)   # 长闭关（十年；修为满会提前出关）
     step('seclude', ok)
     clear_dialogs()

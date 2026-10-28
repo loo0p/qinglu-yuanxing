@@ -131,7 +131,14 @@ static func make(gs, W, rng: RandomNumberGenerator, pid: String, g: int, origin:
 			if base.contains(ch):
 				clash = true
 		it["n"] = (pre + base) if not clash else (pre.substr(0, 1) + base)
+	elif String(it["n"]).length() == 1:
+		# v0.14 修：没抽到前缀的单字器物（剑、戒、簪…）补个材质，不在铺子里只写一个“剑”
+		var plain: Dictionary = PLAIN_HI if g >= 1 else PLAIN_LO
+		it["n"] = String(plain.get(String(it["n"]), String(it["n"])))
 	return it
+
+const PLAIN_LO := {"剑": "铁剑", "伞": "油纸伞", "铃": "铜铃", "印": "石印", "簪": "木簪", "戒": "铜戒"}
+const PLAIN_HI := {"剑": "精钢剑", "伞": "青罗伞", "铃": "紫铜铃", "印": "青石印", "簪": "银簪", "戒": "银戒"}
 
 static func grade_name(it: Dictionary) -> String:
 	return GRADES[clampi(int(it.get("g", 0)), 0, 4)]
