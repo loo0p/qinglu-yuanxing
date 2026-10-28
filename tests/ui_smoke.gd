@@ -19,6 +19,25 @@ func buttons(n: Node, out: Array) -> Array:
 		buttons(c, out)
 	return out
 
+func _count_faces(n: Node) -> int:
+	var k := 0
+	if n.get_script() == preload("res://scripts/portrait_box.gd") and n.is_visible_in_tree():
+		k += 1
+	for ch in n.get_children():
+		k += _count_faces(ch)
+	return k
+
+func _has_text(n: Node, words: Array) -> bool:
+	if n is Label or n is Button:
+		for wd in words:
+			if String(n.text).find(wd) >= 0:
+				log_lines.append("有男修/女修字样：" + n.text)
+				return true
+	for ch in n.get_children():
+		if _has_text(ch, words):
+			return true
+	return false
+
 func _find(prefix: String):
 	for b in buttons(main, []):
 		if not b.disabled and b.text.replace("● ", "").begins_with(prefix):
@@ -108,6 +127,23 @@ func _go() -> void:
 	if gw0:
 		gw0.w["appr"] = -1
 		main.refresh()
+	# v0.11.1：这一带的人是画像卡（名字 + 画像），不写“男修/女修”
+	var ppl_here: int = main.TV.present_at(gw0, "坊市").size() if gw0 else 0
+	var faces := _count_faces(main)
+	var gender_txt := _has_text(main, ["男修", "女修"])
+	var cards_ok := (ppl_here == 0 or faces >= mini(ppl_here, 1)) and not gender_txt
+	log_lines.append("游历页画像卡（在场 %d 人，画像 %d 张，无男修/女修字样）：%s" % [ppl_here, faces, "PASS" if cards_ok else "FAIL"])
+	rm_ok = rm_ok and cards_ok
+	# 点画像卡 = 看看这个人，看完回游历页
+	if ppl_here > 0:
+		var look_ok := false
+		for b in buttons(main.body, []):
+			if b.text == "" and _count_faces(b) > 0:
+				b.pressed.emit()
+				look_ok = main.modal.get("kind", "") == "person" and click("回坊市") and main.g.s["loc"] == "roam" and main.modal.is_empty()
+				break
+		log_lines.append("点画像卡看人、再回游历页：" + ("PASS" if look_ok else "FAIL"))
+		rm_ok = rm_ok and look_ok
 	rm_ok = rm_ok and click("上前")
 	drain_story()
 	rm_ok = rm_ok and gw0 != null and int(gw0.w["fired"].get("相逢", 0)) > meet0
@@ -119,7 +155,8 @@ func _go() -> void:
 	ok = ok and rm_ok
 	var jh := true
 	var gw = main.g.world
-	# 江湖页与人物卡能打开
+	# 江湖页与人物卡能打开（回家时可能正好弹出一件事，先读完）
+	drain_story()
 	main.tab = "jianghu"
 	main.modal = {}
 	main.refresh()

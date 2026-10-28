@@ -31,7 +31,7 @@ func _handle(g, k: int, rec: Array = []) -> String:
 		return ""
 	var tid := String(ev["tid"])
 	var t0 := String(ev["text"])
-	if _bad(t0) or t0.length() > 170:
+	if _bad(t0) or t0.length() > 170 or (tid in ["相逢", "偶遇"] and (t0.contains("男修") or t0.contains("女修"))):
 		bad_txt.append("%s：%s" % [tid, t0])
 	var opts: Array = ev["opts"]
 	var o: Array = opts[k % opts.size()]
@@ -211,7 +211,7 @@ func _init() -> void:
 				other += 1
 	ok(other >= 20, "游历时全局的事照样发生（地点×事件 %d 种）" % other)
 	ok(int(stat.get("引路", 0)) >= 3, "熟人引路出现过（%d 次）" % int(stat.get("引路", 0)))
-	ok(bad_txt.is_empty(), "游历中的事：无空文字/占位符、正文 ≤170 字（%s）" % ("; ".join(bad_txt.slice(0, 3))))
+	ok(bad_txt.is_empty(), "游历中的事：无空文字/占位符、正文 ≤170 字、相逢/偶遇不写男修女修（%s）" % ("; ".join(bad_txt.slice(0, 3))))
 	# ② 人在各地走动
 	var x = W.new()
 	x.create(77, "苏青禾")

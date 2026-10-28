@@ -6,7 +6,7 @@ extends Control
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.11 试玩版"
+const VERSION = "v0.11.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2107,10 +2107,12 @@ func _sheet_place(v: Node) -> void:
 	if ka.is_empty():
 		_wl("听说那边人来人往，认得的人倒没听说在。", 13, C_DIM, v)
 	else:
-		var ws := []
+		_wl("熟人在那边%s" % ("（%d 位）" % ka.size() if ka.size() > 4 else "："), 14, C_ACCENT, v)
+		var ar = HBoxContainer.new()
+		ar.add_theme_constant_override("separation", 6)
+		v.add_child(ar)
 		for c in ka.slice(0, 4):
-			ws.append(String(c["name"]))
-		_wl("熟人在那边：%s%s" % ["、".join(ws), "等" if ka.size() > 4 else ""], 14, C_ACCENT, v)
+			_mini_face(c, 60.0, ar)
 	var pr = row(v, 6)
 	IC("ico_ration", 28, pr)
 	var rl = L("干粮 %d/12%s" % [int(g.s["ration"]), "（来回就要 %d）" % (d * 2) if int(g.s["ration"]) < d * 2 + 1 else ""], 14, C_WARN if int(g.s["ration"]) < d * 2 + 1 else C_TEXT, pr)
@@ -2195,30 +2197,31 @@ func _roam() -> void:
 	L("这一带的人" + ("" if can else "（今天已上前搭过话）"), 14, C_INK, pc)
 	var here: Array = TV.present_at(W, p)
 	var show := []
-	var strangers := 0
 	for c in here:
-		if W.known(c):
-			if show.size() < 3:
-				show.append(c)
-		elif strangers < 2:
+		if W.known(c) and show.size() < 3:
 			show.append(c)
-			strangers += 1
+	for c in here:
+		if not W.known(c) and show.size() < 5:
+			show.append(c)
 	if show.is_empty():
 		L("今天没碰见什么人。", 13, C_DIM, pc)
 	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
-	for c in show:
-		var cid = int(c["id"])
-		var rr = row(pc, 6)
-		var known: bool = W.known(c)
-		var ln = L(String(c["name"]) if known else TV._who(W, c), 14, C_TEXT if known else C_DIM, rr)
-		ln.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		ln.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		ln.clip_text = true
-		if known:
-			var kb = B("看看", func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}, true, rr, 40)
-			kb.add_theme_font_size_override("font_size", 13)
-		var ab = B("上前", func(): _approach(cid, p, spn), can, rr, 40)
-		ab.add_theme_font_size_override("font_size", 13)
+	# v0.11.1：画像卡（点卡 = 看看；下面“上前”）。生面孔也是 TA 自己的画像和名字，日后认得了还是这张脸
+	if not show.is_empty():
+		var vw: float = get_viewport_rect().size.x
+		var cw: float = floorf(clampf((vw - 44.0) / 3.4, 92.0, 116.0))
+		if get_viewport_rect().size.y < 700:
+			cw = 80.0   # 矮屏：卡小一点，上前按钮不被底栏压住
+		var sc2 = ScrollContainer.new()
+		sc2.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc2.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if show.size() * (cw + 6) > vw - 40 else ScrollContainer.SCROLL_MODE_DISABLED
+		sc2.custom_minimum_size = Vector2(0, cw * 1.08 + 36 + 44 + 6)
+		pc.add_child(sc2)
+		var hb2 = HBoxContainer.new()
+		hb2.add_theme_constant_override("separation", 6)
+		sc2.add_child(hb2)
+		for c in show:
+			_roam_card(W, c, cw, can, p, spn, hb2)
 	var lg: Array = rm.get("log", [])
 	if not lg.is_empty():
 		var lc = card()
@@ -2239,6 +2242,64 @@ func _roam() -> void:
 		var rb = B("走姑母的路书：%s" % g.routes[String(pl["route"])]["name"], func(): g.roam_route(), true, xr, 40)
 		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rb.add_theme_font_size_override("font_size", 13)
+
+## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
+func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
+	var cid := int(c["id"])
+	var cell = Button.new()
+	cell.custom_minimum_size = Vector2(cw, cw * 1.08 + 20)
+	cell.pressed.connect(func(): _press(func(): sheet = ""; person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
+	parent.add_child(cell)
+	var v = VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 2; v.offset_top = 2; v.offset_right = -2; v.offset_bottom = -1
+	v.add_theme_constant_override("separation", 0)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(v)
+	var pb = PBox.new()
+	pb.custom_minimum_size = Vector2(cw - 4, cw * 1.08 - 4)
+	v.add_child(pb)
+	pb.setup(npc_spec(c), PBox.FACE, 0.0)
+	var nl = L(String(c["name"]), 11, C_TEXT, v)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nl.clip_text = true
+
+const DOING := {"求财": "买卖", "交游": "说笑", "探秘": "寻宝", "扬名": "比试", "压人": "比试", "破境": "闭关", "复仇": "寻人", "寻仇": "寻人", "疗伤": "养伤", "求偶": "出神", "护人": "等人", "报恩": "寻人", "赎过": "赶路", "叛门": "匆匆"}
+
+func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, parent: Node) -> void:
+	var cid := int(c["id"])
+	var known: bool = W.known(c)
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 4)
+	parent.add_child(col)
+	var cell = Button.new()
+	cell.custom_minimum_size = Vector2(cw, cw * 1.08 + 36)
+	cell.pressed.connect(func(): _press(func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
+	col.add_child(cell)
+	var v = VBoxContainer.new()
+	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 3; v.offset_top = 3; v.offset_right = -3; v.offset_bottom = -2
+	v.add_theme_constant_override("separation", 0)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(v)
+	var pb = PBox.new()
+	pb.custom_minimum_size = Vector2(cw - 6, cw * 1.08 - 6)
+	v.add_child(pb)
+	pb.setup(npc_spec(c), PBox.FACE, 0.0)
+	var nl = L(String(c["name"]), 14, C_TEXT if known else C_INK, v)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nl.clip_text = true
+	var k := String(c.get("dr", {}).get("k", "交游"))
+	var rw: String = W.rel_word(c) if known else String(c["sect"])
+	var hc = C_WARN if rw in ["仇", "有隙"] else C_DIM
+	var hl = L("%s·%s" % [rw, DOING.get(k, "闲逛")], 11, hc, v)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hl.clip_text = true
+	var ab = B("上前", func(): _approach(cid, p, spn), can, col, 44)
+	ab.add_theme_font_size_override("font_size", 14)
 
 func _roam_spot(i: int) -> void:
 	var r: Dictionary = g.roam_spot(i)
@@ -2871,7 +2932,11 @@ func _person() -> void:
 				L("%s对她还没什么印象。" % ("她" if c["sex"] == "女" else "他"), 13, C_DIM, cc)
 			for m in ms:
 				L("第%d日  %s" % [int(m[0]), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
-	B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 46)
+	if String(g.s.get("loc", "")) == "roam" and tab != "jianghu":
+		# v0.11.1：从游历页的画像卡点开的，看完回游历页
+		B("回%s" % String(g.s["roam"].get("pl", "")), func(): modal = {}; life_all = false, true, footer, 46)
+	else:
+		B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 46)
 
 ## 生平时间线：按历法分月（第 1 日是正月初一，30 日一月；节令也按这个历），近的月份在上、月内按日先后；每条右侧是提到的人的小头像（点开看此人）
 func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:

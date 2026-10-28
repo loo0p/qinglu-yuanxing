@@ -1345,8 +1345,8 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 	match tid:
 		"偶遇":
 			var where := pv("偶遇地", ["山道上", "溪边石桥上", "坊市口", "雨后的竹林里", "去寒潭的小路上", "茶棚檐下", "镇口的老槐树下", "渡口的石阶上", "古松底下", "落了薄雪的石阶上", "坊市的书摊前"])
-			var who: String = ("一个散修" if n["sect"] == "散修" else "一个%s的%s" % [n["sect"], "女修" if n["sex"] == "女" else "男修"])
-			return {"speaker": int(n["id"]), "anon": true, "text": pv("偶遇式", ["{w}，她遇见{who}，{r}。{h}。", "{w}，迎面来了{who}，看气息是{r}。{h}。", "{w}，有人同她打了个照面：{who}，{r}。{h}。", "她在{w}歇脚，来了{who}，{r}。{h}。"]).format({"w": where, "who": who, "r": realm(n), "h": _hint(n)}),
+			var who: String = TV._who(self, n)
+			return {"speaker": int(n["id"]), "text": pv("偶遇式", ["{w}，她遇见{who}，{r}。{h}。", "{w}，迎面来了{who}，看气息是{r}。{h}。", "{w}，有人同她打了个照面：{who}，{r}。{h}。", "她在{w}歇脚，来了{who}，{r}。{h}。"]).format({"w": where, "who": who, "r": realm(n), "h": _hint(n)}),
 				"opts": [_o("go", "结伴走一程"), _o("bye", "拱手别过")]}
 		"求助":
 			var where2 := pv("求助地", ["寒潭边", "青庐柴门外", "后山的山涧里", "坊市后巷", "去镇上的半路"]) if String(w.get("here", "青庐")) == "青庐" else pv("求助路", ["%s的山涧里", "%s路边的草窠里", "%s的一块大石后头", "去%s的半路上"]) % String(w["here"])

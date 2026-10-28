@@ -28,7 +28,7 @@ const PL = {
 		"spots": [["芦荡", "芦花齐腰，风一过便是一片白浪", "herb"], ["渔村", "渔人晒着网，说起泽里的怪事", "news"], ["水下洞", "要憋一口长气才潜得下去", "ls"]]},
 	"玄霜谷": {"d": 3, "xy": [0.18, 0.33], "bg": "bg_hantan", "hint": "西北有座终年落雪的山谷，谷里的人说话也冷。",
 		"spots": [["冰瀑", "整面瀑布冻成了一块玉", "wu"], ["谷口", "守谷的弟子呵着白气", "news"], ["霜林", "树上挂着冰凌，一碰叮当作响", "herb"]]},
-	"落霞宫": {"d": 3, "xy": [0.40, 0.26], "bg": "bg_chasi", "hint": "落霞宫建在晚霞里，宫中女修多半善琴。",
+	"落霞宫": {"d": 3, "xy": [0.40, 0.26], "bg": "bg_chasi", "hint": "落霞宫建在晚霞里，宫中弟子多半善琴。",
 		"spots": [["霞亭", "黄昏时整座亭子都是红的", "wu"], ["琴台", "琴声从台上传下来，听的人都不说话", "wu"], ["宫外集", "卖胭脂的、卖琴弦的挤在一处", "ls"]]},
 	"万剑门": {"d": 3, "xy": [0.62, 0.21], "bg": "bg_leitai", "hint": "万剑门的山像一柄倒插的剑，门下弟子个个好斗。",
 		"spots": [["试剑台", "台上台下都是剑痕", "wu"], ["剑冢", "插满了主人已不在的剑", "ls"], ["山门", "来挑战的人在门外排着", "news"]]},
@@ -395,7 +395,8 @@ static func _o(id: String, label: String) -> Array:
 static func _who(W, n: Dictionary) -> String:
 	if W.known(n):
 		return String(n["name"])
-	return ("一个散修" if n["sect"] == "散修" else "一个%s的%s" % [n["sect"], "女修" if n["sex"] == "女" else "男修"])
+	# v0.11.1：不写“男修/女修”，生面孔也直接给名字（画像也是这个人的）
+	return ("散修%s" if n["sect"] == "散修" else String(n["sect"]) + "的%s") % String(n["name"])
 
 static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 	var n: Dictionary = W.C(roles["B"])
@@ -420,7 +421,7 @@ static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dicti
 			elif W.known(n) and W.opinion(n, W.P()) > 5:
 				opts.append(_o("join", "结伴走走"))
 			opts.append(_o("bye", "点个头走开"))
-			return {"speaker": int(n["id"]), "anon": not W.known(n), "text": text, "opts": opts}
+			return {"speaker": int(n["id"]), "text": text, "opts": opts}
 	return {"speaker": 0, "text": "", "opts": [_o("ok", "知道了")]}
 
 static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
