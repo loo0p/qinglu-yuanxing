@@ -65,12 +65,20 @@ const FEAT_SWAP := {"eyes:base_f5": "eyes:base_f4", "eyes:fx_m2@base_m": "eyes:f
 	"eyes:fx_m5@base_m": "eyes:base_m2", "brows:fx_m4@base_m": "brows:fx_m1@base_m", "brows:fx_m2@base_m": "brows:base_m2",
 	"brows:fx_m5@base_m": "brows:base_m4", "brows:base_f5": "brows:base_f4"}
 const F5_TO := ["base_f", "base_f2", "base_f4"]
+## v0.10.2：男修窄长脸底模 base_m4（中庭长、下巴尖，配披发时像脸被夹窄——玩家截图圈出的那位）→ 换成 m/m2/m3 之一（按五官签定）
+const M4_TO := ["base_m", "base_m2", "base_m3"]
 
 static func render_spec(sp: Dictionary) -> Dictionary:
 	var out: Dictionary = sp.duplicate(true)
 	if out.get("base", "") == "base_f5":
 		var f: Dictionary = out.get("feats", {})
 		out.base = F5_TO[absi(hash(str(f.get("eyes", "")) + str(f.get("mouth", "")))) % F5_TO.size()]
+	elif out.get("base", "") == "base_m4":
+		var f4: Dictionary = out.get("feats", {})
+		out.base = M4_TO[absi(hash(str(f4.get("eyes", "")) + str(f4.get("mouth", "")))) % M4_TO.size()]
+	# v0.10.2：鼻梁横疤（scar_nose）在小图上读成“鼻头肿了一块”，不再画（其余疤痕照旧）
+	if out.has("marks") and "scar_nose" in out.marks:
+		out.marks = out.marks.filter(func(m): return m != "scar_nose")
 	var feats: Dictionary = out.get("feats", {})
 	for reg in feats.keys():
 		var v = feats[reg]

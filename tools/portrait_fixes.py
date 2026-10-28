@@ -61,9 +61,55 @@ def fix(rel, im):
         return Image.fromarray(a.clip(0, 255).astype(np.uint8), "RGBA")
     if rel.startswith("feat/") and LIB is not None:
         return fix_feat(rel, im)
+    if LIB is not None and rel.startswith(("parts/hair_f", "parts/hair_m")) and not rel.startswith(("parts/hair_fe", "parts/hair_me")):
+        if rel.count(".") == 1:
+            im = fix_hair_ghost(rel, im)
+        return fix_hair_face(rel, im)
     if LIB is not None and rel.startswith(("parts/hair_", "parts/acc_")) and rel.count(".") == 1:
         return fix_hair_ghost(rel, im)
     return im
+
+
+# ---------------------------------------------------------------- v0.10.2：披发的鬓丝压进脸颊，脸被“挤窄”
+def fix_hair_face(rel, im):
+    """散乱披发（hair_m8、hair_m6、hair_m4、hair_f9 等）有几缕发丝从鬓角斜压进脸颊、眼角，
+    在原生脸上还好，配到窄长脸上就像脸被两边的头发夹窄、下巴变尖（玩家截图圈出的那位：base_m4 + hair_m8）。
+    这里把底模脸部皮肤（头部遮罩 R，向内收 3px）在眼睛以下的部分里的发丝去掉（2px 羽化），
+    并同步去掉 aux 里该处的“保留发丝”标记，让换到别的脸型时那张脸自己的脸部保护（head_mask.G）生效。
+    额前刘海、眉上的发丝不动。"""
+    import cv2, os
+    stem = os.path.basename(rel).split(".")[0]
+    key = stem.replace("-base_", "@base_")
+    e = LIB["parts"].get(key)
+    if e is None:
+        return im
+    base = key.split("@")[1]
+    mp = os.path.join(SRC, "heads", base + ".mask.png")
+    if not os.path.exists(mp):
+        return im
+    skin = (np.array(Image.open(mp).convert("RGB"))[..., 0] > 128).astype(np.uint8)
+    skin = cv2.erode(skin, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    ey = int(LIB["heads"][base]["anchors"]["eyes"][1])
+    cut = cv2.GaussianBlur(skin.astype(np.float32), (0, 0), 2.0)
+    # 竖向渐隐：眉上 18px 起到眼线处由 0 → 1，发丝是“淡出”而不是齐刷刷一刀（hair_m8 的额发底边本身是一条横线，也一并淡掉）
+    by = int(LIB["heads"][base]["anchors"]["brows"][1])
+    t = np.clip((np.arange(cut.shape[0], dtype=np.float32) - (by - 18)) / float(max(8, ey - 4 - (by - 18))), 0, 1)
+    t = (t * t * (3 - 2 * t))[:, None]
+    # 眉眼之间这一带只清两侧（鬓丝压眼角/颧骨）；正中的刘海是发型本身，留着，眼睛以下才全清
+    cx = float(LIB["heads"][base]["anchors"]["nose"][0])
+    lat = np.clip((np.abs(np.arange(cut.shape[1], dtype=np.float32) - cx) - 16.0) / 18.0, 0, 1)[None, :]
+    below = np.clip((np.arange(cut.shape[0], dtype=np.float32) - ey) / 12.0, 0, 1)[:, None]
+    cut *= t * np.maximum(lat, below)
+    a = np.array(im.convert("RGBA")).astype(np.float32)
+    h, w = a.shape[:2]; x0, y0 = e["pos"]
+    C = cut[y0:y0 + h, x0:x0 + w]
+    C = np.pad(C, ((0, h - C.shape[0]), (0, w - C.shape[1])))
+    if rel.endswith(".aux.png"):
+        a[..., 0] *= (1.0 - C)          # R = 保留发丝；G（脸部保护）不变
+    else:
+        a[..., 3] *= (1.0 - C)
+    out = Image.fromarray(a.clip(0, 255).astype(np.uint8), "RGBA")
+    return out.convert("RGB") if im.mode == "RGB" else out
 
 
 # ---------------------------------------------------------------- v0.9.3：发髻里夹带的“底模衣袍幽灵线”

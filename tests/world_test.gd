@@ -208,6 +208,10 @@ func _init() -> void:
 		if int(String(s10["robe"]).get_slice("@", 0).substr(6)) >= 10: new_kinds[s10["robe"]] = true
 		if String(s10["robe"]).begins_with("robe_f11") or String(s10["robe"]).begins_with("robe_m11"): pref_hit += 1
 	ok(same9 and new_kinds.size() >= 5 and pref_hit >= 12, "robe_v 只换袍子、不动脸和别的签；新袍 %d 种，药王谷穿药师服 %d/80" % [new_kinds.size(), pref_hit])
+	# v0.10.2：窄长脸 base_m4 只在画时换脸型（存档里的签不变），鼻梁横疤不再画；玩家截图圈出的那位（npcsheet:1 #6）
+	var circ := {"base": "base_m4", "feats": {"eyes": "eyes:fx_m2@base_m", "mouth": "mouth:base_m3"}, "marks": ["scar_nose", "scar_cheek"], "hair": "hair_m8@base_m"}
+	var rs: Dictionary = Portrait5View.render_spec(circ)
+	ok(rs.base in ["base_m", "base_m2", "base_m3"] and circ.base == "base_m4" and rs.marks == ["scar_cheek"] and circ.marks.size() == 2, "base_m4→%s（只改画法），scar_nose 不画" % rs.base)
 	# 文字重复度：玩家 100 日里读到的事件文字、结果、自己的生平，按句切开（人名换成“某”、数字换成 N、去掉括号里的数值提示），不同句子占比
 	var ur := 0.0
 	var worst := ""
