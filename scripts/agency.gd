@@ -848,7 +848,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 				a["inj"] = maxi(int(a["inj"]), 20)
 				var fz := int(a.get("fz", 0)) + 1
 				a["fz"] = fz
-				W.chron(a, ("寻%s报仇不成，负伤遁走。" if fz < 2 else W.pv("寻仇再败", ["又一次败给%s，这回伤得不轻。", "第%s回去寻%s，还是没讨到便宜。" % [str(fz), "%s"]])) % bn)
+				W.chron(a, ("寻%s报仇不成，负伤遁走。" if fz < 2 else W.pv("寻仇再败", ["又一次败给%s，这回伤得不轻。", "第%s回去寻%s，还是没讨到便宜。" % [W.cnum(fz), "%s"]])) % bn)
 				W.chron(b, "%s寻上门来，被打退了。" % an)
 				mem(W, a, b, "又败在%s手里" % bn, -12, "辱", aid)
 				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 15
@@ -891,7 +891,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			var got2 := _add_ls(b, -mini(_ls(b), W.rng.randi_range(3, 8)))
 			_add_ls(a, -got2)
 			if W.rng.randf() > px(a, "慎"):
-				W.chron(b, "丢了 %d 块灵石，后来才知道是%s手脚不干净。" % [-got2, an])
+				W.chron(b, "丢了%s块灵石，后来才知道是%s手脚不干净。" % [W.cnum(-got2), an])
 				mem(W, b, a, "%s偷过我的东西" % an, -12, "窃", aid)
 				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 12
 			else:
@@ -1478,7 +1478,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._inj(2)
 						_add_ls(n, -got2)
 						W.R(p, n)["g"] = int(W.R(p, n)["g"]) + 25
-						out = "她没打过。%s拿走了 %d 块灵石。\n（受伤：闭关炼化减半 2 日）" % [nm, -got2]
+						out = "她没打过。%s拿走了%s块灵石。\n（受伤：闭关炼化减半 2 日）" % [nm, W.cnum(-got2)]
 						W.chron(p, "在%s遭%s劫掠，带伤而回。" % [at, nm])
 						W.chron(n, "在%s劫了%s。" % [at, W.pn()])
 				"name", "bluff":
@@ -1490,7 +1490,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						var got3 = W._ling(-mini(14, W.lingshi()))
 						_add_ls(n, -got3)
 						W.R(p, n)["g"] = int(W.R(p, n)["g"]) + 20
-						out = "对方笑了：“那就更不能放你走了。”她赔上了 %d 块灵石才脱身。" % -got3
+						out = "对方笑了：“那就更不能放你走了。”她赔上了%s块灵石才脱身。" % W.cnum(-got3)
 						W.chron(p, "在%s被%s截了道。" % [at, nm])
 		"失窃":
 			var amt := int(ctx.get("amt", 5))
@@ -1507,7 +1507,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._ling(-amt)
 						_add_ls(n, amt)
 						out = "她追了半里，人影早没了。"
-						W.chron(p, "丢了 %d 块灵石，像是%s拿的。" % [amt, nm])
+						W.chron(p, "丢了%s块灵石，像是%s拿的。" % [W.cnum(amt), nm])
 				"let":
 					W._ling(-amt)
 					_add_ls(n, amt)
@@ -1518,7 +1518,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						out = "她什么也没说。过了几日，听说%s在坊市里一个人喝了很久的闷酒。" % nm
 					else:
 						out = "她没声张，只把灵石匣挪了地方。"
-					W.chron(p, "丢了 %d 块灵石，没有追究。" % amt)
+					W.chron(p, "丢了%s块灵石，没有追究。" % W.cnum(amt))
 				_:
 					W._ling(-amt)
 					W.R(p, n)["g"] = int(W.R(p, n)["g"]) + 10
@@ -1636,9 +1636,9 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						if W.g != null and not fake:
 							W.g.add_item(String(g2[0]), int(g2[1]))
 						W.R(n, p)["owe"] = int(W._rel(n, p).get("owe", 0)) + price
-						mem(W, n, p, "%s赊了我%d块灵石" % [W.pn(), price], -2, "欠", aid)
-						out = "%s想了想，让她先拿走了%s：“%d块，记着。”" % [nm, g2[2], price]
-						W.chron(p, "赊了%s %d 块灵石的账。" % [nm, price])
+						mem(W, n, p, "%s赊了我%s块灵石" % [W.pn(), W.cnum(price)], -2, "欠", aid)
+						out = "%s想了想，让她先拿走了%s：“%s块，记着。”" % [nm, g2[2], W.cnum(price)]
+						W.chron(p, "赊了%s%s块灵石的账。" % [nm, W.cnum(price)])
 				_:
 					out = W.pv("交易不", ["她摇了摇头，走开了。", "她看了看，没要。{n}也不在意，又去招呼别人。"]).format({"n": nm})
 		"讨债":
@@ -1657,7 +1657,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						out = "%s摆摆手：“那就下回。”" % nm
 					else:
 						W.R(n, p)["owe"] = owe + 2
-						out = "%s冷着脸：“再宽限，就是%d块了。”" % [nm, owe + 2]
+						out = "%s冷着脸：“再宽限，就是%s块了。”" % [nm, W.cnum(owe + 2)]
 				_:
 					W.R(n, p)["owe"] = 0
 					mem(W, n, p, "%s赖我的账" % W.pn(), -20, "负", aid)
@@ -1719,7 +1719,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					n["inj"] = maxi(0, int(n["inj"]) - 8)
 					_add_ls(n, -6)
 					mem(W, n, p, "从%s那里买过药" % W.pn(), 4, "交", aid)
-					out = "%s数了 %d 块灵石放在桌上，接过青芝，没多说什么。" % [nm, got]
+					out = "%s数了%s块灵石放在桌上，接过青芝，没多说什么。" % [nm, W.cnum(got)]
 				_:
 					if px(n, "傲") > 0.55 or px(n, "仇") > 0.55:
 						mem(W, n, p, "伤重时去求%s，%s说没有" % [W.pn(), "她"], -5, "拒", aid)
@@ -1737,7 +1737,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					var got2 = W._ling(W.rng.randi_range(6, 12))
 					W.R(p, n)["g"] = maxi(0, int(W.R(p, n)["g"]) - 20)
 					mem(W, n, p, "去向%s赔过罪" % W.pn(), 4, "了", aid)
-					out = "她收下了 %d 块灵石。%s松了口气：“那就……两清了。”" % [got2, nm]
+					out = "她收下了%s块灵石。%s松了口气：“那就……两清了。”" % [W.cnum(got2), nm]
 				_:
 					mem(W, n, p, "去赔罪，%s不受" % W.pn(), -5, "拒", aid)
 					if px(n, "傲") > 0.5:
@@ -1755,7 +1755,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					W._wu(2)
 					mem(W, n, p, "把身后事托给了%s" % W.pn(), 12, "托", aid)
 					W.fav(n, 6)
-					out = "木匣里是 %d 块灵石，一卷写满批注的手札。%s看着她收好，才放心似的闭了闭眼。\n（感悟 +2）" % [got3, nm]
+					out = "木匣里是%s块灵石，一卷写满批注的手札。%s看着她收好，才放心似的闭了闭眼。\n（感悟 +2）" % [W.cnum(got3), nm]
 				"deliver":
 					W._wu(3)
 					mem(W, n, p, "%s答应替我把东西送回%s" % [W.pn(), n["sect"]], 16, "托", aid)
@@ -1830,7 +1830,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				"take":
 					var got = W._ling(W.rng.randi_range(6, 12))
 					W.fav(n, 4)
-					out = "%s留下一只布包。打开来，是 %d 块灵石，还有一包%s。" % [nm, got, W._ch(n["likes"])]
+					out = "%s留下一只布包。打开来，是%s块灵石，还有一包%s。" % [nm, W.cnum(got), W._ch(n["likes"])]
 				"tea":
 					W.fav(n, 12, "%s留我喝了碗茶" % W.pn(), 6)
 					out = W.pv("还情茶", ["茶续了三回。{n}说起那日的事，她只笑说记不清了。", "两人对着灶火坐了半日。{n}走时，回头看了她一眼。"]).format({"n": nm}) + W._swap_ks(n)
@@ -2065,7 +2065,7 @@ static func why_lines(W, c: Dictionary) -> Array:
 	ms.sort_custom(func(a, b): return float(a[0]) > float(b[0]))
 	for x in ms.slice(0, 3):
 		var m: Array = x[1]
-		out.append("记着：%s（第%d日）" % [say(W, String(m[2])), int(m[0])])
+		out.append("记着：%s（%s）" % [say(W, String(m[2])), W.cal_text(int(m[0]))])
 	var tops := []
 	for a in AX:
 		if px(c, a) >= 0.62:

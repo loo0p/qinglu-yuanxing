@@ -30,7 +30,7 @@ func _count_faces(n: Node) -> int:
 func _has_text(n: Node, words: Array) -> bool:
 	if n is Label or n is Button:
 		for wd in words:
-			if String(n.text).find(wd) >= 0:
+			if String(n.text).replace("\u200b", "").find(wd) >= 0:
 				log_lines.append("有男修/女修字样：" + n.text)
 				return true
 	for ch in n.get_children():

@@ -607,12 +607,34 @@ func _clear(n: Node) -> void:
 const MIN_TAP := 44      # 可点控件最小边长（px，≈ CSS px）
 const MIN_FONT := 13     # 最小字号：360×640 下 11–12px 太小
 
+## v0.12.1 避头尾（禁则）：玩家版用的是 fallback 文字服务（无 ICU），中文只能在宽度到了的那个字断行，
+## 于是“。”会单独掉到下一行。做法：在汉字之间插零宽空格（U+200B）当断点，但标点前、开括号后不插——
+## 句号就和前一个字绑在一起，行尾放不下时连前一个字一起拉到下一行。只用于会自动换行的正文 Label。
+const ZW := "\u200b"
+const NO_START := "，。、；：？！）」』》〉】”’…—·％,.;:?!)]%~"
+const NO_END := "（「『《〈【“‘([("
+
+static func kt(t: String) -> String:
+	if t.length() < 2:
+		return t
+	var out := ""
+	var prev := ""
+	for i in t.length():
+		var c := t[i]
+		if prev != "" and prev != "\n" and c != "\n" and prev != " " and c != " " and c != ZW and prev != ZW:
+			var wide := prev.unicode_at(0) >= 0x2E80 or c.unicode_at(0) >= 0x2E80
+			if wide and not NO_START.contains(c) and not NO_END.contains(prev):
+				out += ZW
+		out += c
+		prev = c
+	return out
+
 func L(text: String, size: int = 16, color: Color = C_TEXT, parent: Node = null) -> Label:
 	size = maxi(size, MIN_FONT)
 	var l = Label.new()
-	l.text = text
 	var par: Node = parent if parent else body
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF if par is HBoxContainer else TextServer.AUTOWRAP_WORD_SMART
+	l.text = text if par is HBoxContainer else kt(text)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1717,8 +1739,8 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 	tl.visible_ratio = 1.0
 	if bs.size() > 0:
 		# 新的一段：逐字显出
-		var last_len = String(bs[min(beat_i, bs.size() - 1)]).length()
 		var total = tl.text.length()
+		var last_len = total - kt("".join(shown.slice(maxi(0, shown.size() - 2), shown.size() - 1)) if shown.size() > 1 else "").length()
 		tl.visible_characters = total - last_len
 		if TEXT_CHAR_S[text_speed] <= 0.0:
 			tl.visible_characters = -1

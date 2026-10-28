@@ -259,7 +259,7 @@ static func options(W, pt: Dictionary) -> Array:
 		"讨债":
 			var k := int(pt.get("owe", 1))
 			if ls >= k:
-				o.append(_o("pay", "替%s还了这%d块灵石" % [f["b"], k]))
+				o.append(_o("pay", "替%s还了这%s块灵石" % [f["b"], W.cnum(k)]))
 			o.append(_o("mediate", "劝%s宽限几日" % f["a"]))
 	o.append(_o("ignore", "不插手"))
 	if close_a and String(pt["v"]) in HOSTILE:
@@ -563,7 +563,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			_m(W, b, "%s替我还了欠%s的灵石" % [pn, f["a"]], 14, "助", aid)
 			_m(W, a, "%s替%s还了账，是个爽快人" % [pn, f["b"]], 4, "恩", aid)
 			out = W.pv("插手还债", ["她把{k}块灵石放在{a}面前。{a}数了两遍，收了。{b}知道后，红着眼来道谢。", "她替{b}把账清了。{b}说：“这钱我记着，一定还。”"]).format(f) + "（−%d 灵石）" % k2
-			W.chron(p, "替%s还了欠%s的%d块灵石。" % [f["b"], f["a"], k2])
+			W.chron(p, "替%s还了欠%s的%s块灵石。" % [f["b"], f["a"], W.cnum(k2)])
 		"stopfriend":
 			W.meet(a)
 			pt["p"] = 2

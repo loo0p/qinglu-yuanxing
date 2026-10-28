@@ -95,7 +95,32 @@ static func cal(day: int) -> Array:
 ## “正月十五”“次年三月初五”
 static func cal_text(day: int) -> String:
 	var c := cal(day)
-	return ("" if c[0] == 0 else ("次年" if c[0] == 1 else "第%d年" % (c[0] + 1))) + MONTH_NAMES[c[1] - 1] + cn_day(c[2])
+	return ("" if c[0] == 0 else ("次年" if c[0] == 1 else "第%s年" % cnum(c[0] + 1))) + MONTH_NAMES[c[1] - 1] + cn_day(c[2])
+
+## v0.12.1：给玩家看的叙述里一律用汉字数目（“第七回”“十二块灵石”），按钮上的数值注记（−3 灵石、感悟 +2）照旧用数字
+static func cnum(n: int) -> String:
+	var d := ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"]
+	if n < 0:
+		return "负" + cnum(-n)
+	if n < 10:
+		return d[n]
+	if n < 20:
+		return "十" + ("" if n == 10 else d[n % 10])
+	if n < 100:
+		return d[n / 10] + "十" + ("" if n % 10 == 0 else d[n % 10])
+	if n < 1000:
+		var r := n % 100
+		var t: String = d[n / 100] + "百"
+		if r == 0:
+			return t
+		return t + ("零" + d[r] if r < 10 else cnum(r))
+	if n < 10000:
+		var r2 := n % 1000
+		var t2: String = d[n / 1000] + "千"
+		if r2 == 0:
+			return t2
+		return t2 + ("零" + cnum(r2) if r2 < 100 else cnum(r2))
+	return str(n)
 
 static func cn_day(n: int) -> String:
 	var d := ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
@@ -2021,8 +2046,8 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				var got := _ling(rng.randi_range(8, 14))
 				fav(n, -50, "%s趁我重伤劫了我" % pn(), -45)
 				R(n, p)["g"] = int(R(n, p)["g"]) + 60
-				out = pv("求助劫", ["储物袋里有 %d 块灵石。她没回头。", "她解下那只储物袋，掂了掂，%d 块灵石。身后的人连骂都骂不出声。"]) % got
-				chron(p, "搜走了%s的储物袋，得灵石 %d。" % [nm, got])
+				out = pv("求助劫", ["储物袋里有%s块灵石。她没回头。", "她解下那只储物袋，掂了掂，%s块灵石。身后的人连骂都骂不出声。"]) % cnum(got)
+				chron(p, "搜走了%s的储物袋，得灵石%s块。" % [nm, cnum(got)])
 				chron(n, "重伤时被%s劫了储物袋。" % pn())
 				schedule(rng.randi_range(15, 40), "仇人上门", {"B": int(n["id"])})
 		"报恩":
@@ -2191,7 +2216,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					chron(p, "%s寻上青庐，她不敌，丹炉被踢翻。" % nm)
 			elif oid == "give":
 				var lost := _ling(-mini(8, lingshi()))
-				out = "%s把青庐翻了个底朝天，什么也没找到，顺手拿走了 %d 块灵石。" % [nm, -lost]
+				out = "%s把青庐翻了个底朝天，什么也没找到，顺手拿走了%s块灵石。" % [nm, cnum(-lost)]
 				chron(p, "%s来青庐翻找%s的遗物，一无所获。" % [nm, fr2])
 			else:
 				out = "她从后窗走了，在山里躲了两夜。回来时，柴门上多了一道剑痕。"
@@ -2542,7 +2567,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			elif oid == "cover":
 				var lost4 := _ling(-mini(6, lingshi()))
 				fav(n, 15, "%s替我担了事" % pn(), 18)
-				out = "她替%s把事了了，花了 %d 块灵石。%s跟在她后头，一路没说话。" % [nm, -lost4, ta(n)]
+				out = "她替%s把事了了，花了%s块灵石。%s跟在她后头，一路没说话。" % [nm, cnum(-lost4), ta(n)]
 				chron(p, "替%s%s担了一回事。" % [tb2, nm])
 			elif oid == "drag":
 				if _roll(pl, 4.0):
@@ -2626,7 +2651,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "pay":
 				var lost5 := _ling(-mini(6, lingshi()))
 				fav(n, 5)
-				out = "她把 %d 块灵石数给%s。借据当着她的面撕了，扔进了灶膛。" % [-lost5, nm]
+				out = "她把%s块灵石数给%s。借据当着她的面撕了，扔进了灶膛。" % [cnum(-lost5), nm]
 				chron(p, "替姑母还了%s一笔旧账。" % nm)
 			elif oid == "dan" and _has("pill_juqi"):
 				_use("pill_juqi")
@@ -2641,7 +2666,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					chron(p, "给%s炼了一炉丹，抵了旧债。" % nm)
 				else:
 					var lost6 := _ling(-mini(3, lingshi()))
-					out = "丹炼糊了。%s捏着鼻子，又要走了 %d 块灵石。" % [nm, -lost6]
+					out = "丹炼糊了。%s捏着鼻子，又要走了%s块灵石。" % [nm, cnum(-lost6)]
 					chron(p, "想用丹抵%s的债，炼糊了。" % nm)
 			else:
 				R(n, p)["g"] = int(R(n, p)["g"]) + 15
@@ -2735,7 +2760,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			elif oid == "buy":
 				var paid := _ling(-int(ctx.get("price", 0)))
 				_wu(3)
-				out = "她把%s买了回来，%s。放在丹炉旁，夜里炉火一映，像%s还坐在那儿。（感悟 +3）" % [mk, ("花了 %d 块灵石" % -paid) if paid < 0 else "拿两块干饼换的", nm]
+				out = "她把%s买了回来，%s。放在丹炉旁，夜里炉火一映，像%s还坐在那儿。（感悟 +3）" % [mk, ("花了%s块灵石" % cnum(-paid)) if paid < 0 else "拿两块干饼换的", nm]
 				chron(p, "在坊市赎回了当年送给%s的%s。" % [nm, mk])
 			else:
 				out = "她转身走开了。走出半条街，又回头看了一眼，东西已经被人买走了。"

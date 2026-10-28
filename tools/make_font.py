@@ -23,7 +23,7 @@ os.makedirs(R + "/fonts", exist_ok=True)
 open(R + "/fonts/glyphs.txt", "w", encoding="utf-8").write(body)   # 运行时用来判断名字能否显示
 open(R + "/fonts/glyphs_brush.txt", "w", encoding="utf-8").write(brush)   # 标题字缺字时退回正文字体
 for src, dst, chars in [(sys.argv[1], "WenKai-sub.ttf", body), (sys.argv[2], "MaShanZheng-sub.ttf", brush)]:
-    tf = "/tmp/_chars.txt"; open(tf, "w", encoding="utf-8").write(chars)
+    tf = "/tmp/_chars.txt"; open(tf, "w", encoding="utf-8").write(chars + "\u200b")   # 零宽空格：避头尾的断点（main.gd kt()）
     subprocess.run([sys.executable, "-m", "fontTools.subset", src, "--text-file=" + tf, "--output-file=" + R + "/fonts/" + dst,
                     "--layout-features=*", "--no-hinting", "--desubroutinize"], check=True)
     print(dst, len(chars), "字", os.path.getsize(R + "/fonts/" + dst), "bytes")

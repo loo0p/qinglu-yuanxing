@@ -333,7 +333,7 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 		"ls":
 			if W.rng.randf() < 0.6:
 				out["ls"] = W.rng.randi_range(1, 3 + rich * 2)
-				out["text"] = "在%s帮人搭了把手，得了 %d 块灵石。" % [sp[0], int(out["ls"])]
+				out["text"] = "在%s帮人搭了把手，得了%s块灵石。" % [sp[0], W.cnum(int(out["ls"]))]
 		"wu":
 			out["wu"] = W.rng.randi_range(2, 4 + rich)
 			out["text"] = "在%s静坐半日，心里有些明白了（感悟 +%d）。" % [sp[0], int(out["wu"])]
