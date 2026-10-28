@@ -325,6 +325,41 @@ func _go() -> void:
 	st_ok = st_ok and click("回去") and not main.show_settings
 	log_lines.append("设置（文字速度/音量存读）：" + ("PASS" if st_ok else "FAIL"))
 	ok = ok and st_ok
+	# v0.14：行囊页装备槽 → 器物抽屉 → 卸下 / 装上；坊市器物铺买一件；拍卖会举牌
+	var Gear = preload("res://scripts/gear.gd")
+	main._dev("equip")
+	var g2 = main.g
+	var eq_ok: bool = main.tab == "pack" and Gear.eq(g2, "fabao") != null
+	var fu = Gear.eq(g2, "fabao")
+	eq_ok = eq_ok and click("法宝\n") and main.sheet == "item" and click("卸下") and Gear.eq(g2, "fabao") == null
+	main.sheet = ""
+	main.refresh()
+	eq_ok = eq_ok and fu != null and click(Gear.full_name(fu)) and click("装上") and Gear.eq(g2, "fabao") != null
+	eq_ok = eq_ok and _find("方案一") != null or _find("存到一") != null
+	log_lines.append("行囊页装备：卸下再装上：" + ("PASS" if eq_ok else "FAIL"))
+	ok = ok and eq_ok
+	main._dev("shop")
+	var ls0 := int(main.g.s["lingshi"])
+	var shop_ok: bool = main.sheet == "shop"
+	var cheap = null
+	for it in Gear.shop(main.g):
+		if Gear.buy_price(it, int(main.g.s["day"])) <= ls0 and (cheap == null or Gear.buy_price(it, int(main.g.s["day"])) < Gear.buy_price(cheap, int(main.g.s["day"]))):
+			cheap = it
+	if cheap != null:
+		shop_ok = shop_ok and click(Gear.full_name(cheap) + " · ") and click("买下") and int(main.g.s["lingshi"]) < ls0
+	log_lines.append("坊市器物铺：买一件%s：" % ("" if cheap != null else "（没有买得起的，只看了货架）") + ("PASS" if shop_ok else "FAIL"))
+	ok = ok and shop_ok
+	main._dev("auc")
+	var auc_ok: bool = main.sheet == "auc" and not Gear.auction(main.g).is_empty()
+	var guard := 0
+	while auc_ok and not Gear.auction(main.g)["done"] and guard < 20:
+		guard += 1
+		if not click("举牌"):
+			click("收手")
+		main.refresh()
+	auc_ok = auc_ok and Gear.auction(main.g)["done"]
+	log_lines.append("拍卖会举牌到散场：" + ("PASS" if auc_ok else "FAIL"))
+	ok = ok and auc_ok
 	log_lines.append("UI 冒烟：" + ("PASS" if ok else "FAIL"))
 	for l in log_lines:
 		print(l)

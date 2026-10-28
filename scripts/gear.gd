@@ -804,3 +804,32 @@ static func _auction_close(gs, A: Dictionary) -> void:
 			A["log"].append("落槌。%s归了%s，%d 灵石。" % [lot["n"], c["name"], pr])
 	else:
 		A["log"].append("流拍。")
+
+# ================================================================ 给界面的短字
+static func stat_text(it: Dictionary) -> String:
+	var out := []
+	for k in ["pw", "def", "xw", "wu", "rsave", "cells", "wcap"]:
+		var v := stat(it, k)
+		if v <= 0.0:
+			continue
+		match k:
+			"pw": out.append("斗法 +%s" % str(snappedf(v, 0.1)))
+			"def": out.append("护体 %d%%" % int(v))
+			"xw": out.append("闭关修为 +%d%%" % int(v))
+			"wu": out.append("感悟 +%d%%" % int(v))
+			"rsave": out.append("省辟谷丹 %d%%" % int(v))
+			"cells": out.append("%d 格" % int(v))
+			"wcap": out.append("负重 %d 斤" % int(v))
+	if it.has("c"):
+		var p := String(it["p"])
+		if int(prop(p, "ward", 0)) > 0:
+			out.append("挡伤 %d%%" % int(prop(p, "ward", 0)))
+		if int(prop(p, "calm", 0)) > 0:
+			out.append("冲关稳心")
+	return " · ".join(out)
+
+static func her_summary(gs) -> String:
+	var out := ["斗法 +%s" % str(snappedf(her_stat(gs, "pw"), 0.1)), "护体 %d%%" % int(her_stat(gs, "def")), "闭关 +%d%%" % int(her_stat(gs, "xw"))]
+	if her_stat(gs, "wu") > 0:
+		out.append("感悟 +%d%%" % int(her_stat(gs, "wu")))
+	return " · ".join(out)
