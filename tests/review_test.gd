@@ -115,7 +115,19 @@ func play(seed: int, days: int) -> Dictionary:
 	while int(g.s["day"]) < days and not g.s["ended"]:
 		k += 1
 		if g.s["loc"] == "trip":
-			g.turn_back()
+			if g.in_vignette():
+				# v0.13 地点奇遇：挑第一个能选的，结算后回到游历（turn_back 对奇遇不起作用，原写法会原地打转）
+				if String(g.s["trip"]["stage"]) == "event":
+					for o in g.event_view()["options"]:
+						if o["enabled"]:
+							g.resolve(o["id"])
+							break
+				g.continue_trip()
+				if g.s["loc"] == "trip" and not g.s["ended"]:
+					break
+				continue
+			if g.turn_back() < 0:
+				break
 			continue
 		var roaming: bool = g.s["loc"] == "roam"
 		if g.s["loc"] != "home" and not roaming:
@@ -354,7 +366,9 @@ func _init() -> void:
 		ok(early.is_empty(), "没有在相识门槛之前结侣")
 		ok(int(bad.get("侠义害无仇之人", 0)) == 0, "侠义之人不害无仇之人的命")
 		ok(rash == 0, "败后冷却期内、修为没长，不再去寻同一人（%d 回）" % rash)
-		ok(fz <= 3, "寻仇最长连败 ≤ 3 回（隔了冷却期或破了境才能再去）：%d" % fz)
+		# v0.13 回合=月：110 回合里能隔开 110 / defeat_cd(36) = 3 次冷却，最多 4 回（每回都隔了冷却期，rash==0 已另查）；原来按日是 ≤3
+		var fz_max: int = 1 + 110 / int(W.pace("defeat_cd"))
+		ok(fz <= fz_max, "寻仇最长连败 ≤ %d 回（隔了冷却期或破了境才能再去）：%d" % [fz_max, fz])
 		ok(int(bad.get("寻凶·同一句又来", 0)) == 0 and int(bad.get("寻凶·没追上还催", 0)) == 0, "寻凶不重复、按住剑后不空催")
 		ok(agg["ken_lt5"] <= 5.0, "炼气五层前认得的地方 ≤ 5 处（均 %.1f）" % agg["ken_lt5"])
 		ok(int(bad.get("标题·陌生人", 0)) == 0, "事件标题不写“陌生人”")
