@@ -141,6 +141,9 @@ static func top_mem(W, c: Dictionary, t: Dictionary, sign: int) -> Array:
 ## t 心里记着 c 的多少不是（t 是她时看她对 c 的怨 g）：[分量, 那条记忆]
 static func wronged(W, c: Dictionary, t: Dictionary) -> Array:
 	if t["player"]:
+		# v0.11.5：要真见过她、真有一件过去了些时候的旧事，才起“赔罪”的念头（素未谋面的人不来说“当年对不住”）
+		if W.met_ago(c) < W.pace("apology_gap") or not W.wronged_p(c):
+			return [0.0, []]
 		return [clampf(float(W._rel(t, c)["g"]) / 40.0, 0.0, 1.5), []]
 	var sum := 0.0
 	var best: Array = []
@@ -217,6 +220,8 @@ static func rethink(W, c: Dictionary) -> void:
 		var t: Dictionary = best_g[1]
 		var dare := lerpf(1.0, clampf(0.5 + float(lv - int(t["lv"]) if not t["player"] else lv - W.plv()) / 6.0, 0.1, 1.0), px(c, "慎"))
 		var m = best_g[2]
+		if W.cowed(c, t):
+			dare *= 0.05   # 败过、还没追上：先去变强（v0.11.5）
 		push.call("复仇", int(t["id"]), minf(1.2, float(best_g[0])) * (0.3 + 0.8 * px(c, "仇")) * dare, String(m[2]) if m != null else "与%s有旧怨" % t["name"], int(m[5]) if m != null and m.size() > 5 else -1)
 	if float(best_d[0]) > 0.12:
 		var m2 = best_d[2]
@@ -452,6 +457,8 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 		"探秘":
 			s = [UC.consider(maxf(px(c, "奇"), px(c, "贪")), "lin", 0.0, 0.25), opp if not t.is_empty() else 1.0, 0.7]
 		"夺宝":
+			if not t.is_empty() and W.xia(c) and not cause:
+				return 0.0   # 侠义之人不夺无仇之人的宝（v0.11.5）
 			s = [UC.consider(maxf(px(c, "贪"), px(c, "野")), "log", 0.0, 0.05), UC.consider(1.0 - px(c, "善"), "lin", 0.0, 0.3), opp, 0.6]
 		"求教":
 			if t.is_empty() or pw > (0.66 if isp else 0.45):
@@ -460,6 +467,8 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 		"寻仇":
 			if gr < 0.1 and String(dr["k"]) != "护人":
 				return 0.0
+			if W.cowed(c, t):
+				return 0.0   # 上回败了，修为没追上之前不去（v0.11.5）
 			s = [UC.consider(maxf(gr, 0.3 if String(dr["k"]) == "护人" else 0.0), "lin", 0.0, 0.2), UC.consider(px(c, "仇"), "lin", 0.0, 0.3), UC.consider(lerpf(1.0, pw, px(c, "慎")), "lin", 0.0, 0.1), opp]
 		"截杀":
 			if px(c, "侠") > 0.6 and not cause:
@@ -522,7 +531,7 @@ static func score(W, c: Dictionary, v: String, t: Dictionary, dr: Dictionary) ->
 				return 0.0
 			s = [clampf(dd, 0.0, 1.0), UC.consider((px(c, "侠") + px(c, "善")) / 2.0, "lin", 0.0, 0.3), opp if isp else 1.0]
 		"挑战":
-			if t.is_empty() or (px(c, "傲") < 0.35 and not cause):
+			if t.is_empty() or (px(c, "傲") < 0.35 and not cause) or W.cowed(c, t):
 				return 0.0
 			s = [UC.consider(px(c, "傲"), "log", -0.05), UC.consider(1.0 - absf(pw - 0.5) * 1.4, "lin", 0.0, 0.1), UC.consider(1.0 - px(c, "慎") * 0.6, "lin"), opp]
 		"造谣":
@@ -824,7 +833,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 				_settle(a, int(b["id"]), [])
 				W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 30)
 				drift(a, "仇", -0.03)
-				if int(a["lv"]) - int(b["lv"]) >= 3 and px(a, "侠") < 0.3 and W.rng.randf() < 0.4:
+				if int(a["lv"]) - int(b["lv"]) >= 3 and px(a, "侠") < 0.3 and W.may_kill(a, b) and W.rng.randf() < 0.4:
 					W.die(b, "死于%s之手" % an)
 				elif W.rng.randf() < 0.5:
 					W.rumor(W.pv("寻仇闻", ["%s寻%s报仇，在%s把人打成重伤。", "听说%s到底还是找到了%s，在%s。"]) % [an, bn, pl], [a, b], "伤")
@@ -836,17 +845,18 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 				W.chron(b, "%s寻上门来，被打退了。" % an)
 				mem(W, a, b, "又败在%s手里" % bn, -12, "辱", aid)
 				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 15
+				W.note_defeat(a, b)   # v0.11.5：记下败给了谁；冷却期内、修为没追上前不再去（Gemini v5 P1#6）
 				drift(a, "仇", 0.02)
-				# 连败两回：沉得住气的人先去变强，心软的人干脆放下；都不是的，接着恨
-				if fz >= 2 and (px(a, "慎") > 0.4 or px(a, "野") > 0.5):
-					a["fz"] = 0
-					a["dr"] = {"k": "破境", "t": 0, "u": 0.9, "d": int(W.w["day"]), "why": "连败给%s，不把修为提上去，这仇报不了" % bn, "src": aid}
-					W.chron(a, "闭门不出，说要先把修为练上去。")
-				elif fz >= 2 and px(a, "善") > 0.55 and px(a, "仇") < 0.6:
+				# 败了：沉得住气的人先去变强，心软的人干脆放下，剩下的去找帮手——不再一头撞上去
+				if fz >= 2 and px(a, "善") > 0.55 and px(a, "仇") < 0.6:
 					a["fz"] = 0
 					_settle(a, int(b["id"]), ["夺", "伤", "辱", "窃", "谣", "负"])
 					drift(a, "仇", -0.05)
 					W.chron(a, "对人说：和%s的事，算了。" % bn)
+				else:
+					a["dr"] = {"k": "破境", "t": 0, "u": 0.9, "d": int(W.w["day"]), "why": "败给了%s，不把修为提上去，这仇报不了" % bn, "src": aid}
+					if fz >= 2:
+						W.chron(a, W.pv("败后", ["闭门不出，说要先把修为练上去。", "四处打听能一同去寻%s的帮手。" % bn]))
 		"截杀":
 			if b.is_empty():
 				return
@@ -1392,6 +1402,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						else:
 							mem(W, n, p, "又败在%s手里" % W.pn(), -12, "辱", aid)
 							drift(n, "仇", 0.02)
+						W.note_defeat(n, p)
 						W.chron(p, "%s寻仇而来，在%s被她打退。" % [nm, at])
 						W.chron(n, "寻%s报仇，败退。" % W.pn())
 					else:
