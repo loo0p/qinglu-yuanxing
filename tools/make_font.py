@@ -5,7 +5,7 @@
 import glob, os, re, sys, subprocess
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 body = set(chr(c) for c in range(0x20, 0x7f)) | set("◎◉○●·—…×→←↑↓「」『』《》、。，！？：；（）【】％＋－／～✓⚠“”‘’")
-brush = set("0123456789第日炼气一二三四五六七八九十层筑基初期圆满") | set("".join(["苏青禾", "林晚照", "沈知微", "温小满", "田丹炉仓姑母行囊近况"]))
+brush = set("0123456789第日炼气一二三四五六七八九十层筑基初期圆满") | set("".join(["苏青禾", "林晚照", "沈知微", "温小满", "田丹炉仓行囊近况青庐历练江湖生平静室"]))
 for f in glob.glob(R + "/data/*.json") + glob.glob(R + "/data/packs/*.json") + glob.glob(R + "/scripts/*.gd"):
     t = open(f, encoding="utf-8").read(); body |= set(t)
     if f.endswith("main.gd"):

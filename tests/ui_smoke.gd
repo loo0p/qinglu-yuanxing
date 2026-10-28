@@ -127,7 +127,7 @@ func seq(list: Array) -> bool:
 func _go() -> void:
 	var ok := true
 	ok = ok and seq(["新游戏", "出发", "知道了"])
-	# 新手提示：新局第 1 日在青庐有姑母的字条；“记下了”后不再出；去历练页又有一张
+	# 新手提示：新局第 1 日在青庐有《旧主手记》里的提示；“记下了”后不再出；去历练页又有一张
 	var gd_ok: bool = main.g.s.has("guide") and _find("记下了") != null
 	gd_ok = gd_ok and click("记下了") and _find("记下了") == null
 	main.tab = "depart"; main.refresh()

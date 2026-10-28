@@ -7,7 +7,7 @@ const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.12.1 试玩版"
+const VERSION = "v0.13 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -3415,6 +3415,31 @@ func _dev(cmd: String) -> String:
 			sheet = ""
 			tab = "home"
 			g.notices.clear()
+			refresh()
+		"pack", "chron", "seclude":
+			# 调试（v0.13）：行囊页 / 她的生平（按年）/ 筑基后闭关二十年出关
+			g.new_game("苏青禾", "sect", 5, true)
+			g.s["portrait"] = _hero_roll("p5")
+			g.s["trips_done"] = 1
+			g.s["extra"] = "field"
+			screen = "game"
+			modal = {}
+			sheet = ""
+			for i in 40:
+				g.tick("biguan")
+				g.world.auto_choose()
+				g.world.close()
+			if cmd == "seclude":
+				g._raise_to(9)
+				g.s["ration"] = 30
+				_seclude("years", 20)
+				tab = "home"
+			elif cmd == "pack":
+				tab = "pack"
+			else:
+				tab = "life"
+			g.notices.clear()
+			_save()
 			refresh()
 		"story", "jianghu", "person", "create_rnd", "life", "guide", "guide_depart":
 			if cmd == "create_rnd":

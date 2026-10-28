@@ -17,6 +17,7 @@ timeout 300 $G --headless --path . -s res://tests/storylet_engine_test.gd
 timeout 600 $G --headless --path . -s res://tests/saga_test.gd
 timeout 900 $G --headless --path . -s res://tests/review_test.gd
 timeout 300 $G --headless --path . -s res://tests/play_random.gd
+timeout 600 $G --headless --path . -s res://tests/century_test.gd
 mkdir -p build/web build/web_debug
 $G --headless --path . --export-release "Web" build/web/index.html >/dev/null 2>&1
 $G --headless --path . --export-debug "Web" build/web_debug/index.html >/dev/null 2>&1 || true

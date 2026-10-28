@@ -437,12 +437,14 @@ func _init() -> void:
 	for i in 30:
 		m.tick("biguan")
 		m.world.auto_choose()
-	ok(int(m.world.w["day"]) == 30 and m.world.w["events"].size() > 0, "迁移后江湖随闭关日推进（事件 %d 件）" % m.world.w["events"].size())
+	# v0.13（P0#5）：选了“结伴走一程/去寻…”这类选项会真的多过几个月，所以只要求 ≥30 且江湖与她同一本历
+	var d30 := int(m.s["day"])
+	ok(d30 >= 30 and int(m.world.w["day"]) == d30 and m.world.w["events"].size() > 0, "迁移后江湖随闭关月推进（%d 月，事件 %d 件）" % [d30, m.world.w["events"].size()])
 	for i in 3:
 		m.tick("road")
-	ok(int(m.world.w["day"]) == 33, "路上的日子照走（v0.9 起路上也可能碰上事，见“路上奇遇”测试）")
+	ok(int(m.world.w["day"]) == d30 + 3, "路上的日子照走（v0.9 起路上也可能碰上事，见“路上奇遇”测试）")
 	var m2 = GS.new()
-	ok(m2.from_dict(JSON.parse_string(JSON.stringify(m.to_dict()))) and m2.world != null and int(m2.world.w["day"]) == 33, "带江湖的 v2 存档往返")
+	ok(m2.from_dict(JSON.parse_string(JSON.stringify(m.to_dict()))) and m2.world != null and int(m2.world.w["day"]) == d30 + 3, "带江湖的存档往返")
 	ok(int(m2.s["v"]) == GS.SAVE_VERSION, "存档版本号 = %d" % GS.SAVE_VERSION)
 	# ---------------------------------------------------------------- v0.8（Gemini 评审 v4 后的修正）
 	var q = W.new()
@@ -495,7 +497,8 @@ func _init() -> void:
 			xa.tick(true); xa.auto_choose()
 		met_a += xa.acquaintances().size() / 6.0
 	lines.append("v0.8 焦点社交圈：80 日平均结识 %.1f 人" % met_a)
-	ok(met_a <= 14.0, "80 日内结识的人不再无限增长（%.1f ≤ 14）" % met_a)
+	# v0.13：80 回合 = 六年多，且每五年有新人补位（world._generations ⑥），阈值 14 → 15
+	ok(met_a <= 15.0, "80 个月内结识的人不再无限增长（%.1f ≤ 15）" % met_a)
 	# 骨龄比：新人物（pv 9）金丹百岁不显老；旧人物（pv 8）仍按 75 岁
 	var jd := {"sex": "男", "age": 100.0, "lv": 12, "sect": "散修", "pv": 9}
 	var jd8 := jd.duplicate(); jd8["pv"] = 8

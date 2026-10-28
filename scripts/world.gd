@@ -712,6 +712,7 @@ func tick(home: bool = true, road: bool = true) -> void:
 const NPC_CAP := 36
 const BIRTH_P := 0.0025     # 道侣每月生子
 const PUPIL_P := 0.0015     # 筑基以上每月收徒
+const POP_FLOOR := 25       # 在世的人少于这个数，每半年补人
 const HEAD_SECTS := ["青云宗", "玄霜谷", "落霞宫", "万剑门", "药王谷", "血煞门", "阴骨教"]
 
 func _generations() -> void:
@@ -841,6 +842,17 @@ func _generations() -> void:
 						keep_rel[k3] = r3
 			c["rel"] = keep_rel
 			gen["n_pruned"] = int(gen["n_pruned"]) + 1
+	# ⑥ 新人补位（v0.13）：每满五年，或在世的人少于 POP_FLOOR，就有一两个新人入江湖（拜宗门或做散修），
+	#    免得百年之后江湖只剩她一个——生子、收徒太慢，补不上寿尽和横死
+	var alive_n := npcs().size()
+	if alive_n < NPC_CAP and ((now > 0 and now % 60 == 0) or (alive_n < POP_FLOOR and now % 6 == 0)):
+		var nn := 1 + (1 if alive_n < POP_FLOOR else 0)
+		for _i in nn:
+			var sect2: String = _ch(HEAD_SECTS + ["散修", "散修"])
+			var nc := _new_char("", sect2, rng.randi_range(0, 3))
+			nc["age"] = float(rng.randi_range(16, 24))
+			chron(nc, "%s，%s。" % [cal_text(now), ("拜入%s" % sect2) if sect2 != "散修" else "初入江湖，做了散修"])
+			gen["n_new"] = int(gen.get("n_new", 0)) + 1
 
 func _surn_len(nm: String) -> int:
 	for sn in SURN:
