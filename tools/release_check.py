@@ -105,6 +105,55 @@ with sync_playwright() as p:
     for tb in ['生平', '行囊', '江湖', '青庐']:
         clear_dialogs()
         step('tab_' + {'生平': 'life', '行囊': 'pack', '江湖': 'jianghu', '青庐': 'home2'}[tb], tap(tb, 1200))
+    # v0.14：坊市器物铺买一件 → 回家 → 行囊里装上 → 点装备槽卸下（只走玩家版按钮）
+    gear = {}
+    clear_dialogs()
+    ok = tap('历练') and tap('坊市') and (tap('去坊市游历', 1500) or tap('去坊市', 1500))
+    for _ in range(6):
+        clear_dialogs()
+        if state().get('loc') == 'roam': break
+    gear['at_fangshi'] = state().get('loc') == 'roam'
+    gear['shop_open'] = tap('器物铺', 1200)
+    step('v14_shop', gear['shop_open'])
+    goods = [t for t, _, _ in btns() if t.endswith(' 灵石') and ' · ' in t]
+    gear['goods'] = goods[:6]
+    bought = None
+    for gd in goods:
+        if tap(gd, 1000):
+            names = [t for t, _, _ in btns()]
+            if any(t.startswith('买下') for t in names):
+                lb = state().get('lingshi')
+                tap('买下', 1200)
+                if state().get('lingshi') != lb:
+                    bought = gd.split(' · ')[0]; break
+            tap('回铺子', 800)
+    gear['bought'] = bought
+    step('v14_bought', bought is not None)
+    tap('收起', 800)
+    for _ in range(8):
+        clear_dialogs(20)
+        if state().get('loc') == 'home': break
+        tap('回青庐', 1500)
+    clear_dialogs()
+    tap('行囊', 1200)
+    step('v14_pack', True)
+    if bought:
+        hit = [t for t, _, _ in btns() if t.startswith(bought)]
+        gear['bag_btn'] = hit[:1]
+        if hit and tap(hit[0], 1000):
+            step('v14_item', True)
+            gear['equipped'] = tap('装上', 1200)
+            tap('收起', 800)
+            clear_dialogs(3)
+            slot = [t for t, _, _ in btns() if bought in t and '\n' in t]
+            gear['slot_btn'] = slot[:1]
+            step('v14_equipped', bool(slot))
+            if slot and tap(slot[0], 1000):
+                gear['unequipped'] = tap('卸下', 1200)
+                tap('收起', 800)
+                clear_dialogs(3)
+                step('v14_unequipped', gear['unequipped'])
+    res['gear'] = gear
     clear_dialogs()
     ok = tap('静室', 1200) and tap('十年', 6000)   # 长闭关（十年；修为满会提前出关）
     step('seclude', ok)

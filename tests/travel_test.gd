@@ -319,7 +319,7 @@ func _init() -> void:
 	ok(o2.from_dict(od), "没有去处数据的旧档照常读入")
 	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.12.1）")
 	o2.biguan_day()
-	ok(int(o2.s["day"]) == 1 and int(o2.s["v"]) == 3, "旧档补齐后照常过日子，存档升到 v3（读 v2 不报错）")
+	ok(int(o2.s["day"]) == 1 and int(o2.s["v"]) == GS.SAVE_VERSION, "旧档补齐后照常过日子，存档升到当前版本 v%d（读旧档不报错；v0.14 起为 v4）" % GS.SAVE_VERSION)
 	# ⑥ 每个选项都过一遍
 	var opt_bad := []
 	for sd in [5, 6, 7]:
