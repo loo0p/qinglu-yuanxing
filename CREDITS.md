@@ -40,3 +40,7 @@
 ## v0.11 世界图
 - `art_src/map_world.jpg` / `web_portrait/bg/map_world.webp`（山外世界水墨地图）：为本项目用 AI 图像生成工具生成，由 `tools/make_assets.py` 压缩。未使用第三方图片素材。地点解锁与游历为本项目自写代码，未引入第三方代码。
 - 12 处地点底图 `art_src/pl_*.jpg` → `web_portrait/bg/pl_*.webp`，世界图圆形小景 `assets/img/vig_*.webp`（由底图裁出）：为本项目用 AI 图像生成工具生成（以 bg_houshan 为风格参考），由 `tools/make_assets.py` 缩放压缩，v0.11.2。未使用第三方图片素材。
+
+## v0.12 事件引擎（`addons/storylet_engine/`）
+- **GDTracery** — Althar93 — Apache-2.0 — https://github.com/Althar93/GDTracery （commit f87e454480）。`addons/storylet_engine/vendor/tracery.gd` 由其拷入并改动（加选择回调、去掉 class_name、改用引擎种子 RNG，改动写在文件头）；许可证全文：`addons/storylet_engine/vendor/LICENSE-GDTracery.txt`。GDTracery 移植自 Kate Compton 的 Tracery（Apache-2.0）。（v0.9 时写“未引入 GDTracery 代码”，自 v0.12 起改为引入。）
+- 只借思路、未拷代码：StoryNexus / Fallen London 的 storylet 与 quality、Emily Short《Beyond Branching》；Dendry（MIT）；Elan Ruskin（Valve）GDC 2012 规则库演讲；RimWorld 说书人；Crusader Kings III 事件脚本结构；Wildermyth 的角色选角；Caves of Qud 的 Sultan 生平生成（Grinblat & Bucklew 2017）；Expressionist（James Ryan，MIT）；鬼谷八荒。调研与取舍见 `docs/design/event-engine-research.md`。

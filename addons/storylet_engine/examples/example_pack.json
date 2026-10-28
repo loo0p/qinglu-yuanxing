@@ -1,0 +1,54 @@
+{
+  "id": "example_village",
+  "version": 1,
+  "host_vars": ["天气"],
+  "host_ops": ["gold", "befriend"],
+  "grammar": {
+    "food": ["一碗阳春面", "两个肉包", "一壶黄酒"],
+    "place": ["村口的老槐树下", "河边", "酒肆"]
+  },
+  "storylets": [
+    {"id": "share_meal", "trigger": "actor", "weight": "1.0 + A.kind",
+     "roles": [{"name": "B", "where": "SELF.id != A.id", "weight": "1 + g.fr(A, SELF)"}],
+     "outcomes": [
+       {"id": "warm", "weight": "A.kind + B.kind", "effects": [
+         {"op": "chron", "who": "A", "text": "{天气}天，在#place#请{B}吃了#food#。"},
+         {"op": "chron", "who": "B", "text": "{A}请吃了#food#。"},
+         {"op": "befriend", "a": "A", "b": "B", "add": 2},
+         {"op": "flag", "key": "meal:{A}"}]},
+       {"id": "awkward", "weight": "1.2 - B.kind", "effects": [
+         {"op": "chron", "who": "A", "text": "想请{B}吃饭，{B}推说有事。"}]}
+     ]},
+    {"id": "wolf", "trigger": "actor", "cooldown": 5, "weight": "A.brave",
+     "outcomes": [
+       {"id": "win", "weight": "A.brave * 2", "effects": [
+         {"op": "chron", "who": "A", "text": "在#place#赶跑了一头狼。"},
+         {"op": "gold", "add": 2},
+         {"op": "schedule", "id": "wolf_return", "in": [3, 6], "cast": {"A": "A"}}]},
+       {"id": "flee", "weight": "1 - A.brave", "effects": [
+         {"op": "chron", "who": "A", "text": "遇见一头狼，掉头就跑。"}]}
+     ]},
+    {"id": "wolf_return", "trigger": "chain",
+     "outcomes": [{"id": "pack", "effects": [{"op": "chron", "who": "A", "text": "那头狼带着狼群回来了。村里人记住了这件事。"}]}]},
+    {"id": "festival", "trigger": "daily", "p": 0.2, "cooldown": 7,
+     "roles": [{"name": "H", "weight": "SELF.kind"}],
+     "outcomes": [{"id": "ok", "effects": [{"op": "chron", "who": "H", "text": "张罗了一场庙会。"}]}]},
+    {"id": "elegy", "trigger": "on:gone", "family": "mourn", "priority": 0,
+     "roles": [{"name": "B", "each": true, "where": "SELF.id != A.id"}],
+     "outcomes": [{"id": "plain", "effects": [{"op": "chron", "who": "B", "text": "听说{A}走了。"}]}]},
+    {"id": "elegy_friend", "trigger": "on:gone", "family": "mourn", "priority": 5,
+     "when": "A.friend.size() > 0",
+     "roles": [{"name": "B", "each": true, "where": "SELF.id != A.id and g.fr(SELF, A) > 0"}],
+     "outcomes": [{"id": "deep", "effects": [{"op": "chron", "who": "B", "text": "{A}走了。想起那回#food#，眼眶红了。"}]}]},
+    {"id": "bio_child", "trigger": "bio", "order": 1, "age": [5, 9],
+     "outcomes": [{"id": "a", "effects": [{"op": "chron", "who": "A", "text": "{age}岁，在#place#摔断过一颗门牙。"}]}]},
+    {"id": "bio_work", "trigger": "bio", "order": 2, "age": ["ctx.age + 3", 20], "p": 0.8,
+     "outcomes": [{"id": "a", "effects": [{"op": "chron", "who": "A", "text": "{age}岁，学了一门手艺。"}]}]},
+    {"id": "visitor", "trigger": "offer", "speaker": "B", "text": "{B}端着#food#来敲门。",
+     "roles": [{"name": "B"}],
+     "choices": [
+       {"id": "in", "label": "请进", "outcomes": [{"id": "ok", "text": "两人吃完了#food#。", "effects": [{"op": "befriend", "a": "A", "b": "B", "add": 1}]}]},
+       {"id": "no", "label": "不开门", "outcomes": [{"id": "ok", "text": "{B}在门口站了一会儿，走了。"}]}
+     ]}
+  ]
+}

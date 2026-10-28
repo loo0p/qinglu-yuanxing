@@ -1,0 +1,975 @@
+{
+ "id": "qinglu_offer",
+ "name": "青庐·交给她选的事",
+ "doc": "满月酒、吊唁、观大比、秘境归来、心魔劫、求拜师、情劫",
+ "host_vars": [
+  "p",
+  "s",
+  "r",
+  "age",
+  "ta",
+  "y",
+  "pn",
+  "jie"
+ ],
+ "host_ops": [
+  "rel",
+  "meet",
+  "tag",
+  "mem",
+  "inj",
+  "home",
+  "move",
+  "die",
+  "rumor",
+  "goal",
+  "lv",
+  "xp",
+  "sect",
+  "wflag",
+  "kid",
+  "spawn",
+  "seclude",
+  "xm",
+  "fav",
+  "ling",
+  "wu",
+  "pinj",
+  "pchron",
+  "mark"
+ ],
+ "storylets": [
+  {
+   "id": "满月酒",
+   "trigger": "offer",
+   "tier": 0,
+   "tension": -4,
+   "speaker": "B",
+   "in": [
+    "B",
+    "C"
+   ],
+   "dead_ok": [
+    "C"
+   ],
+   "text": [
+    "{B}托人捎来一张红帖：孩子{k}满月，请她去喝一杯。",
+    "山下来了个小童，递上{B}的红帖——{k}满月，摆了几桌酒。"
+   ],
+   "choices": [
+    {
+     "id": "go",
+     "label": "去喝满月酒",
+     "outcomes": [
+      {
+       "id": "warm",
+       "text": "席上{B}抱着{k}给她看，小脸皱成一团。{B}笑：“将来叫你一声姑姑。”",
+       "weight": "1.0 + int(g.pf(B) > 20)",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 6,
+         "mem": "她来喝了{k}的满月酒",
+         "wt": 8
+        },
+        {
+         "op": "pchron",
+         "text": "去{B}那里喝了{k}的满月酒。"
+        },
+        {
+         "op": "ling",
+         "n": -1
+        }
+       ]
+      },
+      {
+       "id": "crowd",
+       "text": "席上都是{B}的同门，她坐在角落，吃完就走。{B}送到门口，道了声谢。",
+       "weight": "0.3 + 0.6 * int(g.trt(B, '傲气') or g.trt(B, '薄情'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 3
+        },
+        {
+         "op": "pchron",
+         "text": "去{B}那里喝了{k}的满月酒，人多，没说上几句话。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "gift",
+     "label": "托人送一把长命锁（2 灵石）",
+     "when": "g.ls() >= 2",
+     "effects": [
+      {
+       "op": "ling",
+       "n": -2
+      }
+     ],
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "长命锁送去了。{B}回信说，{k}戴着它睡了一下午。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 4,
+         "mem": "她给{k}送过长命锁",
+         "wt": 5
+        },
+        {
+         "op": "pchron",
+         "text": "托人给{B}的孩子{k}送了一把长命锁。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "回封信道喜",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她回了一封信，道了声喜。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 1
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "ctx_in": [
+    "k"
+   ]
+  },
+  {
+   "id": "吊唁",
+   "trigger": "offer",
+   "tier": 1,
+   "tension": -2,
+   "speaker": "B",
+   "in": [
+    "B",
+    "D"
+   ],
+   "dead_ok": [
+    "D"
+   ],
+   "text": [
+    "{D}走了。{B}在灵前守着，见她来，起身还了一礼。",
+    "{D}的丧事办得简单。{B}一身素白，眼睛是肿的。"
+   ],
+   "choices": [
+    {
+     "id": "xiang",
+     "label": "上一炷香",
+     "outcomes": [
+      {
+       "id": "calm",
+       "text": "香烧到一半，{B}说：“{D}走前，说过你的好。”",
+       "weight": "1.0 + int(g.trt(B, '淡泊'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 5,
+         "mem": "她来给{D}上过香",
+         "wt": 6
+        },
+        {
+         "op": "pchron",
+         "text": "去给{D}上了一炷香。"
+        }
+       ]
+      },
+      {
+       "id": "cry",
+       "text": "她刚插上香，{B}就背过身去，肩膀一直在抖。",
+       "weight": "0.5 + int(g.trt(B, '痴情')) + int(g.trt(B, '温柔'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 6,
+         "mem": "她来给{D}上过香",
+         "wt": 6
+        },
+        {
+         "op": "pchron",
+         "text": "去给{D}上了一炷香，{B}哭了。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "ling",
+     "label": "守一夜灵",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她陪{B}守到天亮。灯芯剪了三回，谁也没说话。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 8,
+         "mem": "她陪我给{D}守过灵",
+         "wt": 10
+        },
+        {
+         "op": "wu",
+         "n": 1
+        },
+        {
+         "op": "pchron",
+         "text": "为{D}守了一夜的灵。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "ask",
+     "label": "问{D}是怎么走的",
+     "when": "g.trt(B, '记仇') or g.trt(B, '多疑')",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}盯着灵位看了很久：“我会查清楚的。”",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 2
+        },
+        {
+         "op": "pchron",
+         "text": "去吊唁{D}，{B}说要查清楚。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "远远拜一拜就走",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她在门外拜了三拜，没有进去。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "pchron",
+         "text": "听说{D}走了，在门外拜了三拜。"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "观大比",
+   "trigger": "offer",
+   "tier": 0,
+   "tension": -3,
+   "speaker": "B",
+   "text": [
+    "{B}托人带话：{sect}大比，{B}得了第{rk}。问她下回要不要去看。",
+    "{sect}大比刚散，{B}顺路来青庐，袖口还沾着灰：“第{rk}。”"
+   ],
+   "choices": [
+    {
+     "id": "praise",
+     "label": "夸{B}几句",
+     "outcomes": [
+      {
+       "id": "shy",
+       "text": "{B}挠了挠头：“运气好。”走时脚步都是轻的。",
+       "weight": "1.0 + int(g.trt(B, '温柔') or g.trt(B, '怯懦'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 5,
+         "mem": "她夸过我大比打得好",
+         "wt": 5
+        }
+       ]
+      },
+      {
+       "id": "proud",
+       "text": "{B}扬了扬下巴：“下回第一也是我的。”",
+       "weight": "0.5 + int(g.trt(B, '傲气') or g.trt(B, '嗜战'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 4
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "ask",
+     "label": "请{B}讲讲那几场",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}比划了半个时辰，她听出几处剑理。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 3
+        },
+        {
+         "op": "wu",
+         "n": 1
+        },
+        {
+         "op": "pchron",
+         "text": "听{B}讲了{sect}大比，第{rk}。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "点点头",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她点点头，说了声恭喜。",
+       "weight": 1.0,
+       "effects": []
+      }
+     ]
+    }
+   ],
+   "in": [
+    "B"
+   ],
+   "ctx_in": [
+    "sect",
+    "rk"
+   ]
+  },
+  {
+   "id": "秘境归来",
+   "trigger": "offer",
+   "tier": 1,
+   "tension": -1,
+   "speaker": "B",
+   "text": "#o_mj_{res}#",
+   "choices": [
+    {
+     "id": "listen",
+     "label": "听{B}讲讲秘境",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}讲了半夜，哪里有禁制、哪里有妖兽，她都记了下来。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 3
+        },
+        {
+         "op": "wu",
+         "n": 2
+        },
+        {
+         "op": "pchron",
+         "text": "听{B}讲了秘境里的事。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "heal",
+     "label": "替{B}上药（1 灵石）",
+     "when": "ctx.res == 'hurt' and g.ls() >= 1",
+     "effects": [
+      {
+       "op": "ling",
+       "n": -1
+      }
+     ],
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她替{B}换了药。{B}疼得直吸气，还是道了谢。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 7,
+         "mem": "她替我疗过伤",
+         "wt": 10
+        },
+        {
+         "op": "pchron",
+         "text": "替从秘境出来的{B}疗伤。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "share",
+     "label": "开口要一份",
+     "when": "ctx.res == 'treasure'",
+     "outcomes": [
+      {
+       "id": "give",
+       "text": "{B}想了想，分了她一份：“见者有份。”",
+       "weight": "1.0 + int(g.trt(B, '侠义') or g.trt(B, '温柔'))",
+       "effects": [
+        {
+         "op": "ling",
+         "n": 3
+        },
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -1
+        },
+        {
+         "op": "pchron",
+         "text": "{B}从秘境回来，分了她一份。"
+        }
+       ]
+      },
+      {
+       "id": "no",
+       "text": "{B}把玉匣往怀里一揣：“这可是拿命换的。”",
+       "weight": "0.4 + 1.5 * int(g.trt(B, '贪财'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -3,
+         "mem": "她开口要我秘境里的东西",
+         "wt": -5
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "道声平安",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她说了句平安就好。{B}点点头，走了。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 1
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "in": [
+    "B"
+   ],
+   "ctx_in": [
+    "res"
+   ]
+  },
+  {
+   "id": "心魔劫",
+   "trigger": "offer",
+   "tier": 1,
+   "tension": 2,
+   "speaker": "B",
+   "text": [
+    "{B}心魔缠身，闭门不出。有人说，{B}夜里一直在喊一个名字。",
+    "{B}来青庐讨一碗水，眼底青黑，说话时总往身后看。"
+   ],
+   "choices": [
+    {
+     "id": "talk",
+     "label": "陪{B}说说话",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她陪{B}从天黑说到天亮。临走，{B}的手不那么抖了。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 5,
+         "mem": "她在我心魔缠身时陪过我",
+         "wt": 10
+        },
+        {
+         "op": "set",
+         "name": "bid",
+         "value": "int(B.id)"
+        },
+        {
+         "op": "flag",
+         "key": "xmh:{bid}"
+        },
+        {
+         "op": "pchron",
+         "text": "陪着心魔缠身的{B}说了一夜的话。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "guard",
+     "label": "替{B}护法（会受点伤）",
+     "when": "g.plv() >= 3",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "心魔发作时，她一掌按住{B}的灵台，自己也被震得咳了血。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 8,
+         "mem": "她替我护法斩心魔",
+         "wt": 15
+        },
+        {
+         "op": "pinj",
+         "days": 2
+        },
+        {
+         "op": "set",
+         "name": "bid",
+         "value": "int(B.id)"
+        },
+        {
+         "op": "flag",
+         "key": "xmh:{bid}",
+         "add": 2
+        },
+        {
+         "op": "pchron",
+         "text": "替{B}护法，助{B}斩心魔。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "point",
+     "label": "点破{B}的心结",
+     "outcomes": [
+      {
+       "id": "hit",
+       "text": "她只说了一句。{B}愣了很久，忽然笑了，笑着笑着哭了。",
+       "weight": "1.0 + int(g.trt(B, '淡泊') or g.trt(B, '温柔'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 4
+        },
+        {
+         "op": "set",
+         "name": "bid",
+         "value": "int(B.id)"
+        },
+        {
+         "op": "flag",
+         "key": "xmh:{bid}",
+         "add": 2
+        },
+        {
+         "op": "pchron",
+         "text": "点破了{B}的心结。"
+        }
+       ]
+      },
+      {
+       "id": "hurt",
+       "text": "{B}脸色一变：“你懂什么。”摔门走了。",
+       "weight": "0.5 + int(g.trt(B, '傲气') or g.trt(B, '多疑'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -4,
+         "mem": "她揭我的伤疤",
+         "wt": -6
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "这事帮不上",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她没有去。听说{B}的院门一直关着。",
+       "weight": 1.0,
+       "effects": []
+      }
+     ]
+    }
+   ],
+   "in": [
+    "B"
+   ]
+  },
+  {
+   "id": "求拜师",
+   "trigger": "offer",
+   "tier": 1,
+   "tension": -2,
+   "speaker": "B",
+   "text": [
+    "{B}在青庐门口跪了一上午，说想拜她为师。",
+    "{B}捧着一包干粮站在桂树下：“我想跟你学。什么都行。”"
+   ],
+   "choices": [
+    {
+     "id": "yes",
+     "label": "收下{B}",
+     "when": "g.plv() >= 3",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}磕了三个头，额头上沾了泥，笑得像个孩子。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "tag",
+         "a": "B",
+         "b": "P",
+         "t": "师",
+         "t2": "徒"
+        },
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 10,
+         "mem": "她收我为徒",
+         "wt": 20
+        },
+        {
+         "op": "pchron",
+         "text": "收{B}为徒。"
+        },
+        {
+         "op": "chron",
+         "who": "B",
+         "text": "拜{pn}为师。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "teach",
+     "label": "指点几句，不收徒",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "她教了{B}一段吐纳。{B}记得很认真。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 3
+        },
+        {
+         "op": "xp",
+         "who": "B",
+         "frac": 0.2
+        },
+        {
+         "op": "pchron",
+         "text": "没有收{B}为徒，只指点了几句。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "refer",
+     "label": "写封信引荐去青云宗",
+     "when": "B.sect == '散修'",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}揣着信下了山。后来听说，过了青云宗的问心阶。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "sect",
+         "who": "B",
+         "value": "'青云宗'"
+        },
+        {
+         "op": "home",
+         "who": "B"
+        },
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 6,
+         "mem": "她引荐我入了青云宗",
+         "wt": 12
+        },
+        {
+         "op": "pchron",
+         "text": "把{B}引荐去了青云宗。"
+        },
+        {
+         "op": "chron",
+         "who": "B",
+         "text": "经{pn}引荐，拜入青云宗。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "label": "婉拒",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}低着头走了。走到半山，回头看了一眼。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -2
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "in": [
+    "B"
+   ]
+  },
+  {
+   "id": "情劫",
+   "trigger": "offer",
+   "tier": 0,
+   "tension": -1,
+   "speaker": "B",
+   "in": [
+    "B",
+    "C"
+   ],
+   "text": [
+    "{B}来青庐坐了半日，绕了许多弯，才说起{C}。",
+    "{B}问她：“你说，{C}那样的人，会喜欢什么样的人？”"
+   ],
+   "choices": [
+    {
+     "id": "push",
+     "label": "劝{B}直说",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}攥着衣角想了很久：“好，我去说。”",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 3
+        },
+        {
+         "op": "set",
+         "name": "bid",
+         "value": "int(B.id)"
+        },
+        {
+         "op": "flag",
+         "key": "qj:{bid}"
+        },
+        {
+         "op": "schedule",
+         "id": "confess",
+         "in": [
+          2,
+          6
+         ],
+         "cast": {
+          "A": "B",
+          "B": "C"
+         }
+        },
+        {
+         "op": "pchron",
+         "text": "听{B}说了心事，劝{B}直说。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "drink",
+     "label": "陪{B}喝一壶",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "一壶喝完，{B}说了许多{C}的事。她只是听。",
+       "weight": 1.0,
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 6,
+         "mem": "她听我说过心事",
+         "wt": 8
+        },
+        {
+         "op": "ling",
+         "n": -1
+        },
+        {
+         "op": "pchron",
+         "text": "陪{B}喝了半夜的酒。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "go",
+     "label": "替{B}去说",
+     "when": "g.met(g.player(), C)",
+     "outcomes": [
+      {
+       "id": "yes",
+       "text": "{C}听完，低头笑了：“让{B}自己来说。”",
+       "weight": "max(0.1, (g.opn(C, B) + 10.0) / 30.0)",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 8,
+         "mem": "她替我去说过",
+         "wt": 12
+        },
+        {
+         "op": "set",
+         "name": "bid",
+         "value": "int(B.id)"
+        },
+        {
+         "op": "flag",
+         "key": "qj:{bid}",
+         "add": 2
+        },
+        {
+         "op": "schedule",
+         "id": "confess",
+         "in": [
+          1,
+          3
+         ],
+         "cast": {
+          "A": "B",
+          "B": "C"
+         }
+        },
+        {
+         "op": "pchron",
+         "text": "替{B}去{C}那里说了一回。"
+        }
+       ]
+      },
+      {
+       "id": "no",
+       "text": "{C}摇头：“替我谢谢{B}。”她回去不知怎么开口。",
+       "weight": "max(0.2, (20.0 - g.opn(C, B)) / 25.0)",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 2
+        },
+        {
+         "op": "pchron",
+         "text": "替{B}去说，{C}婉拒了。"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "let",
+     "label": "劝{B}放下",
+     "outcomes": [
+      {
+       "id": "ok",
+       "text": "{B}点点头，又摇摇头，最后说：“我试试。”",
+       "weight": "1.0 + int(g.trt(B, '淡泊'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": 1
+        }
+       ]
+      },
+      {
+       "id": "no",
+       "text": "{B}没听进去，起身告辞，茶都没喝完。",
+       "weight": "0.5 + int(g.trt(B, '痴情'))",
+       "effects": [
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -1
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

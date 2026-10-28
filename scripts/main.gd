@@ -3112,8 +3112,12 @@ func _person() -> void:
 func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	var w = g.world
 	var lg: Array = c["log"]
+	var pre: Array = [] if c.get("player", false) else w.pre_of(c)
 	if lg.is_empty():
-		L("（没听说过什么）", 13, C_DIM, cc)
+		if pre.is_empty():
+			L("（没听说过什么）", 13, C_DIM, cc)
+		else:
+			_life_pre(pre, cc)
 		return
 	var ppl := []
 	for o in w.w["C"].values():
@@ -3180,6 +3184,26 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 			hidden += months[i][1].size()
 		var mb = B("再往前：%d 个月 · %d 件" % [first, hidden], func(): life_all = true, true, cc, 44)
 		mb.add_theme_font_size_override("font_size", 14)
+	elif not pre.is_empty():
+		_life_pre(pre, cc)
+
+## v0.12 前尘：入青庐之前的经历，按年岁排（旧档第一次看时按种子补写）
+func _life_pre(pre: Array, cc: VBoxContainer) -> void:
+	var hr = row(cc, 8)
+	H("前尘", 20, C_ACCENT, hr)
+	var sub = L("她住进青庐之前 · %d 件" % pre.size(), 13, C_DIM, hr)
+	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for i in range(pre.size() - 1, -1, -1):
+		var e: Array = pre[i]
+		var er = row(cc, 6)
+		var dl = L("%s岁" % g.world.saga().cn(int(e[0])), 13, C_GOLD, er)
+		dl.custom_minimum_size = Vector2(52, 0)
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var tl = L(String(e[1]), 14, C_TEXT, er)
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 
 func _rel_depth(r: Dictionary) -> float:
 	return absf(float(r["f"])) + float(r["g"]) + r["t"].size() * 50

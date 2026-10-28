@@ -1,0 +1,1962 @@
+{
+ "id": "qinglu_life",
+ "name": "青庐·人生阶段（v0.12 新增）",
+ "doc": "日常、闭关、同门之争、情愫表白、道侣、麟儿、收徒、心魔、大比、秘境",
+ "host_vars": [
+  "p",
+  "s",
+  "r",
+  "age",
+  "ta",
+  "y",
+  "pn",
+  "jie"
+ ],
+ "host_ops": [
+  "rel",
+  "meet",
+  "tag",
+  "mem",
+  "inj",
+  "home",
+  "move",
+  "die",
+  "rumor",
+  "goal",
+  "lv",
+  "xp",
+  "sect",
+  "wflag",
+  "kid",
+  "spawn",
+  "seclude",
+  "xm",
+  "fav",
+  "ling",
+  "wu",
+  "pinj",
+  "pchron",
+  "mark"
+ ],
+ "storylets": [
+  {
+   "id": "youli",
+   "trigger": "actor",
+   "weight": 1.2,
+   "when": "not g.busy(A)",
+   "outcomes": [
+    {
+     "id": "plain",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_youli#"
+      }
+     ]
+    },
+    {
+     "id": "find",
+     "weight": "0.08 + 0.1 * int(g.trt(A, '好奇'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_youli_find#"
+      },
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "like",
+   "trigger": "actor",
+   "weight": 1.0,
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "set",
+     "name": "like",
+     "value": "g.like(A)"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_like_{like}#"
+    }
+   ]
+  },
+  {
+   "id": "sectday",
+   "trigger": "actor",
+   "weight": 0.9,
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "set",
+     "name": "sct",
+     "value": "A.sect"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_sect_{sct}#"
+    }
+   ]
+  },
+  {
+   "id": "gift",
+   "trigger": "actor",
+   "weight": 0.9,
+   "when": "not g.busy(A)",
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.met(A, SELF) and g.opn(A, SELF) > 15",
+     "weight": "max(1.0, g.opn(A, SELF))"
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_gift_give#",
+     "vars": {
+      "o": "B"
+     }
+    },
+    {
+     "op": "rel",
+     "a": "A",
+     "b": "B",
+     "f": 2
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "warm",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_gift_get#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "f": 5
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "A",
+       "text": "{o}送过东西来",
+       "wt": 4,
+       "vars": {
+        "o": "A"
+       }
+      }
+     ]
+    },
+    {
+     "id": "cold",
+     "weight": "2.0 * int(g.trt(B, '薄情'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_gift_cold#",
+       "vars": {
+        "o": "A"
+       }
+      }
+     ]
+    },
+    {
+     "id": "greedy",
+     "weight": "1.0 * int(g.trt(B, '贪财'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_gift_greedy#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "f": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "visit",
+   "trigger": "actor",
+   "weight": 0.9,
+   "when": "not g.busy(A)",
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.met(A, SELF) and g.opn(A, SELF) > 5 and not g.busy(SELF)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_visit#",
+     "vars": {
+      "o": "B"
+     }
+    },
+    {
+     "op": "chron",
+     "who": "B",
+     "text": "#t_lead##d_visited#",
+     "vars": {
+      "o": "A"
+     }
+    },
+    {
+     "op": "rel",
+     "a": "A",
+     "b": "B",
+     "f": 3,
+     "both": true
+    },
+    {
+     "op": "meet",
+     "a": "A",
+     "b": "B"
+    }
+   ]
+  },
+  {
+   "id": "couple",
+   "trigger": "actor",
+   "weight": 2.0,
+   "when": "not g.busy(A) and g.partner(A) != null",
+   "roles": [
+    {
+     "name": "B",
+     "fixed": "g.partner(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "pk",
+     "value": "g.pk(A, B)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "sweet",
+     "weight": 3.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_couple#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "f": 2,
+       "both": true
+      }
+     ]
+    },
+    {
+     "id": "fight",
+     "weight": "0.4 + 0.8 * int(g.trt(A, '多疑')) + 0.6 * int(g.trt(A, '傲气')) + 0.3 * g.mneg(A, B)",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_couple_fight#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "g": 6
+      },
+      {
+       "op": "flag",
+       "key": "cf:{pk}"
+      },
+      {
+       "op": "if",
+       "when": "se.flag('cf:' + ctx.pk) >= 3",
+       "then": [
+        {
+         "op": "flag",
+         "key": "cf:{pk}",
+         "set": 0
+        },
+        {
+         "op": "schedule",
+         "id": "couple_split",
+         "in": [
+          3,
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "couple_split",
+   "trigger": "chain",
+   "in": [
+    "A",
+    "B"
+   ],
+   "when": "g.is_partner(A, B)",
+   "outcomes": [
+    {
+     "id": "split",
+     "weight": "0.6 + 2.0 * int(g.trt(A, '薄情')) + 0.5 * int(g.trt(B, '傲气'))",
+     "effects": [
+      {
+       "op": "tag",
+       "a": "A",
+       "b": "B",
+       "t": "道侣",
+       "remove": true
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_split#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_split#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "g": 15
+      },
+      {
+       "op": "rumor",
+       "text": "#r_split#",
+       "about": [
+        "A",
+        "B"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "mend",
+     "weight": "1.5 + int(g.trt(B, '温柔')) + int(g.trt(A, '痴情'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_mend#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_mend#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "f": 10,
+       "both": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "close_in",
+   "trigger": "actor",
+   "weight": "0.5 + 0.5 * int(A.goal == '求长生')",
+   "when": "not g.busy(A) and g.lv(A) >= 3 and not g.xm(A)",
+   "actor_cooldown": 40,
+   "effects": [
+    {
+     "op": "set",
+     "name": "dd",
+     "value": "se.ri(8, 20)"
+    },
+    {
+     "op": "set",
+     "name": "nr",
+     "value": "g.next_realm(A)"
+    },
+    {
+     "op": "seclude",
+     "who": "A",
+     "days": "ctx.dd"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_close_in#"
+    },
+    {
+     "op": "schedule",
+     "id": "close_out",
+     "in": "ctx.dd"
+    }
+   ]
+  },
+  {
+   "id": "close_out",
+   "trigger": "chain",
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "1.0 + 0.5 * int(g.trt(A, '淡泊'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_close_ok#"
+      },
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.45
+      }
+     ]
+    },
+    {
+     "id": "meh",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_close_meh#"
+      }
+     ]
+    }
+   ],
+   "in": [
+    "A"
+   ]
+  },
+  {
+   "id": "rival",
+   "trigger": "actor",
+   "weight": 0.8,
+   "when": "not g.busy(A) and A.sect != '散修'",
+   "roles": [
+    {
+     "name": "B",
+     "from": "g.mates(A)",
+     "where": "abs(g.lv(SELF) - g.lv(A)) <= 2 and not g.bonded(A, SELF)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "pk",
+     "value": "g.pk(A, B)"
+    },
+    {
+     "op": "flag",
+     "key": "rv:{pk}"
+    },
+    {
+     "op": "if",
+     "when": "se.flag('rv:' + ctx.pk) >= 3",
+     "then": [
+      {
+       "op": "flag",
+       "key": "rv:{pk}",
+       "set": 0
+      },
+      {
+       "op": "schedule",
+       "id": "rival_duel",
+       "in": [
+        5,
+        15
+       ]
+      }
+     ]
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "lose",
+     "weight": "1.0 + max(0, g.lv(B) - g.lv(A))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_rival#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "g": 6
+      }
+     ]
+    },
+    {
+     "id": "win",
+     "weight": "1.0 + max(0, g.lv(A) - g.lv(B))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_rival_win#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "g": 6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "rival_duel",
+   "trigger": "chain",
+   "in": [
+    "A",
+    "B"
+   ],
+   "when": "not g.bonded(A, B)",
+   "effects": [
+    {
+     "op": "chance",
+     "p": 0.5,
+     "then": [
+      {
+       "op": "rumor",
+       "text": "#r_duel#",
+       "about": [
+        "A",
+        "B"
+       ]
+      }
+     ]
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "draw",
+     "first": true,
+     "when": "se.chance(0.25)",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_duel_draw#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_duel_draw#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "f": 15,
+       "g": -10,
+       "both": true
+      }
+     ]
+    },
+    {
+     "id": "a",
+     "first": true,
+     "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 4)",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_duel_w#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_duel_l#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "inj",
+       "who": "B",
+       "days": 12
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "A",
+       "g": 15
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "first": true,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_duel_w#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_duel_l#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "inj",
+       "who": "A",
+       "days": 12
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "g": 15
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "xia",
+   "trigger": "actor",
+   "weight": "0.15 + 1.2 * int(g.trt(A, '侠义')) + 0.5 * int(g.trt(A, '温柔'))",
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_xia#"
+    },
+    {
+     "op": "chance",
+     "p": 0.2,
+     "then": [
+      {
+       "op": "rumor",
+       "text": "听说{A}在{p}行侠，救了人。",
+       "about": [
+        "A"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bad",
+   "trigger": "actor",
+   "weight": "0.1 + 1.0 * int(g.trt(A, '阴狠')) + 0.6 * int(g.trt(A, '贪财')) + 0.5 * int(g.side(A) == '魔')",
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_bad#"
+    }
+   ]
+  },
+  {
+   "id": "crush",
+   "trigger": "actor",
+   "weight": "1.2 * (1.0 + int(A.goal == '寻道侣') + 0.5 * int(g.trt(A, '痴情')) - 0.8 * int(g.trt(A, '薄情')))",
+   "when": "not g.busy(A) and g.single(A) and g.lf(A) < 0.8 and not g.prot(A)",
+   "roles": [
+    {
+     "name": "B",
+     "where": "SELF.sex != A.sex and g.single(SELF) and g.met(A, SELF) and g.opn(A, SELF) > 10 and not g.shi(A, SELF) and not g.prot(SELF)",
+     "weight": "max(1.0, g.opn(A, SELF))"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "ab",
+     "value": "str(int(A.id)) + '>' + str(int(B.id))"
+    },
+    {
+     "op": "flag",
+     "key": "cr:{ab}"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_crush#",
+     "vars": {
+      "o": "B"
+     }
+    },
+    {
+     "op": "rel",
+     "a": "A",
+     "b": "B",
+     "f": 2
+    },
+    {
+     "op": "if",
+     "when": "g.known(A) and se.chance(0.3)",
+     "then": [
+      {
+       "op": "offer",
+       "id": "情劫",
+       "cast": {
+        "B": "A",
+        "C": "B"
+       }
+      }
+     ]
+    },
+    {
+     "op": "if",
+     "when": "se.flag('cr:' + ctx.ab) >= 2 and se.chance(0.2 + 0.3 * int(not g.trt(A, '怯懦')))",
+     "then": [
+      {
+       "op": "flag",
+       "key": "cr:{ab}",
+       "set": 0
+      },
+      {
+       "op": "schedule",
+       "id": "confess",
+       "in": [
+        3,
+        12
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "confess",
+   "trigger": "chain",
+   "in": [
+    "A",
+    "B"
+   ],
+   "actor_cooldown": 30,
+   "when": "g.single(A) and g.single(B) and not g.prot(A) and not g.prot(B)",
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "max(0.1, (g.opn(B, A) + 10.0) / 30.0) + 0.8 * se.flag('qj:' + str(int(A.id)))",
+     "effects": [
+      {
+       "op": "tag",
+       "a": "A",
+       "b": "B",
+       "t": "道侣"
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_confess_ok#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_confess_got_ok#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rumor",
+       "text": "#r_wed2#",
+       "about": [
+        "A",
+        "B"
+       ],
+       "kind": "侣"
+      },
+      {
+       "op": "wflag",
+       "key": "w:结为道侣"
+      },
+      {
+       "op": "set",
+       "name": "aid",
+       "value": "int(A.id)"
+      },
+      {
+       "op": "flag",
+       "key": "qj:{aid}",
+       "set": 0
+      },
+      {
+       "op": "if",
+       "when": "A.goal == '寻道侣'",
+       "then": [
+        {
+         "op": "goal",
+         "who": "A",
+         "value": "'求长生'"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "weight": "max(0.2, (20.0 - g.opn(B, A)) / 25.0)",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_confess_no#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_confess_got_no#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "B",
+       "f": -5
+      },
+      {
+       "op": "chance",
+       "p": 0.5,
+       "then": [
+        {
+         "op": "chron",
+         "who": "A",
+         "text": "#t_lead##d_heart_broken#"
+        }
+       ]
+      },
+      {
+       "op": "if",
+       "when": "g.trt(A, '记仇')",
+       "then": [
+        {
+         "op": "rel",
+         "a": "A",
+         "b": "B",
+         "g": 10
+        }
+       ]
+      },
+      {
+       "op": "chance",
+       "p": "0.12 + 0.3 * int(g.trt(A, '痴情'))",
+       "then": [
+        {
+         "op": "run",
+         "id": "xinmo_start",
+         "cast": {
+          "A": "A"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "kid",
+   "trigger": "actor",
+   "weight": 0.35,
+   "when": "not g.busy(A) and g.partner(A) != null and g.kids(A) < 2 and g.lf(A) < 0.7 and A.sex == '女'",
+   "actor_cooldown": 120,
+   "roles": [
+    {
+     "name": "B",
+     "fixed": "g.partner(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "kid",
+     "who": "A",
+     "with": "B"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_kid#"
+    },
+    {
+     "op": "chron",
+     "who": "B",
+     "text": "#t_lead##d_kid#"
+    },
+    {
+     "op": "chance",
+     "p": 0.5,
+     "then": [
+      {
+       "op": "rumor",
+       "text": "#r_kid#",
+       "about": [
+        "A",
+        "B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "schedule",
+     "id": "kid_month",
+     "in": 30,
+     "keep": [
+      "k"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "kid_month",
+   "trigger": "chain",
+   "in": [
+    "A",
+    "B"
+   ],
+   "dead_ok": [
+    "B"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_kid_month#"
+    },
+    {
+     "op": "if",
+     "when": "B.alive",
+     "then": [
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##d_kid_month#"
+      }
+     ]
+    },
+    {
+     "op": "if",
+     "when": "g.known(A)",
+     "then": [
+      {
+       "op": "offer",
+       "id": "满月酒",
+       "cast": {
+        "B": "A",
+        "C": "B"
+       },
+       "keep": [
+        "k"
+       ]
+      }
+     ],
+     "else": [
+      {
+       "op": "if",
+       "when": "g.known(B) and B.alive",
+       "then": [
+        {
+         "op": "offer",
+         "id": "满月酒",
+         "cast": {
+          "B": "B",
+          "C": "A"
+         },
+         "keep": [
+          "k"
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "kid_day",
+   "trigger": "actor",
+   "weight": "0.6 * int(g.kids(A) > 0)",
+   "when": "not g.busy(A)",
+   "effects": [
+    {
+     "op": "set",
+     "name": "k",
+     "value": "g.kid(A)"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_kid_day#"
+    }
+   ]
+  },
+  {
+   "id": "take_tudi",
+   "trigger": "actor",
+   "weight": "0.3 + 0.6 * int(A.goal == '收个好徒弟')",
+   "actor_cooldown": 90,
+   "when": "not g.busy(A) and g.lv(A) >= 12 and A.sect != '散修' and g.ndisc(A) < 3 and g.pop() < 32",
+   "roles": [
+    {
+     "name": "D",
+     "fixed": "null",
+     "optional": true
+    }
+   ],
+   "effects": [
+    {
+     "op": "spawn",
+     "who": "A",
+     "as": "D"
+    },
+    {
+     "op": "if",
+     "when": "D != null",
+     "then": [
+      {
+       "op": "tag",
+       "a": "A",
+       "b": "D",
+       "t": "徒",
+       "t2": "师"
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_take_tudi#",
+       "vars": {
+        "o": "D"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "D",
+       "text": "#t_lead##d_tudi_new#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "A",
+       "b": "D",
+       "f": 20,
+       "both": true
+      },
+      {
+       "op": "if",
+       "when": "A.goal == '收个好徒弟'",
+       "then": [
+        {
+         "op": "goal",
+         "who": "A",
+         "value": "'求长生'"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "see_master",
+   "trigger": "actor",
+   "weight": 0.6,
+   "when": "not g.busy(A) and g.master(A) != null",
+   "roles": [
+    {
+     "name": "B",
+     "fixed": "g.master(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_see_master#",
+     "vars": {
+      "o": "B"
+     }
+    },
+    {
+     "op": "chron",
+     "who": "B",
+     "text": "#t_lead##d_see_tudi#",
+     "vars": {
+      "o": "A"
+     }
+    },
+    {
+     "op": "rel",
+     "a": "A",
+     "b": "B",
+     "f": 3,
+     "both": true
+    }
+   ]
+  },
+  {
+   "id": "teach",
+   "trigger": "actor",
+   "weight": 0.7,
+   "when": "not g.busy(A) and g.ndisc(A) > 0",
+   "roles": [
+    {
+     "name": "D",
+     "from": "g.disciples(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_teach#",
+     "vars": {
+      "o": "D"
+     }
+    },
+    {
+     "op": "chron",
+     "who": "D",
+     "text": "#t_lead##d_taught#",
+     "vars": {
+      "o": "A"
+     }
+    },
+    {
+     "op": "xp",
+     "who": "D",
+     "frac": 0.1
+    },
+    {
+     "op": "rel",
+     "a": "D",
+     "b": "A",
+     "f": 2
+    }
+   ]
+  },
+  {
+   "id": "old",
+   "trigger": "actor",
+   "weight": 3.0,
+   "when": "g.lf(A) > 0.9",
+   "actor_cooldown": 99999,
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_old#"
+    }
+   ]
+  },
+  {
+   "id": "seek_player",
+   "trigger": "actor",
+   "weight": 0.4,
+   "max": 3,
+   "actor_cooldown": 9999,
+   "when": "not g.busy(A) and g.known(A) and g.plv() >= 3 and g.lv(A) < g.plv() and not g.shi(A, g.player()) and g.lf(A) < 0.4 and g.master(A) == null",
+   "effects": [
+    {
+     "op": "offer",
+     "id": "求拜师",
+     "cast": {
+      "B": "A"
+     }
+    }
+   ]
+  },
+  {
+   "id": "xinmo_spont",
+   "trigger": "actor",
+   "weight": "0.1 + 0.25 * int(g.trt(A, '多疑')) + 0.2 * int(g.trt(A, '记仇')) + 0.2 * int(g.trt(A, '痴情'))",
+   "when": "not g.busy(A) and g.lv(A) >= 6 and not g.xm(A)",
+   "actor_cooldown": 120,
+   "effects": [
+    {
+     "op": "run",
+     "id": "xinmo_start"
+    }
+   ]
+  },
+  {
+   "id": "xinmo_start",
+   "trigger": "chain",
+   "when": "not g.xm(A)",
+   "effects": [
+    {
+     "op": "xm",
+     "who": "A",
+     "set": 1
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#t_lead##d_xinmo_in#"
+    },
+    {
+     "op": "schedule",
+     "id": "xinmo_out",
+     "in": [
+      10,
+      25
+     ]
+    },
+    {
+     "op": "if",
+     "when": "g.known(A)",
+     "then": [
+      {
+       "op": "offer",
+       "id": "心魔劫",
+       "cast": {
+        "B": "A"
+       }
+      }
+     ]
+    }
+   ],
+   "in": [
+    "A"
+   ]
+  },
+  {
+   "id": "xinmo_out",
+   "trigger": "chain",
+   "effects": [
+    {
+     "op": "xm",
+     "who": "A",
+     "set": 0
+    },
+    {
+     "op": "set",
+     "name": "aid",
+     "value": "int(A.id)"
+    },
+    {
+     "op": "set",
+     "name": "s0",
+     "value": "A.sect"
+    },
+    {
+     "op": "set",
+     "name": "hp",
+     "value": "se.flag('xmh:' + str(int(A.id)))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "1.0 + 0.6 * int(g.trt(A, '淡泊')) + 0.8 * ctx.hp",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_xinmo_ok#"
+      },
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.3
+      },
+      {
+       "op": "flag",
+       "key": "xmh:{aid}",
+       "set": 0
+      }
+     ]
+    },
+    {
+     "id": "bad",
+     "weight": "1.0 + 0.4 * int(g.trt(A, '多疑'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_xinmo_bad#"
+      },
+      {
+       "op": "inj",
+       "who": "A",
+       "days": 15
+      },
+      {
+       "op": "flag",
+       "key": "xmh:{aid}",
+       "set": 0
+      }
+     ]
+    },
+    {
+     "id": "fall",
+     "weight": "(0.12 + 0.4 * int(g.trt(A, '阴狠'))) * int(g.side(A) == '正') * max(0.0, 1.0 - 0.5 * ctx.hp)",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##d_xinmo_fall#"
+      },
+      {
+       "op": "sect",
+       "who": "A",
+       "value": "'血煞门'"
+      },
+      {
+       "op": "home",
+       "who": "A"
+      },
+      {
+       "op": "rumor",
+       "text": "#r_fall#",
+       "about": [
+        "A"
+       ]
+      }
+     ]
+    }
+   ],
+   "in": [
+    "A"
+   ]
+  },
+  {
+   "id": "dabi",
+   "trigger": "daily",
+   "p": 0.02,
+   "cooldown": 20,
+   "when": "g.dabi_sect() != ''",
+   "effects": [
+    {
+     "op": "set",
+     "name": "sect",
+     "value": "g.dabi_sect()"
+    },
+    {
+     "op": "mark",
+     "key": "dabi:{sect}"
+    },
+    {
+     "op": "set",
+     "name": "rk",
+     "value": "g.dabi_rank(ctx.sect)"
+    },
+    {
+     "op": "rumor",
+     "text": "#r_dabi#",
+     "about": [],
+     "vars": {
+      "w1": "=g.nm(ctx.rk[0])"
+     }
+    },
+    {
+     "op": "run",
+     "id": "dabi_x",
+     "keep": [
+      "sect",
+      "rk"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dabi_x",
+   "trigger": "chain",
+   "roles": [
+    {
+     "name": "X",
+     "from": "g.ids(ctx.rk)",
+     "each": true,
+     "limit": 12
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "win",
+     "first": true,
+     "when": "g.rank_of(X, ctx.rk) == 1",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "X",
+       "text": "#t_lead##d_dabi_1#"
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.2
+      },
+      {
+       "op": "cast",
+       "name": "M",
+       "fixed": "g.master(X)"
+      },
+      {
+       "op": "if",
+       "when": "M != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "M",
+         "text": "#t_lead##d_dabi_master#",
+         "vars": {
+          "o": "X",
+          "rk": "=g.cnr(X, ctx.rk)"
+         }
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "M"
+      },
+      {
+       "op": "if",
+       "when": "g.known(X)",
+       "then": [
+        {
+         "op": "offer",
+         "id": "观大比",
+         "cast": {
+          "B": "X"
+         },
+         "ctx": {
+          "rk": "g.cnr(X, ctx.rk)",
+          "sect": "ctx.sect"
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "upset",
+     "first": true,
+     "when": "g.upset_over(X, ctx.rk) != null and se.chance(0.6)",
+     "effects": [
+      {
+       "op": "cast",
+       "name": "O",
+       "fixed": "g.upset_over(X, ctx.rk)"
+      },
+      {
+       "op": "if",
+       "when": "O != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_dabi_upset#",
+         "vars": {
+          "o": "O"
+         }
+        },
+        {
+         "op": "chron",
+         "who": "O",
+         "text": "#t_lead##d_dabi_grudge#",
+         "vars": {
+          "o": "X"
+         }
+        },
+        {
+         "op": "rel",
+         "a": "O",
+         "b": "X",
+         "g": 8
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "O"
+      }
+     ]
+    },
+    {
+     "id": "top",
+     "first": true,
+     "when": "g.rank_of(X, ctx.rk) <= 3",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "X",
+       "text": "#t_lead##d_dabi_top#",
+       "vars": {
+        "rk": "=g.cnr(X, ctx.rk)"
+       }
+      },
+      {
+       "op": "if",
+       "when": "g.known(X)",
+       "then": [
+        {
+         "op": "offer",
+         "id": "观大比",
+         "cast": {
+          "B": "X"
+         },
+         "ctx": {
+          "rk": "g.cnr(X, ctx.rk)",
+          "sect": "ctx.sect"
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "mid",
+     "first": true,
+     "when": "g.rank_of(X, ctx.rk) * 2 <= ctx.rk.size()",
+     "effects": [
+      {
+       "op": "cast",
+       "name": "O",
+       "fixed": "g.beat_by(X, ctx.rk)"
+      },
+      {
+       "op": "if",
+       "when": "O != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_dabi_mid#",
+         "vars": {
+          "o": "O",
+          "rk": "=g.cnr(X, ctx.rk)"
+         }
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "O"
+      }
+     ]
+    },
+    {
+     "id": "out",
+     "first": true,
+     "effects": [
+      {
+       "op": "cast",
+       "name": "O",
+       "fixed": "g.beat_by(X, ctx.rk)"
+      },
+      {
+       "op": "if",
+       "when": "O != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_dabi_out#",
+         "vars": {
+          "o": "O"
+         }
+        },
+        {
+         "op": "if",
+         "when": "g.trt(X, '记仇') or g.trt(X, '傲气')",
+         "then": [
+          {
+           "op": "rel",
+           "a": "X",
+           "b": "O",
+           "g": 6
+          },
+          {
+           "op": "chron",
+           "who": "X",
+           "text": "#t_lead##d_dabi_grudge#",
+           "vars": {
+            "o": "O"
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "O"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mijing",
+   "trigger": "daily",
+   "p": 0.018,
+   "cooldown": 40,
+   "when": "g.mj_ok()",
+   "effects": [
+    {
+     "op": "set",
+     "name": "party",
+     "value": "g.mj_ids(se.ri(3, 5))"
+    },
+    {
+     "op": "set",
+     "name": "p",
+     "value": "'秘境'"
+    },
+    {
+     "op": "rumor",
+     "text": "#r_mijing#",
+     "about": [],
+     "vars": {
+      "n0": "=g.nm(ctx.party[0])"
+     }
+    },
+    {
+     "op": "run",
+     "id": "mijing_x",
+     "keep": [
+      "party",
+      "p"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mijing_x",
+   "trigger": "chain",
+   "roles": [
+    {
+     "name": "X",
+     "from": "g.ids(ctx.party)",
+     "each": true,
+     "limit": 6
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "X",
+     "text": "#t_lead##d_mj_in#"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "treasure",
+     "weight": "1.0 + 0.5 * int(g.trt(X, '好奇'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "X",
+       "text": "#t_lead##d_mj_treasure#"
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.2
+      },
+      {
+       "op": "if",
+       "when": "g.known(X)",
+       "then": [
+        {
+         "op": "offer",
+         "id": "秘境归来",
+         "cast": {
+          "B": "X"
+         },
+         "ctx": {
+          "res": "'treasure'"
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "hurt",
+     "weight": "0.7 + 0.5 * int(g.trt(X, '嗜战'))",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "X",
+       "text": "#t_lead##d_mj_hurt#"
+      },
+      {
+       "op": "inj",
+       "who": "X",
+       "days": 15
+      },
+      {
+       "op": "if",
+       "when": "g.known(X)",
+       "then": [
+        {
+         "op": "offer",
+         "id": "秘境归来",
+         "cast": {
+          "B": "X"
+         },
+         "ctx": {
+          "res": "'hurt'"
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "none",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "X",
+       "text": "#t_lead##d_mj_none#"
+      }
+     ]
+    },
+    {
+     "id": "save",
+     "weight": "0.4 + 0.4 * int(g.trt(X, '侠义'))",
+     "effects": [
+      {
+       "op": "cast",
+       "name": "Y",
+       "from": "g.ids(ctx.party)",
+       "where": "int(SELF.id) != int(X.id)",
+       "else": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_mj_none#"
+        }
+       ]
+      },
+      {
+       "op": "if",
+       "when": "Y != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_mj_save#",
+         "vars": {
+          "o": "Y"
+         }
+        },
+        {
+         "op": "chron",
+         "who": "Y",
+         "text": "#t_lead##d_mj_saved#",
+         "vars": {
+          "o": "X"
+         }
+        },
+        {
+         "op": "rel",
+         "a": "Y",
+         "b": "X",
+         "f": 15
+        },
+        {
+         "op": "mem",
+         "who": "Y",
+         "about": "X",
+         "text": "{o}在秘境里救过我",
+         "wt": 20,
+         "kind": "救",
+         "vars": {
+          "o": "X"
+         }
+        },
+        {
+         "op": "if",
+         "when": "g.known(X)",
+         "then": [
+          {
+           "op": "offer",
+           "id": "秘境归来",
+           "cast": {
+            "B": "X"
+           },
+           "ctx": {
+            "res": "'save'"
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "Y"
+      }
+     ]
+    },
+    {
+     "id": "rob",
+     "weight": "0.15 + 0.6 * int(g.trt(X, '贪财')) + 0.6 * int(g.trt(X, '阴狠'))",
+     "effects": [
+      {
+       "op": "cast",
+       "name": "Y",
+       "from": "g.ids(ctx.party)",
+       "where": "int(SELF.id) != int(X.id)",
+       "else": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_mj_none#"
+        }
+       ]
+      },
+      {
+       "op": "if",
+       "when": "Y != null",
+       "then": [
+        {
+         "op": "chron",
+         "who": "X",
+         "text": "#t_lead##d_mj_rob#",
+         "vars": {
+          "o": "Y"
+         }
+        },
+        {
+         "op": "chron",
+         "who": "Y",
+         "text": "#t_lead##d_mj_robbed#",
+         "vars": {
+          "o": "X"
+         }
+        },
+        {
+         "op": "rel",
+         "a": "Y",
+         "b": "X",
+         "g": 20
+        },
+        {
+         "op": "mem",
+         "who": "Y",
+         "about": "X",
+         "text": "{o}在秘境里夺我的东西",
+         "wt": -20,
+         "kind": "夺",
+         "vars": {
+          "o": "X"
+         }
+        }
+       ]
+      },
+      {
+       "op": "drop",
+       "name": "Y"
+      }
+     ]
+    },
+    {
+     "id": "die",
+     "weight": "0.06 * int(not g.prot(X))",
+     "effects": [
+      {
+       "op": "die",
+       "who": "X",
+       "how": "#d_mj_die#"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

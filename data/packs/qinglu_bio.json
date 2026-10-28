@@ -1,0 +1,556 @@
+{
+ "id": "qinglu_bio",
+ "name": "青庐·前尘",
+ "doc": "入青庐之前的经历",
+ "host_vars": [
+  "p",
+  "s",
+  "r",
+  "age",
+  "ta",
+  "y",
+  "pn",
+  "jie"
+ ],
+ "host_ops": [
+  "rel",
+  "meet",
+  "tag",
+  "mem",
+  "inj",
+  "home",
+  "move",
+  "die",
+  "rumor",
+  "goal",
+  "lv",
+  "xp",
+  "sect",
+  "wflag",
+  "kid",
+  "spawn",
+  "seclude",
+  "xm",
+  "fav",
+  "ling",
+  "wu",
+  "pinj",
+  "pchron",
+  "mark"
+ ],
+ "storylets": [
+  {
+   "id": "bio_origin",
+   "trigger": "bio",
+   "order": 0,
+   "age": [
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "sx",
+     "value": "g.sx(A)"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_origin{sx}#"
+    }
+   ]
+  },
+  {
+   "id": "bio_dao",
+   "trigger": "bio",
+   "order": 1,
+   "age": [
+    6,
+    12
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_dao#"
+    }
+   ]
+  },
+  {
+   "id": "bio_join",
+   "trigger": "bio",
+   "order": 2,
+   "age": [
+    "ctx.age + 1",
+    "min(ctx.age + 5, g.agei(A) - 1)"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "jt",
+     "value": "g.jt(A)"
+    },
+    {
+     "op": "set",
+     "name": "join",
+     "value": "ctx.age"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_join{jt}#"
+    }
+   ]
+  },
+  {
+   "id": "bio_master_real",
+   "trigger": "bio",
+   "order": 3,
+   "when": "A.sect != '散修' and ctx.old == 0",
+   "p": 0.5,
+   "age": [
+    "ctx.age",
+    "min(ctx.age + 3, g.agei(A) - 1)"
+   ],
+   "roles": [
+    {
+     "name": "M",
+     "from": "g.mates(A)",
+     "where": "g.lv(SELF) >= g.lv(A) + 3 and g.age(SELF) > g.age(A) + 15 and not g.shi(A, SELF) and g.disc_ok(SELF)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "mreal",
+     "value": 1
+    },
+    {
+     "op": "tag",
+     "a": "M",
+     "b": "A",
+     "t": "徒",
+     "t2": "师"
+    },
+    {
+     "op": "rel",
+     "a": "A",
+     "b": "M",
+     "f": 30
+    },
+    {
+     "op": "rel",
+     "a": "M",
+     "b": "A",
+     "f": 20
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_master#",
+     "vars": {
+      "m": "M"
+     }
+    }
+   ]
+  },
+  {
+   "id": "bio_master_fake",
+   "trigger": "bio",
+   "order": 4,
+   "when": "A.sect != '散修' and ctx.get('mreal', 0) == 0",
+   "p": 0.8,
+   "age": [
+    "ctx.age",
+    "min(ctx.age + 3, g.agei(A) - 1)"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "m",
+     "value": "g.fake_name(['女', '男'][se.ri(0, 1)], se.ri(0, 999999))"
+    },
+    {
+     "op": "set",
+     "name": "mfake",
+     "value": 1
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_master#"
+    }
+   ]
+  },
+  {
+   "id": "bio_master_die",
+   "trigger": "bio",
+   "order": 5,
+   "free_age": true,
+   "when": "ctx.get('mfake', 0) == 1",
+   "p": 0.45,
+   "age": [
+    "ctx.age + 2",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_master_die#"
+    }
+   ]
+  },
+  {
+   "id": "bio_break",
+   "trigger": "bio",
+   "order": 6,
+   "when": "g.lv(A) >= 9",
+   "age": [
+    "ctx.age + 3",
+    "g.agei(A) - 2 * (g.lv(A) - 9) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_break#"
+    }
+   ]
+  },
+  {
+   "id": "bio_jindan",
+   "trigger": "bio",
+   "order": 7,
+   "when": "g.lv(A) >= 12",
+   "age": [
+    "ctx.age + 5",
+    "g.agei(A) - 2 * (g.lv(A) - 12) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_jindan#"
+    }
+   ]
+  },
+  {
+   "id": "bio_yuanying",
+   "trigger": "bio",
+   "order": 8,
+   "when": "g.lv(A) >= 15",
+   "age": [
+    "ctx.age + 8",
+    "g.agei(A) - 2"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_yuanying#"
+    }
+   ]
+  },
+  {
+   "id": "bio_dabi",
+   "trigger": "bio",
+   "order": 10,
+   "free_age": true,
+   "when": "A.sect != '散修' and g.side(A) != '魔'",
+   "p": 0.5,
+   "age": [
+    "ctx.join + 2",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_dabi#"
+    }
+   ]
+  },
+  {
+   "id": "bio_mijing",
+   "trigger": "bio",
+   "order": 11,
+   "free_age": true,
+   "when": "g.lv(A) >= 3",
+   "p": 0.45,
+   "age": [
+    "ctx.join + 2",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_mijing#"
+    }
+   ]
+  },
+  {
+   "id": "bio_xinmo",
+   "trigger": "bio",
+   "order": 12,
+   "free_age": true,
+   "when": "g.lv(A) >= 6",
+   "p": 0.3,
+   "age": [
+    "ctx.join + 4",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_xinmo#"
+    }
+   ]
+  },
+  {
+   "id": "bio_youli",
+   "trigger": "bio",
+   "order": 13,
+   "free_age": true,
+   "p": 0.6,
+   "age": [
+    "ctx.join + 1",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_youli#"
+    }
+   ]
+  },
+  {
+   "id": "bio_youli2",
+   "trigger": "bio",
+   "order": 14,
+   "free_age": true,
+   "p": 0.3,
+   "age": [
+    "ctx.join + 1",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_youli#"
+    }
+   ]
+  },
+  {
+   "id": "bio_like",
+   "trigger": "bio",
+   "order": 15,
+   "free_age": true,
+   "p": 0.55,
+   "age": [
+    10,
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "like",
+     "value": "g.like(A)"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_like_{like}#"
+    }
+   ]
+  },
+  {
+   "id": "bio_goal",
+   "trigger": "bio",
+   "order": 16,
+   "free_age": true,
+   "when": "A.goal != '报仇'",
+   "p": 0.65,
+   "age": [
+    12,
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "g0",
+     "value": "A.goal"
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_goal_{g0}#"
+    }
+   ]
+  },
+  {
+   "id": "bio_love",
+   "trigger": "bio",
+   "order": 17,
+   "free_age": true,
+   "when": "g.agei(A) >= 18",
+   "p": 0.45,
+   "age": [
+    16,
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "sx",
+     "value": "g.sx(A)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "single",
+     "weight": 2.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#pre_love_s{sx}#"
+      }
+     ]
+    },
+    {
+     "id": "wed",
+     "weight": 1.0,
+     "when": "g.single(A)",
+     "effects": [
+      {
+       "op": "set",
+       "name": "o2",
+       "value": "g.fake_name(g.opp(A.sex), se.ri(0, 999999))"
+      },
+      {
+       "op": "set",
+       "name": "wed",
+       "value": 1
+      },
+      {
+       "op": "set",
+       "name": "wage",
+       "value": "ctx.age"
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#pre_love_wed#"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bio_widow",
+   "trigger": "bio",
+   "order": 18,
+   "free_age": true,
+   "when": "ctx.get('wed', 0) == 1",
+   "p": 0.55,
+   "age": [
+    "ctx.wage + 3",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_widow#"
+    }
+   ]
+  },
+  {
+   "id": "bio_kid",
+   "trigger": "bio",
+   "order": 19,
+   "free_age": true,
+   "when": "ctx.get('wed', 0) == 1",
+   "p": 0.5,
+   "age": [
+    "ctx.wage + 1",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "set",
+     "name": "k",
+     "value": "g.kid_name(A, se.ri(0, 99999))"
+    },
+    {
+     "op": "if",
+     "when": "ctx.old == 0",
+     "then": [
+      {
+       "op": "kid",
+       "who": "A",
+       "with": "A",
+       "name": "{k}"
+      }
+     ]
+    },
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_kid#"
+    }
+   ]
+  },
+  {
+   "id": "bio_tudi",
+   "trigger": "bio",
+   "order": 20,
+   "free_age": true,
+   "when": "g.lv(A) >= 12",
+   "p": 0.6,
+   "age": [
+    "ctx.join + 20",
+    "g.agei(A) - 1"
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_tudi#"
+    }
+   ]
+  },
+  {
+   "id": "bio_chou",
+   "trigger": "bio",
+   "order": 21,
+   "free_age": true,
+   "when": "A.goal == '报仇'",
+   "age": [
+    8,
+    "g.agei(A) - 1"
+   ],
+   "roles": [
+    {
+     "name": "O",
+     "fixed": "g.gtgt(A)"
+    }
+   ],
+   "effects": [
+    {
+     "op": "chron",
+     "who": "A",
+     "text": "#pre_chou#",
+     "vars": {
+      "o": "O"
+     }
+    }
+   ]
+  }
+ ]
+}

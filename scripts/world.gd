@@ -157,15 +157,25 @@ const HINT = {"温柔": ["{ta}把伞往她这边偏了偏", "{ta}说话时声音
 const AG = preload("res://scripts/agency.gd")
 const MD = preload("res://scripts/meddle.gd")
 const TV = preload("res://scripts/travel.gd")
+const SG = preload("res://scripts/saga.gd")   # v0.12：可插拔事件引擎的胶水层（内容在 data/packs）
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
 const ROAD_OK = ["偶遇", "求助", "朱果之争", "劫修拦路", "劫修伏击", "天材地宝", "秘境", "重逢", "宝地相争", "寻凶", "坊市传闻", "旧友死讯", "暗涌", "报恩"]
 var w: Dictionary = {}
 var g = null
 var rng := RandomNumberGenerator.new()
+var se_ad = null
+
+## v0.12：事件引擎（懒建；状态在 w["se"]，随存档走）
+func saga():
+	if se_ad == null:
+		se_ad = SG.new(self)
+		se_ad.boot()
+	return se_ad
 
 # ================================================================ 生成 / 存读
 func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 	g = gs
+	se_ad = null
 	rng.seed = seed_v
 	w = {"v": 1, "day": 0, "C": {}, "next": 1, "news": [], "queue": [], "fired": {}, "last": {}, "pair_cd": {},
 		"tension": 10, "since_major": 0, "flags": {}, "recent": {}, "pending": {}, "events": [], "rng_seed": seed_v}
@@ -191,12 +201,15 @@ func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 			R(a, t)["g"] = 60
 			remember(a, t, "%s害过我的亲人" % t["name"], -30)
 	chron(P(), "自姑母家出来，住进后山脚下的青庐。")
+	for c in npcs():
+		c["pre"] = saga().bio(c)   # v0.12 前尘：入局之前的履历（带年岁），也会结下师承、旧情
 	_arc_setup()
 	_save_rng()
 
 func attach(gs, d: Dictionary) -> void:
 	g = gs
 	w = d
+	se_ad = null
 	rng.seed = int(w.get("rng_seed", 0))
 	rng.state = String(w.get("rng", "0")).to_int()
 	if not w.has("arc") and w.has("C"):
@@ -305,6 +318,21 @@ func known(c: Dictionary) -> bool:
 	var k := str(int(c["id"]))
 	return P()["rel"].has(k) and int(P()["rel"][k]["m"]) == 1
 
+## 道侣（死活不论）：哀悼时用
+func partner_any(c: Dictionary) -> Variant:
+	for k in c["rel"]:
+		if "道侣" in c["rel"][k]["t"]:
+			var o := C(int(k))
+			if not o.is_empty():
+				return o
+	return null
+
+## v0.12 前尘：旧档的人没有 pre，第一次看时按种子补写（只成文，不新建关系）
+func pre_of(c: Dictionary) -> Array:
+	if not c.has("pre") and not c.get("player", false):
+		c["pre"] = saga().bio(c, true)
+	return c.get("pre", [])
+
 func partner(c: Dictionary) -> Variant:
 	for k in _ids(c["rel"]):
 		if "道侣" in c["rel"][k]["t"]:
@@ -351,7 +379,7 @@ func remember(c: Dictionary, o, text: String, wt: int, kind: String = "", aid: i
 
 func chron(c: Dictionary, text: String) -> void:
 	c["log"].append([int(w["day"]), text])
-	if c["log"].size() > 80:
+	if c["log"].size() > 120:
 		c["log"].pop_front()
 
 func rumor(text: String, who: Array = [], kind: String = "") -> void:
@@ -497,16 +525,14 @@ func tick(home: bool = true, road: bool = true) -> void:
 			var big: bool = lv in [8, 11, 14, 17]
 			if big and rng.randf() < 0.45:
 				c["inj"] = 20
-				chron(c, "冲击%s失败，经脉受损。" % REALMS[lv + 1])
-				if rng.randf() < 0.15:
+				saga().emit("break_fail", c, {"r": REALMS[lv + 1]})   # 冲关失败：文字、心魔都在内容包里
+				if c["alive"] and rng.randf() < 0.15:
 					die(c, "冲关走火入魔，身死道消")
 				continue
 			c["lv"] = lv + 1
-			if big:
-				chron(c, "破境，入%s。" % realm(c))
-				rumor("%s（%s）突破至%s。" % [c["name"], c["sect"], realm(c)], [c], "破")
+			saga().emit("break", c, {"big": 1 if big else 0})
 		if float(c["age"]) > lifespan(int(c["lv"])) and rng.randf() < (0.06 if int(c.get("frail", 0)) == 1 else 0.02):
-			die(c, "寿元耗尽，坐化")
+			die(c, saga().old_how(c))
 			continue
 		if int(c["lv"]) >= 18 and rng.randf() < 0.01:
 			ascend(c)
@@ -527,12 +553,13 @@ func tick(home: bool = true, road: bool = true) -> void:
 				w["pair_cd"][key] = int(w["day"])
 				world_event(a, b, place)
 	for c in npcs():
-		if rng.randf() < 0.012:
-			solo(c)
+		if c["alive"] and rng.randf() < 0.08:
+			saga().beat(c)   # v0.12：各人按自己的性子、念头、关系出一件小事（含旧的“独行”）
 	if rng.randf() < 0.04 and npcs().size() < 30:
 		newcomer()
 	AG.daily(self)
 	TV.daily(self)   # v0.11：人按念头在各地走动；她的去处逐步解锁
+	saga().daily()   # v0.12：到期的连锁事件 + 世界级的大比、秘境
 	_arc_tick()
 	if (home or road) and w["pending"].is_empty():
 		storyteller(home)
@@ -547,17 +574,9 @@ func _road_place() -> String:
 			return {"houshan": "后山", "hantan": "寒潭"}.get(rid, String(g.routes[rid].get("place", g.routes[rid]["name"])))
 	return "后山" if int(w["day"]) % 2 == 0 else "寒潭"
 
+## 旧的“独行”入口（测试和旧代码可能还在调）：交给内容包的 solo_goal
 func solo(c: Dictionary) -> void:
-	var goal: String = c["goal"]
-	_flag_add("solo:" + goal)
-	chron(c, String(_ch(SOLO[goal])).format({"p": c["place"], "s": c["sect"]}))
-	if goal == "炼一炉九转丹" and rng.randf() < 0.05:
-		chron(c, "九转丹成。")
-		c["lv"] = mini(18, int(c["lv"]) + 2)
-		rumor("%s炼成了九转丹。" % c["name"], [c])
-		c["goal"] = "求长生"
-	if goal == "寻道侣" and partner(c) != null:
-		c["goal"] = "求长生"
+	saga().eng.fire("solo_goal", {"A": c}, {})
 
 ## 缘分线上那个人，在表白之前不让江湖把他写死或配给别人（重伤代替身死）
 func _protected(c: Dictionary) -> bool:
@@ -573,6 +592,10 @@ func die(c: Dictionary, how: String) -> void:
 	chron(c, how + "。")
 	rumor("%s%s。" % [c["name"], how], [c], "死")
 	var killer = _killer_of(how)
+	var near := {}   # v0.12：道侣、徒弟由内容包写更细的哀悼，这里不再写“三日不语”
+	var pt = partner_any(c)
+	if pt != null:
+		near[int(pt["id"])] = true
 	for o in npcs():
 		if o.has("dr") and int(o["dr"]["t"]) == int(c["id"]):
 			o["rt"] = 1   # v0.9：念头里的那个人没了，重想
@@ -587,147 +610,31 @@ func die(c: Dictionary, how: String) -> void:
 			var r: Dictionary = o["rel"][str(int(c["id"]))]
 			if "道侣" in r["t"] or int(r["f"]) > 40:
 				remember(o, c, "%s死了" % c["name"], -10)
-				chron(o, "听闻%s%s，三日不语。" % [c["name"], how])
+				if not (near.has(int(o["id"])) or "师" in r["t"]):
+					chron(o, "听闻%s%s，三日不语。" % [c["name"], how])
 				if not o["player"] and (tag(o, "记仇") or tag(o, "痴情")):
 					o["goal"] = "报仇"
+	saga().emit("death", c, {"how": how})
 
 func ascend(c: Dictionary) -> void:
 	c["alive"] = false
 	c["asc"] = true
-	chron(c, "渡劫成功，白日飞升。")
-	rumor("天现异象：%s渡劫飞升。" % c["name"], [c])
+	saga().emit("ascend", c, {})
 
 func newcomer() -> void:
 	var c := _new_char("", "", rng.randi_range(0, 3))
-	chron(c, ("初入仙途，拜入%s。" % c["sect"]) if c["sect"] != "散修" else "初入仙途，做了散修。")
+	c["pre"] = saga().bio(c)
+	saga().emit("newcomer", c, {})
 
+## v0.12：两人相遇。见面计数留在这里，“见面会怎样”交给内容包 qinglu_core 的 on:meet（论道/争宝/斗法/结道侣/收徒/结义/背弃/复仇，每种多个结局）
 func world_event(a: Dictionary, b: Dictionary, place: String) -> void:
-	var oa := opinion(a, b)
-	var ob := opinion(b, a)
 	var ra := R(a, b)
 	var rb := R(b, a)
 	ra["m"] = 1
 	rb["m"] = 1
 	ra["n"] = int(ra.get("n", 0)) + 1
 	rb["n"] = int(rb.get("n", 0)) + 1
-	# v0.8 行为惯性：两人之间记着的好事/坏事越多，越往同一个方向走；结了义、做了道侣/师徒的不拔剑相向
-	var pos := 0
-	var neg := 0
-	for m in a["mem"] + b["mem"]:
-		if int(m[1]) == int(b["id"]) or int(m[1]) == int(a["id"]):
-			if float(m[3]) > 0:
-				pos += 1
-			elif float(m[3]) < 0:
-				neg += 1
-	pos = mini(pos, 4)
-	neg = mini(neg, 4)
-	var bonded := false
-	for t in ra["t"] + rb["t"]:
-		if t in CLOSE_TAGS:
-			bonded = true
-	var ks := ["论道"]
-	var ws := [3.0 + maxf(0.0, (oa + ob) / 20.0) + 1.5 * pos]
-	ks.append("争宝"); ws.append((1.5 + (int(tag(a, "贪财")) + int(tag(b, "贪财"))) * 2 + int(place in ["古战场", "云梦泽"]) * 2 + 1.0 * neg) * (0.2 if bonded else 1.0))
-	if not bonded and (oa < -20 or ob < -20 or (side(a) != side(b) and side(a) != "中" and side(b) != "中")):
-		ks.append("斗法"); ws.append(2.0 + maxf(0.0, -(oa + ob) / 15.0) + 1.5 * neg)
-	var single: bool = partner(a) == null and partner(b) == null
-	# v0.8：结道侣要见过至少两回、彼此好感 > 35（以前 > 28，一面之缘就成）
-	if a["sex"] != b["sex"] and oa > 35 and ob > 35 and single and int(ra["n"]) >= 2:
-		ks.append("结为道侣"); ws.append(6.0)
-	var has_shi := false
-	for t in ra["t"]:
-		if "师" in t or "徒" in t:
-			has_shi = true
-	if absi(int(a["lv"]) - int(b["lv"])) >= 5 and oa > 25 and ob > 25 and not has_shi:
-		ks.append("收徒"); ws.append(4.0)
-	if a["sex"] == b["sex"] and oa > 40 and ob > 40 and not ("结义" in ra["t"]):
-		ks.append("结义"); ws.append(2.0)
-	if partner(a) == b and (tag(a, "薄情") or tag(a, "阴狠")) and rng.randf() < 0.3:
-		ks.append("背弃"); ws.append(3.0)
-	if a["goal"] == "报仇" and int(a["gt"]) == int(b["id"]):
-		ks.append("复仇"); ws.append(12.0)
-	if a["sex"] != b["sex"] and a["sect"] == b["sect"] and int(ra["f"]) > 20 and int(rb["f"]) > 20 and single and int(ra["n"]) >= 2 and ("寻道侣" in [a["goal"], b["goal"]]):
-		ks.append("结为道侣"); ws.append(5.0)
-	var k: String = _wch(ks, ws)
-	_flag_add("w:" + k)
-	match k:
-		"论道":
-			var d := rng.randi_range(6, 15)
-			ra["f"] = int(ra["f"]) + d
-			rb["f"] = int(rb["f"]) + d
-			chron(a, String(_ch(VAR["论道"])).format({"p": place, "o": b["name"]}))
-			chron(b, String(_ch(VAR["论道"])).format({"p": place, "o": a["name"]}))
-		"争宝":
-			var ab := [a, b] if int(a["lv"]) + rng.randf() * 4 > int(b["lv"]) + rng.randf() * 4 else [b, a]
-			var win: Dictionary = ab[0]
-			var lose: Dictionary = ab[1]
-			R(win, lose)["g"] = int(R(win, lose)["g"]) + 5
-			R(lose, win)["g"] = int(R(lose, win)["g"]) + 20
-			remember(lose, win, "%s抢了我在%s看中的灵物" % [win["name"], place], -15, "夺")
-			chron(win, String(_ch(VAR["争宝_w"])).format({"p": place, "o": lose["name"]}))
-			chron(lose, String(_ch(VAR["争宝_l"])).format({"p": place, "o": win["name"]}))
-			if rng.randf() < 0.3:
-				rumor(pv("争宝闻", ["听说%s在%s抢先得了一件宝物，%s空手而回。", "%s在%s和%s争一株灵草，争赢了。", "%s从%s带回一卷残图，据说是从%s手里截下的。"]) % [win["name"], place, lose["name"]], [win, lose])
-		"斗法":
-			var ab2 := [a, b] if int(a["lv"]) + rng.randf() * 5 > int(b["lv"]) + rng.randf() * 5 else [b, a]
-			var win2: Dictionary = ab2[0]
-			var lose2: Dictionary = ab2[1]
-			R(lose2, win2)["g"] = int(R(lose2, win2)["g"]) + 30
-			lose2["inj"] = 15
-			chron(win2, String(_ch(VAR["斗法_w"])).format({"p": place, "o": lose2["name"]}))
-			chron(lose2, String(_ch(VAR["斗法_l"])).format({"p": place, "o": win2["name"]}))
-			lose2["place"] = SECT_HOME[lose2["sect"]]
-			if rng.randf() < 0.5:
-				var dv := pv("斗法闻", ["{w}与{l}在{p}斗法，{l}落败。", "{w}在{p}一剑挑伤了{l}。", "{l}在{p}输给了{w}，被抬回了山门。"])
-				rumor(dv.format({"w": win2["name"], "l": lose2["name"], "p": place}), [win2, lose2], "伤")
-			if int(win2["lv"]) - int(lose2["lv"]) >= 3 and (tag(win2, "阴狠") or side(win2) == "魔") and rng.randf() < 0.5:
-				die(lose2, "死于%s之手" % win2["name"])
-			else:
-				remember(lose2, win2, "%s伤我" % win2["name"], -25, "伤")
-		"结为道侣":
-			if _protected(a) or _protected(b):
-				ra["f"] = int(ra["f"]) + 5
-				chron(a, "与%s在%s喝了一夜的酒。" % [b["name"], place])
-				return
-			ra["t"].append("道侣")
-			rb["t"].append("道侣")
-			chron(a, "与%s结为道侣。" % b["name"])
-			chron(b, "与%s结为道侣。" % a["name"])
-			rumor("%s与%s结为道侣，在%s摆了三桌素席。" % [a["name"], b["name"], place], [a, b], "侣")
-		"收徒":
-			var m: Dictionary = a if int(a["lv"]) > int(b["lv"]) else b
-			var d2: Dictionary = b if m == a else a
-			R(m, d2)["t"].append("徒")
-			R(d2, m)["t"].append("师")
-			chron(m, "收%s为徒。" % d2["name"])
-			chron(d2, "拜%s为师。" % m["name"])
-			if d2["sect"] != m["sect"] and m["sect"] != "散修":
-				d2["sect"] = m["sect"]
-		"结义":
-			ra["t"].append("结义")
-			rb["t"].append("结义")
-			chron(a, "与%s义结金兰。" % b["name"])
-			chron(b, "与%s义结金兰。" % a["name"])
-		"背弃":
-			ra["t"].erase("道侣")
-			rb["t"].erase("道侣")
-			rb["g"] = int(rb["g"]) + 60
-			remember(b, a, "%s负我" % a["name"], -40, "负")
-			chron(a, "弃了道侣%s，独自远走。" % b["name"])
-			chron(b, "被%s所负。" % a["name"])
-			rumor("听说%s负了%s。" % [a["name"], b["name"]], [a, b])
-			if tag(b, "记仇") or tag(b, "痴情"):
-				b["goal"] = "报仇"
-				b["gt"] = int(a["id"])
-		"复仇":
-			if int(a["lv"]) + rng.randf() * 4 > int(b["lv"]) + rng.randf() * 3:
-				chron(a, "在%s寻到%s，了结旧仇。" % [place, b["name"]])
-				die(b, "被%s寻仇所杀" % a["name"])
-				a["goal"] = _ch(GOALS.slice(0, 6))
-			else:
-				a["inj"] = 25
-				chron(a, "寻%s报仇不成，负伤遁走。" % b["name"])
-				R(b, a)["g"] = int(R(b, a)["g"]) + 30
+	saga().meet(a, b, place)
 
 # ================================================================ 说书人
 func storyteller(home: bool = true) -> void:
@@ -948,8 +855,9 @@ func _log_fire(tid: String) -> void:
 	w["events"].append(tid)
 	if w["events"].size() > 300:
 		w["events"].pop_front()
-	w["tension"] = clampi(int(w["tension"]) + int(T[tid][1]), 0, 100)
-	if int(T[tid][0]) >= 2:
+	var meta: Array = T[tid] if T.has(tid) else saga().meta(tid)
+	w["tension"] = clampi(int(w["tension"]) + int(meta[1]), 0, 100)
+	if int(meta[0]) >= 2:
 		w["since_major"] = 0
 
 func _pick(f: Callable, key: Callable = Callable()) -> Variant:
@@ -1333,6 +1241,8 @@ func _hint(n: Dictionary) -> String:
 
 ## 呈现：{speaker: id(0=旁白), text, opts:[[id,label]]}
 func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
+	if saga().is_tid(tid):
+		return saga().present(tid, roles, ctx)
 	if tid in TV.TIDS:
 		return TV.present(self, tid, roles, ctx)
 	if tid in MD.TIDS:
@@ -1724,6 +1634,8 @@ func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
 	return mine + rng.randf() * a > theirs + rng.randf() * b
 
 func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
+	if saga().is_tid(tid):
+		return saga().resolve(tid, roles, ctx, oid)
 	if tid in TV.TIDS:
 		return TV.resolve(self, tid, roles, ctx, oid)
 	if tid in MD.TIDS:
