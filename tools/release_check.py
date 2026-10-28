@@ -1,11 +1,14 @@
 # 玩家版（release 导出）点一遍：标题 → 新游戏 → 院子 → 后山游历（碰上奇遇就选）→ 回家 → 生平 → 行囊 → 江湖 → 静室闭关一年
 # 只用玩家版也有的只读钩子 window.qinglu_btns（屏上按钮文字与位置）与 window.qinglu_state；不用调试钩子。
 # 桌面 Chrome 无头（swiftshader，模拟触控），不是真机。
-# 用法：python3 tools/release_check.py <URL> <截图前缀> [宽 高]
+# 用法：python3 tools/release_check.py <URL> <截图前缀> [宽 高] [旧档.json]
+# 给了旧档（{"rev":..,"state":{..}}，如 tests/fixtures/save_v2_live_v0121_day36.json）就改走“读旧档”：
+# 开页前写进 localStorage → 标题页点「继续」→ 查读进来的日子没变、存回去是 v3、旧档没被清空 → 各页签 → 闭关十年。
 import json, sys, time
 from playwright.sync_api import sync_playwright
 url, pre = sys.argv[1], sys.argv[2]
 W, H = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (390, 844)
+OLD = json.load(open(sys.argv[5])) if len(sys.argv) > 5 else None
 out = 'build/shots'
 ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
 NAV = {'青庐', '历练', '行囊', '江湖', '生平'}
@@ -16,6 +19,8 @@ with sync_playwright() as p:
     pg = c.new_page()
     pg.on('console', lambda m: res['errors'].append(m.text) if m.type == 'error' else None)
     pg.on('pageerror', lambda e: res['errors'].append('pageerror: ' + str(e)))
+    if OLD is not None:
+        c.add_init_script('if(!sessionStorage.getItem("qc_seeded")){localStorage.setItem("qinglu_v6_slot1",%s);sessionStorage.setItem("qc_seeded","1");}' % json.dumps(json.dumps(OLD, ensure_ascii=False)))
     t0 = time.time()
     pg.goto(url)
     pg.wait_for_function('window.qinglu_btns !== undefined && window.qinglu_state !== undefined', timeout=120000)
@@ -42,14 +47,40 @@ with sync_playwright() as p:
             if hit:
                 res.setdefault('log', []).append(hit[0]); tap(hit[0]); continue
             if st.get('modal', '') == '' and st.get('loc') != 'trip' and any(t in NAV for t in names):
-                return  # 底栏露出来了 = 没有挡着的面板（灵脉/选择面板 modal 也可能是空的）
+                return
+            if st.get('modal', '') == '' and st.get('loc') == 'roam':
+                return  # 游历页（没有底栏）：没有对话/事件挡着就交回给调用者，别乱点“去别处”  # 底栏露出来了 = 没有挡着的面板（灵脉/选择面板 modal 也可能是空的）
             cand = [t for t in names if t and t not in NAV and len(t) >= 2 and t not in ('设置', '♪')]
             if not cand: return
             res.setdefault('log', []).append(cand[0]); tap(cand[0])
     def step(name, ok):
         pg.screenshot(path=f'{out}/{pre}_{W}x{H}_{name}.png')
         res['steps'].append([name, bool(ok), state().get('tab'), state().get('loc'), state().get('day')])
+    def ls_save():
+        t = pg.evaluate('localStorage.getItem("qinglu_v6_slot1")')
+        return json.loads(t) if t else None
     step('title', True)
+    if OLD is not None:
+        names = [t for t, _, _ in btns()]
+        res['title_btns'] = names
+        step('continue', tap('继续', 2500))
+        clear_dialogs()
+        st = state(); sv = ls_save() or {}
+        res['old'] = {'v': OLD['state'].get('v'), 'day': OLD['state'].get('day'), 'rev': OLD.get('rev')}
+        res['loaded'] = {'screen': st.get('screen'), 'day': st.get('day'), 'saved_v': sv.get('state', {}).get('v'), 'saved_rev': sv.get('rev'), 'saved_day': sv.get('state', {}).get('day')}
+        step('loaded', st.get('screen') == 'game' and st.get('day') == OLD['state'].get('day'))
+        for tb in ['生平', '行囊', '江湖', '历练', '青庐']:
+            clear_dialogs()
+            step('old_tab_' + {'生平': 'life', '行囊': 'pack', '江湖': 'jianghu', '历练': 'map', '青庐': 'home'}[tb], tap(tb, 1200))
+        clear_dialogs()
+        ok = tap('静室', 1200) and tap('十年', 6000)
+        step('old_seclude10', ok)
+        clear_dialogs()
+        st = state(); sv = ls_save() or {}
+        res['after_seclude'] = {'day': st.get('day'), 'saved_v': sv.get('state', {}).get('v'), 'saved_day': sv.get('state', {}).get('day')}
+        step('old_after', True)
+        b.close()
+        print(json.dumps(res, ensure_ascii=False, indent=1)); sys.exit(0)
     step('create', tap('新游戏', 1500))
     ok = tap('出发', 1800)
     step('opening', ok)
@@ -70,7 +101,7 @@ with sync_playwright() as p:
         clear_dialogs()
         step('tab_' + {'生平': 'life', '行囊': 'pack', '江湖': 'jianghu', '青庐': 'home2'}[tb], tap(tb, 1200))
     clear_dialogs()
-    ok = tap('静室', 1200) and tap('一年', 2500)
+    ok = tap('静室', 1200) and tap('十年', 6000)   # 长闭关（十年；修为满会提前出关）
     step('seclude', ok)
     clear_dialogs()
     step('after', True)
