@@ -23,7 +23,7 @@ var grammar := {}         # 合并后的语法表
 var packs := {}           # pack id -> pack
 var cfg := {"family_decay": 6.0, "novelty": 0.0, "recent_frac": 0.5, "max_queue": 400}
 var errors := []          # 运行期错误（表达式出错、缺变量……），给 lint / 测试看
-var trace = null          # 设成 [] 就记下每次触发 [day, sid, oid, actor_id, text]
+var trace = null          # 设成 [] 就记下每次触发 [now(刻), sid, oid, actor_id, text]
 var _gram = null
 var _exprs := {}
 var _bio = null           # biography() 期间收集行
@@ -89,6 +89,7 @@ func add_pack(p: Dictionary) -> void:
 	for s in p.get("storylets", []):
 		var sid := String(s["id"])
 		s["_pack"] = pid
+		s["_unit"] = String(s.get("unit", p.get("unit", "tick")))   # 时长写在什么单位里（见 README“时间单位”）
 		s["_names"] = role_names(s)
 		if not defs.has(sid):
 			order.append(sid)
@@ -437,18 +438,40 @@ func _wpick(items: Array, ws: Array):
 			return items[i]
 	return items[items.size() - 1]
 
-## 门槛：max / cooldown / actor_cooldown / family_gap / min_day
+## 时间单位：引擎只认 adapter.se_now() 的整数“刻”（tick）。包里的时长按 pack/storylet 的 "unit" 写，
+## 由 adapter.se_ticks(n, unit) 换算成刻（没实现或 unit=="tick" 就原样）。换算后向上取整：冷却 3 日在“一刻=一月”下仍至少隔一刻。
+func ticks_per(unit: String) -> float:
+	if unit == "tick" or adapter == null or not adapter.has_method("se_ticks"):
+		return 1.0
+	return float(adapter.se_ticks(1.0, unit))
+
+func dur(n: float, unit: String) -> int:
+	var k := ticks_per(unit)
+	if k == 1.0:
+		return int(n)
+	return int(ceil(n * k - 0.000001)) if n > 0 else int(n * k)
+
+## 每“单位”的概率 → 每刻的概率（一刻 = k 个单位分之一）
+func per_tick(p: float, unit: String) -> float:
+	var k := ticks_per(unit)
+	if k == 1.0 or p <= 0.0 or p >= 1.0 or k <= 0.0:
+		return p
+	return 1.0 - pow(1.0 - p, 1.0 / k)
+
+## 门槛：max / cooldown / actor_cooldown / family_gap / min_t（旧名 min_day）
 func gate(s: Dictionary, a = null) -> bool:
 	var sid := String(s["id"])
+	var u := String(s.get("_unit", "tick"))
 	if s.has("max") and fired(sid) >= int(s["max"]):
 		return false
-	if s.has("min_day") and now() < int(s["min_day"]):
+	var mt = s.get("min_t", s.get("min_day", null))
+	if mt != null and now() < dur(float(mt), u):
 		return false
-	if s.has("cooldown") and since(sid) < int(s["cooldown"]):
+	if s.has("cooldown") and since(sid) < dur(float(s["cooldown"]), u):
 		return false
-	if a != null and s.has("actor_cooldown") and asince(sid, a) < int(s["actor_cooldown"]):
+	if a != null and s.has("actor_cooldown") and asince(sid, a) < dur(float(s["actor_cooldown"]), u):
 		return false
-	if s.has("family") and s.has("family_gap") and fsince(String(s["family"])) < int(s["family_gap"]):
+	if s.has("family") and s.has("family_gap") and fsince(String(s["family"])) < dur(float(s["family_gap"]), u):
 		return false
 	return true
 
@@ -537,7 +560,7 @@ func tick_world() -> int:
 		var s: Dictionary = defs[sid]
 		if not gate(s):
 			continue
-		if s.has("p") and rng.randf() >= num(ev(s["p"], make_inst(sid))):
+		if s.has("p") and rng.randf() >= per_tick(num(ev(s["p"], make_inst(sid))), String(s.get("_unit", "tick"))):
 			continue
 		var inst := make_inst(sid)
 		if not truthy(ev(s.get("when", ""), inst)) or not cast_roles(s, inst):
@@ -609,11 +632,11 @@ func fire(sid: String, cast: Dictionary = {}, ctx: Dictionary = {}) -> bool:
 	_sync()
 	return true
 
-func schedule(days: int, sid: String, cast: Dictionary, ctx: Dictionary = {}) -> void:
+func schedule(ticks: int, sid: String, cast: Dictionary, ctx: Dictionary = {}) -> void:
 	var c := {}
 	for k in cast:
 		c[k] = _id(cast[k]) if cast[k] is Dictionary or cast[k] is Object else cast[k]
-	st["q"].append([now() + days, sid, c, ctx.duplicate(true)])
+	st["q"].append([now() + ticks, sid, c, ctx.duplicate(true)])
 	while st["q"].size() > int(cfg.get("max_queue", 400)):
 		st["q"].pop_front()
 
@@ -844,7 +867,7 @@ func _op(op: Dictionary, inst: Dictionary) -> void:
 					lo = int(num(ev(iv, inst))); hi = lo
 			var cast := _map_cast(op, inst)
 			var ctx := _carry(op, inst)
-			schedule(rng.randi_range(lo, maxi(lo, hi)), String(op["id"]), cast, ctx)
+			schedule(dur(rng.randi_range(lo, maxi(lo, hi)), String(defs.get(String(inst["sid"]), {}).get("_unit", "tick"))), String(op["id"]), cast, ctx)
 		"run":
 			var c2 := _map_cast(op, inst)
 			var ctx2 := _carry(op, inst)

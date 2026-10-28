@@ -554,6 +554,7 @@ PK = [pack("qinglu_core", "青庐·江湖自转（迁移自 v0.11 world_event / 
       pack("qinglu_bio", "青庐·前尘", BIO, None, "入青庐之前的经历"),
       pack("qinglu_offer", "青庐·交给她选的事", OFFER, None, "满月酒、吊唁、观大比、秘境归来、心魔劫、求拜师、情劫")]
 for p in PK:
+    p.setdefault("unit", "day")   # 包里的冷却/连锁/min_t 都按“日”写；换算交给 saga.gd 的 se_ticks
     json.dump(p, open(R + "/data/packs/%s.json" % p["id"], "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 ns = sum(len(p["storylets"]) for p in PK)
 no = sum(len(s.get("outcomes", [])) for p in PK for s in p["storylets"]) + sum(len(c.get("outcomes", [])) for s in OFFER for c in s["choices"])

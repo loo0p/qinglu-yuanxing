@@ -8,6 +8,11 @@ const SIM = preload("res://addons/storylet_engine/se_sim.gd")
 const EA = preload("res://addons/storylet_engine/examples/example_adapter.gd")
 var fails := 0
 
+## 一刻 = 一月的胶水（测时间单位换算）
+class MonthAd extends "res://addons/storylet_engine/examples/example_adapter.gd":
+	func se_ticks(n: float, unit: String) -> float:
+		return n / 30.0 if unit == "day" else (n * 12.0 if unit == "year" else n)
+
 func ok(c: bool, msg: String) -> void:
 	print(("PASS " if c else "FAIL ") + msg)
 	if not c:
@@ -101,5 +106,20 @@ func _init() -> void:
 	var rep: Dictionary = SIM.report(e)
 	ok(rep["lines"] > 50 and rep["outcomes"] > 5, "模拟台：%d 行，%d 种，结果覆盖 %d/%d" % [rep["lines"], rep["distinct"], rep["outcomes_hit"], rep["outcomes"]])
 	ok(e.errors.is_empty(), "引擎无运行期错误 %s" % [e.errors.slice(0, 5)])
+	# 时间单位：包按“日”写，胶水一刻 = 一月
+	var ma = MonthAd.new()
+	var me = SE.new(ma, {}, 5)
+	me.add_pack({"id": "u", "unit": "day", "storylets": [
+		{"id": "u1", "trigger": "manual", "cooldown": 45, "effects": [{"op": "schedule", "id": "u2", "in": 60}]},
+		{"id": "u2", "trigger": "chain", "effects": []}]})
+	ok(me.dur(45, "day") == 2 and me.dur(3, "day") == 1 and me.dur(2, "year") == 24 and e.dur(45, "day") == 45, "时间单位：45 日=2 月、3 日至少 1 刻、2 年=24 月；无 se_ticks 的胶水原样")
+	ok(absf(me.per_tick(0.01, "day") - (1.0 - pow(0.99, 30.0))) < 1e-6 and e.per_tick(0.01, "day") == 0.01, "时间单位：每日 1% → 每月约 26%")
+	ma.day = 10
+	me.fire("u1", {"A": ma.people[0]}, {})
+	ok(me.st["q"].size() == 1 and int(me.st["q"][0][0]) == 12, "时间单位：连锁 in 60 日 → 2 刻后到期")
+	ma.day = 11
+	ok(not me.gate(me.defs["u1"]), "时间单位：冷却 45 日 → 隔 1 刻仍在冷却")
+	ma.day = 12
+	ok(me.gate(me.defs["u1"]), "时间单位：隔 2 刻冷却结束")
 	print("storylet_engine_test: %s (%d fail)" % ["OK" if fails == 0 else "FAILED", fails])
 	quit(1 if fails > 0 else 0)

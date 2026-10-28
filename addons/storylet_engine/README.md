@@ -20,7 +20,7 @@
 const SE = preload("res://addons/storylet_engine/storylet_engine.gd")
 var eng = SE.new(my_adapter, save_data.get("se", {}), seed)   # 状态就是这个 Dictionary，原样存进存档
 eng.load_pack_file("res://data/packs/my_pack.json")
-# 每天：
+# 每一刻（tick：日、月、年都行，见“时间单位”）：
 eng.tick_due()          # 到期的连锁事件
 eng.tick_world()        # trigger=daily 的世界事件（大比、秘境……）
 for a in some_actors: eng.beat(a)     # 人物各自的“一拍”（trigger=actor，按显著度挑一条）
@@ -29,14 +29,14 @@ save_data["se"] = eng.save_state()
 ```
 
 ## Adapter 接口
-必需：`se_now() -> int`、`se_actors() -> Array`、`se_id(a) -> int`、`se_actor(id)`、`se_name(a) -> String`、`se_chronicle(a, text, inst, eng)`。
+必需：`se_now() -> int`（当前第几刻）、`se_actors() -> Array`、`se_id(a) -> int`、`se_actor(id)`、`se_name(a) -> String`、`se_chronicle(a, text, inst, eng)`。
 可选：`se_alive(a)`（连锁事件到期时跳过死人，`dead_ok` 例外）、`se_var(name, inst, eng)`（文本里 `{name}` 的游戏变量）、
-`se_op(op, inst, eng)`（游戏专属效果）、`se_offer(inst, eng)`（把要玩家选的事交给游戏排队）。
+`se_op(op, inst, eng)`（游戏专属效果）、`se_ticks(n, unit) -> float`（n 个 unit 合多少刻，见“时间单位”）、`se_offer(inst, eng)`（把要玩家选的事交给游戏排队）。
 表达式里 `g.xxx(...)` 调的就是 adapter 上的方法（查询函数随便加）。
 
 ## 内容包格式
 ```json
-{"id": "pack_id", "version": 1, "host_vars": ["天气"], "host_ops": ["gold"],
+{"id": "pack_id", "version": 1, "unit": "day", "host_vars": ["天气"], "host_ops": ["gold"],
  "grammar": {"food": ["一碗面", "两个包子"]},
  "storylets": [ {...}, ... ]}
 ```
@@ -44,8 +44,8 @@ storylet 字段：
 - `id`、`trigger`：`actor` / `daily` / `chain` / `bio` / `offer` / `manual` / `on:<信号>`
 - `in`：调用方预先绑好的角色（actor/bio/on:* 缺省 `["A"]`）；`roles`：引擎来选的角色
   `{name, from?, where?(SELF), weight?(SELF), optional?, fixed?, each?, limit?, allow_same?}`
-- `when`（条件）、`weight`（显著度）、`p`（daily 每日概率）、`priority` + `family`（同信号同族只发最具体的一条：L4D 规则库做法）
-- 节奏闸门：`max`、`min_day`、`cooldown`、`actor_cooldown`、`family_gap`；新鲜度 `novelty`；同族衰减（cfg.family_decay）
+- `when`（条件）、`weight`（显著度）、`p`（daily 每 unit 的概率）、`priority` + `family`（同信号同族只发最具体的一条：L4D 规则库做法）
+- 节奏闸门：`max`、`min_t`（旧名 `min_day`）、`cooldown`、`actor_cooldown`、`family_gap`；新鲜度 `novelty`；同族衰减（cfg.family_decay）
 - `effects`（先执行，CK3 的 immediate）→ `outcomes`（加权挑一个；`first:true` 的按顺序先到先得）
 - `choices`（只用于 offer：`[{id, label, when?, outcomes:[...]}]`，由游戏 present/choose）、`text`（offer 的开场）
 - `bio` 专用：`age:[lo, hi]`、`free_age`（插曲，不推进当前年纪，最后按年纪排序）
@@ -60,6 +60,15 @@ storylet 字段：
 
 表达式是 Godot `Expression`：可用名字 `g`（adapter）、`se`（引擎：`chance/roll/ri/flag/fired/since/now/var_get`）、`ctx`、`SELF`、各角色名。
 storylet 里声明过、但这次没绑上的角色在表达式里是 `null`（可以写 `M != null`）。
+
+## 时间单位
+引擎里没有“日”：它只认 `adapter.se_now()` 返回的整数“刻”，调用方每走一刻调一次 `tick_due / tick_world / beat`。
+包（或单条 storylet）用 `"unit"` 声明时长按什么写（缺省 `"tick"`，即直接是刻）。下面这些都会经 `adapter.se_ticks(n, unit)` 换算成刻，向上取整：
+`cooldown`、`actor_cooldown`、`family_gap`、`min_t`/`min_day`、`schedule`/`chain` 的 `in`；`trigger=daily` 的 `p` 视为“每 unit 的概率”，换算成每刻 `1-(1-p)^(1/k)`。
+没实现 `se_ticks` 或 unit 与刻相同则一概原样（一刻=1）。
+例：青庐 v0.12 一刻=一日、包写 `"unit": "day"`；改成按月走时，只要 `se_now` 返回月序号、`se_ticks(n, "day")` 返回 `n/30.0`，包不用改。
+不会自动换算的：表达式里直接比 `se.now()`/`se.since()` 的数字、`op.chance` 的 `p`（每次执行一次，不随时间）、`beat` 的调用频率（由游戏决定）、
+adapter 自己的变量（如青庐的 `sbg` 闭关天数）。生平 `age` 一直是“岁”，与刻无关。
 
 ## 生平（前尘）
 `eng.biography(actor, seed, ctx0)` 依次跑所有 `trigger=bio` 的 storylet，返回 `[[年纪, 句子], ...]`（按年纪排序）。
