@@ -3187,12 +3187,28 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	elif not pre.is_empty():
 		_life_pre(pre, cc)
 
+## 句首“十三岁，”“六岁那年”“十二岁时”去掉（Web 模板没有 RegEx，手写）
+static func _strip_age(t: String) -> String:
+	var i := 0
+	while i < t.length() and "零一二三四五六七八九十百".contains(t[i]):
+		i += 1
+	if i == 0 or i >= t.length() or t[i] != "岁":
+		return t
+	i += 1
+	for suf in ["那年", "时"]:
+		if t.substr(i, suf.length()) == suf:
+			i += suf.length()
+			break
+	if i < t.length() and t[i] == "，":
+		i += 1
+	return t.substr(i) if i < t.length() else t
+
 ## v0.12 前尘：入青庐之前的经历，按年岁排（旧档第一次看时按种子补写）
 func _life_pre(pre: Array, cc: VBoxContainer) -> void:
 	var hr = row(cc, 8)
 	H("前尘", 20, C_ACCENT, hr)
 	var sub = L("入局之前 · %d 件" % pre.size(), 13, C_DIM, hr)
-	var re := RegEx.create_from_string("^[零一二三四五六七八九十百]+岁(那年|时)?，?")
+
 	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for i in range(pre.size() - 1, -1, -1):
 		var e: Array = pre[i]
@@ -3201,7 +3217,7 @@ func _life_pre(pre: Array, cc: VBoxContainer) -> void:
 		dl.custom_minimum_size = Vector2(52, 0)
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var tl = L(re.sub(String(e[1]), "", false), 14, C_TEXT, er)   # 左边已标了年岁，句首的“十三岁，”不再重复
+		var tl = L(_strip_age(String(e[1])), 14, C_TEXT, er)   # 左边已标了年岁，句首的“十三岁，”不再重复
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN

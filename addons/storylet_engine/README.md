@@ -74,6 +74,9 @@ adapter 自己的变量（如青庐的 `sbg` 闭关天数）。生平 `age` 一�
 `eng.biography(actor, seed, ctx0)` 依次跑所有 `trigger=bio` 的 storylet，返回 `[[年纪, 句子], ...]`（按年纪排序）。
 不动引擎主 RNG、不留“最近用过”的痕迹，同一个人同一个种子永远同一份前尘。
 
+## Web 导出注意
+运行期不依赖 RegEx 等可裁模块（vendor/tracery.gd 已改成手写扫描），所以在裁掉 regex 模块的 Web 模板上也能跑；只有 `se_lint.gd`（编辑器 / 命令行工具）用 RegEx，别在游戏运行时加载它。
+
 ## 测试
 - `tests/storylet_engine_test.gd`（引擎自身，用 examples）
 - 游戏侧：青庐的 `tests/saga_test.gd`（lint、每个选项可渲染、多局长跑重复率与覆盖、存读确定性、旧档）

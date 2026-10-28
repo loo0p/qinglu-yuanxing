@@ -5,6 +5,8 @@
 #   - removed `class_name Tracery` (avoid global class collisions; load via preload)
 #   - Grammar: added optional `picker: Callable(symbol: String, n: int) -> int` used instead of
 #     rng.randi() % n when choosing an alternative (lets the host do no-repeat / deterministic picks)
+#   - replaced RegEx (#symbol# and [save] matching) with hand-written scanners of the same semantics,
+#     so it runs on web export templates built without the regex module
 #   - (unchanged: _init still randomizes a private RNG; storylet_engine always calls set_rng() with its seeded RNG right after construction)
 extends RefCounted
 		
@@ -153,18 +155,10 @@ class Grammar extends RefCounted:
 	var _modifier_lookup : Dictionary = {} # Modifier function table
 	var _rules : Dictionary = {} # The rules
 	var _save_data : Dictionary = {} # The saved data
-	var _expansion_regex : RegEx = null # The expansion regex
-	var _save_symbol_regex : RegEx = null # The save symbol regex
 	
 	
 	func _init( rules : Dictionary ):
-		# Expansion regex
-		_expansion_regex = RegEx.new()
-		_expansion_regex.compile( "(?<!\\[|:)(?!\\])#.+?(?<!\\[|:)#(?!\\])" )
-		
-		# Save symbol regex
-		_save_symbol_regex = RegEx.new()
-		_save_symbol_regex.compile( "\\[.+?\\]" )
+		# (storylet_engine) 不用 RegEx：青庐的 Web 导出模板裁掉了 regex 模块，改成下面的手写扫描（语义同原正则）
 		
 		# Default random number generator
 		rng = RandomNumberGenerator.new()
@@ -194,14 +188,14 @@ class Grammar extends RefCounted:
 		
 		
 	func flatten( rule : String ) -> String:
-		var expansion_matches = _expansion_regex.search_all( rule )
+		var expansion_matches := _find_expansions( rule )
 		
 		if expansion_matches.is_empty():
 			_resolve_save_symbols( rule )
 			
 		for match_result in expansion_matches:
 			# Get hold of the match value
-			var match_value = match_result.strings[0]
+			var match_value : String = match_result
 			
 			# Resolve save symbols
 			_resolve_save_symbols( match_value )
@@ -210,7 +204,7 @@ class Grammar extends RefCounted:
 			var match_name = match_value.replace( "#", "" )
 			
 			# Remove the save symbols
-			match_name = _save_symbol_regex.sub( match_name, "", true )
+			match_name = _strip_brackets( match_name )
 			
 			# Take match name until the first '.' if it exists
 			var dot_index = match_name.find( "." )
@@ -247,10 +241,59 @@ class Grammar extends RefCounted:
 		return rule
 		
 		
+	## 原正则 (?<!\[|:)(?!\])#.+?(?<!\[|:)#(?!\])：# 前不是 [ 或 :、后不是 ]，非贪婪到下一个同样条件的 #
+	static func _hash_ok( rule : String, i : int ) -> bool:
+		if i > 0 and ( rule[ i - 1 ] == "[" or rule[ i - 1 ] == ":" ):
+			return false
+		if i + 1 < rule.length() and rule[ i + 1 ] == "]":
+			return false
+		return true
+		
+		
+	static func _find_expansions( rule : String ) -> Array[String]:
+		var out : Array[String] = []
+		var n := rule.length()
+		var i := 0
+		while i < n:
+			if rule[ i ] == "#" and _hash_ok( rule, i ):
+				var j := i + 2
+				var found := -1
+				while j < n:
+					if rule[ j ] == "#" and _hash_ok( rule, j ):
+						found = j
+						break
+					j += 1
+				if found >= 0:
+					out.append( rule.substr( i, found - i + 1 ) )
+					i = found + 1
+					continue
+			i += 1
+		return out
+		
+		
+	## 原正则 \[.+?\]
+	static func _find_brackets( rule : String ) -> Array[String]:
+		var out : Array[String] = []
+		var i := rule.find( "[" )
+		while i >= 0:
+			var j := rule.find( "]", i + 2 )
+			if j < 0:
+				break
+			out.append( rule.substr( i, j - i + 1 ) )
+			i = rule.find( "[", j + 1 )
+		return out
+		
+		
+	static func _strip_brackets( s : String ) -> String:
+		for b in _find_brackets( s ):
+			s = s.replace( b, "" )
+		return s
+		
+		
 	func _resolve_save_symbols( rule : String ) -> void:
-		var save_matches = _save_symbol_regex.search_all( rule )
+		var save_matches := _find_brackets( rule )
 		for match_result in save_matches:
-			var match_value = match_result.strings[0]
+			var match_value : String = match_result
 			
 			var save = match_value.replace( "[", "" ).replace( "]", "" )
 			

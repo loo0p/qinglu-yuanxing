@@ -91,7 +91,7 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 	return out
 
 static func _harmonize(rt: Array, ot: Array, key: String) -> Array:
-	var a := Color8(int(rt[0]), int(rt[1]), int(rt[2])); var b := Color8(int(ot[0]), int(ot[1]), int(ot[2]))
+	var a := Color(int(rt[0]) / 255.0, int(rt[1]) / 255.0, int(rt[2]) / 255.0); var b := Color(int(ot[0]) / 255.0, int(ot[1]) / 255.0, int(ot[2]) / 255.0)   # 不用 Color8：玩家版 Web 模板 deprecated=no，没有它
 	var dh := absf(a.h - b.h); dh = minf(dh, 1.0 - dh)
 	if dh * 360.0 <= 60.0 or a.s < 0.15 or b.s < 0.15: return ot
 	var c: Color
