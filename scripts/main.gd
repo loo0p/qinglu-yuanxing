@@ -6,7 +6,7 @@ extends Control
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.11.3 试玩版"
+const VERSION = "v0.11.4 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2338,15 +2338,19 @@ func _roam() -> void:
 		_place_banner(p, lk, "游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()])
 		place_look = lk
 	# 今天去哪：每个小去处 1 日、1 份干粮
+	# v0.11.4：矮屏（高 <700，如 360×640）小去处并成一排、只写地名，整页不用滚动
+	var short_scr: bool = get_viewport_rect().size.y < 700
 	var sc = card()
 	L("今天去哪儿走走（各 1 日）", 14, C_INK, sc)
 	var spots: Array = TV.spots(p)
+	var spr = row(sc, 6) if short_scr else null
 	for i in spots.size():
 		var sp: Array = spots[i]
 		var idx = i
-		var b = B("%s · %s" % [sp[0], sp[1]], func(): _roam_spot(idx), true, sc, 44)
+		var b = B(String(sp[0]) if short_scr else "%s · %s" % [sp[0], sp[1]], func(): _roam_spot(idx), true, spr if short_scr else sc, 44)
 		b.add_theme_font_size_override("font_size", 14)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		if not short_scr:
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.clip_text = true
 		if int(rm.get("si", -1)) == i:
 			b.add_theme_color_override("font_color", C_ACCENT)
@@ -2384,8 +2388,15 @@ func _roam() -> void:
 	var lg: Array = rm.get("log", [])
 	if not lg.is_empty():
 		var lc = card()
-		for it in lg.slice(-2):
-			_wl("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
+		for it in lg.slice(-1 if short_scr else -2):
+			if short_scr:
+				# 矮屏只留最近一行，放不下用省略号（点小去处时整段在提示里看过了）
+				var ll = L("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
+				ll.autowrap_mode = TextServer.AUTOWRAP_OFF
+				ll.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+				ll.custom_minimum_size.x = 1
+			else:
+				_wl("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
 	_spacer()
 	var fr = row(footer, 6)
 	var hb = B("回青庐（%d日）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
