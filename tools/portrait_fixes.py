@@ -71,14 +71,21 @@ def fix(rel, im):
 
 
 # ---------------------------------------------------------------- v0.10.2：披发的鬓丝压进脸颊，脸被“挤窄”
+# v0.10.3：只处理这四款散发——其余发型的鬓角、发际线、额发原样保留
+WILD_HAIR = ("hair_m8", "hair_m6", "hair_m4", "hair_f9")
+
+
 def fix_hair_face(rel, im):
-    """散乱披发（hair_m8、hair_m6、hair_m4、hair_f9 等）有几缕发丝从鬓角斜压进脸颊、眼角，
-    在原生脸上还好，配到窄长脸上就像脸被两边的头发夹窄、下巴变尖（玩家截图圈出的那位：base_m4 + hair_m8）。
-    这里把底模脸部皮肤（头部遮罩 R，向内收 3px）在眼睛以下的部分里的发丝去掉（2px 羽化），
-    并同步去掉 aux 里该处的“保留发丝”标记，让换到别的脸型时那张脸自己的脸部保护（head_mask.G）生效。
-    额前刘海、眉上的发丝不动。"""
+    """散乱披发（hair_m8、hair_m6、hair_m4、hair_f9）有几缕发丝从鬓角斜着划过脸颊，
+    配到窄长脸上就像脸被两边的头发夹窄、下巴变尖（玩家截图圈出的那位：base_m4 + hair_m8）。
+    v0.10.2 清得太多（眉眼两侧、鬓角都清了），额头和太阳穴露出一大片光秃秃的底模，显得“额头长长的”。
+    v0.10.3 只清**眼睛以下、脸颊内侧**的发丝：底模皮肤向内收约 8px（脸的外轮廓、鬓角、耳前的发丝都留着），
+    从眼线下 4px 起 8px 内渐入；眼线以上（发际线、额发、太阳穴、鬓角）一根不动。
+    同步去掉 aux 里该处的“保留发丝”标记，让换到别的脸型时那张脸自己的脸部保护生效。"""
     import cv2, os
     stem = os.path.basename(rel).split(".")[0]
+    if stem.split("-")[0] not in WILD_HAIR:
+        return im
     key = stem.replace("-base_", "@base_")
     e = LIB["parts"].get(key)
     if e is None:
@@ -88,18 +95,11 @@ def fix_hair_face(rel, im):
     if not os.path.exists(mp):
         return im
     skin = (np.array(Image.open(mp).convert("RGB"))[..., 0] > 128).astype(np.uint8)
-    skin = cv2.erode(skin, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    skin = cv2.erode(skin, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17)))
     ey = int(LIB["heads"][base]["anchors"]["eyes"][1])
-    cut = cv2.GaussianBlur(skin.astype(np.float32), (0, 0), 2.0)
-    # 竖向渐隐：眉上 18px 起到眼线处由 0 → 1，发丝是“淡出”而不是齐刷刷一刀（hair_m8 的额发底边本身是一条横线，也一并淡掉）
-    by = int(LIB["heads"][base]["anchors"]["brows"][1])
-    t = np.clip((np.arange(cut.shape[0], dtype=np.float32) - (by - 18)) / float(max(8, ey - 4 - (by - 18))), 0, 1)
-    t = (t * t * (3 - 2 * t))[:, None]
-    # 眉眼之间这一带只清两侧（鬓丝压眼角/颧骨）；正中的刘海是发型本身，留着，眼睛以下才全清
-    cx = float(LIB["heads"][base]["anchors"]["nose"][0])
-    lat = np.clip((np.abs(np.arange(cut.shape[1], dtype=np.float32) - cx) - 16.0) / 18.0, 0, 1)[None, :]
-    below = np.clip((np.arange(cut.shape[0], dtype=np.float32) - ey) / 12.0, 0, 1)[:, None]
-    cut *= t * np.maximum(lat, below)
+    cut = cv2.GaussianBlur(skin.astype(np.float32), (0, 0), 1.5)
+    t = np.clip((np.arange(cut.shape[0], dtype=np.float32) - (ey + 4)) / 8.0, 0, 1)
+    cut *= (t * t * (3 - 2 * t))[:, None]
     a = np.array(im.convert("RGBA")).astype(np.float32)
     h, w = a.shape[:2]; x0, y0 = e["pos"]
     C = cut[y0:y0 + h, x0:x0 + w]
