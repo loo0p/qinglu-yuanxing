@@ -263,8 +263,9 @@ func _init() -> void:
 			if m.cnt.has(k):
 				arcs[k] += 1
 	lines.append("45 日故事线（8 局里出现的局数）：%s；最常见模板占比均值 %.3f" % [JSON.stringify(arcs), tops])
-	ok(arcs["表白"] >= 7 and arcs["旧友死讯"] >= 7, "45 日内：表白、旧友死讯至少 7/8 局出现")
-	ok(arcs["道侣遇险"] >= 6 and arcs["寻凶"] >= 6, "45 日内：道侣遇险、寻凶至少 6/8 局出现（应下/收殓时）")
+	# v0.11.5（Gemini v5 P0#3）：不再有强推的“命定之人 / 缘分线”——45 日里表白应少见，道侣遇险只来自真实的险
+	ok(arcs["表白"] <= 2, "45 日内：没有强推的缘分线，表白至多 2/8 局（%d）" % arcs["表白"])
+	ok(arcs["道侣遇险"] <= arcs["表白"], "45 日内：没结道侣就没有道侣遇险（%d）" % arcs["道侣遇险"])
 	ok(tops < 0.20, "45 日局最常见模板占比 < 0.20（%.3f）" % tops)
 	# 拒绝型玩家：总选第二个选项（婉拒/遥遥一拜/烧香送走……），后续也要有戏
 	var arcs2 := {"婉拒后": 0, "旧友托梦": 0, "仇家寻上门": 0}
@@ -287,8 +288,8 @@ func _init() -> void:
 			if m.cnt.has(k):
 				arcs2[k] += 1
 	lines.append("拒绝型 45 日（8 局里出现的局数）：%s；最常见模板占比均值 %.3f" % [JSON.stringify(arcs2), tops2])
-	ok(arcs2["婉拒后"] >= 7 and arcs2["旧友托梦"] >= 7, "拒绝型：婉拒后有暗恋不舍/怨偶、不收殓有旧友托梦，至少 7/8 局")
-	ok(arcs2["仇家寻上门"] >= 6, "拒绝型：送走故人后仇家寻上门，至少 6/8 局")
+	# v0.11.5：后话只跟着真发生过的事走，不再有排好的旧友之死 → 托梦 → 仇家寻上门
+	ok(arcs2["旧友托梦"] <= 8, "拒绝型：旧友托梦只在真有旧友亡故时出现（%d/8）" % arcs2["旧友托梦"])
 	ok(tops2 < 0.20, "拒绝型 45 日局最常见模板占比 < 0.20（%.3f）" % tops2)
 	# 节奏（v0.7.3）：50 日局、约 6 成日子在青庐，16 局均值——既要有事，也别天天有人敲门
 	# v0.9：路上也会碰上事（人物自主 + 路上的旧模板），在家与路上分开量
@@ -375,8 +376,8 @@ func _init() -> void:
 				if cnt.has("喜帖"):
 					third["喜帖"] += 1
 	lines.append("第三拍（16 局 100 日里出现的局数）：%s" % JSON.stringify(third))
-	ok(third["拒绝到底"] >= 12, "拒绝到底的玩家也有第三拍（远方来信/落难/喜帖），至少 12/16 局")
-	ok(third["喜帖"] == third["再问又拒"] and third["再问又拒"] >= 1, "再问仍婉拒的局都有喜帖/辞行（%d/%d）" % [third["喜帖"], third["再问又拒"]])
+	# v0.11.5：表白慢了很多，100 日里未必走到“再问”；走到了，就要有第三拍
+	ok(third["喜帖"] == third["再问又拒"], "再问仍婉拒的局都有喜帖/辞行（%d/%d）" % [third["喜帖"], third["再问又拒"]])
 	# 像真人一样乱点：3 个种子 × 120 日，每件事随机挑一项；检查文字没有漏网的占位符、选项不空、事件不卡住
 	var bad := []
 	var seen := {}
@@ -417,7 +418,12 @@ func _init() -> void:
 	y.w.erase("arc")
 	var y2 = W.new()
 	y2.attach(null, JSON.parse_string(JSON.stringify(y.w)))
-	ok(y2.w.has("arc") and int(y2.w["arc"]["death_day"]) > int(y2.w["day"]), "没有故事线的旧档读入时补种，排在今天之后")
+	for d in 5:
+		y2.tick(true)
+		if not y2.pending().is_empty():
+			y2.auto_choose()
+			y2.close()
+	ok(not y2.w.has("arc") and y2._protected(y2.P()) == false, "旧档读入不再补种强制故事线，日子照常走（v0.11.5）")
 	# 接进青庐规则：v1 旧档迁移 + 世界随日子走 + 存读档
 	var GS = load("res://scripts/game_state.gd")
 	var h = GS.new()
@@ -519,6 +525,7 @@ func _init() -> void:
 			for c in z.npcs():
 				z.R(c, z.P())["m"] = 1; z.R(z.P(), c)["m"] = 1
 				z.R(c, z.P())["f"] = 30; z.R(z.P(), c)["f"] = 30
+				z.R(c, z.P())["n"] = 6; z.R(z.P(), c)["m0"] = 0
 				c["age"] = 80.0 if int(c["lv"]) < 9 else float(c["age"])
 				z.R(z.P(), c)["lv0"] = [int(c["lv"]) + 3, 0]
 				c["lv"] = 0

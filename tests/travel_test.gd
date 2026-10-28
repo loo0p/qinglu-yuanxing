@@ -1,6 +1,6 @@
 extends SceneTree
 ## 去处与游历（v0.11，scripts/travel.gd）测试：
-## ① 解锁：16 局 × 100 日，开局 2–3 处、慢慢展开；每一处都至少在某局里被解锁；解锁理由不止一种（修为/风声/引路/经历/插手）
+## ① 解锁：16 局 × 100 日，开局 2–3 处、慢慢展开；每一处都至少在某局里被解锁；解锁理由不止一种（修为/舆图/引路/经历/插手；风声只耳闻）
 ## ② 人在各地走动：每日挪动的比例合理、地点都合法、不扎堆；寻仇/护人的人更常和对象在一处
 ## ③ 游历碰上的人：相逢里的人当天确实在那里；每一处都碰得上事（不只相逢，全局的事也会发生）
 ## ④ 节奏：在家仍 ~0.5 件/日，游历日 0.45–0.95 件/日，最长连着有事 ≤4 日
@@ -137,7 +137,7 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 		r["unl100"] = TV.places(g.world).size()
 	for p in g.world.w["uwhy"]:
 		var y := String(g.world.w["uwhy"][p])
-		var kind := "起始" if y.contains("从小走熟") else ("修为" if y.contains("修到") else ("风声" if y.contains("风声") else ("引路" if y.contains("指了") else ("插手" if y.contains("管过") else "经历"))))
+		var kind := "起始" if y.contains("从小走熟") else ("修为" if y.contains("修到") else ("舆图" if y.contains("舆图") else ("引路" if y.contains("指了") else ("插手" if y.contains("管过") else "经历"))))
 		r["why"][kind] = int(r["why"].get(kind, 0)) + 1
 	return r
 
@@ -292,7 +292,7 @@ func _init() -> void:
 		od["world"].erase(kk)
 	var o2 = GS.new()
 	ok(o2.from_dict(od), "没有去处数据的旧档照常读入")
-	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "云梦泽") and TV.unlocked(o2.world, "后山"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、云梦泽都已认得）")
+	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.11.5）")
 	o2.biguan_day()
 	ok(int(o2.s["day"]) == 1 and o2.s["v"] == 2, "旧档补齐后照常过日子，存档版本仍是 2")
 	# ⑥ 每个选项都过一遍
