@@ -106,7 +106,7 @@
     {
      "op": "set",
      "name": "sct",
-     "value": "A.sect"
+     "value": "A.sect if (A.sect != '散修' or g.lv(A) < 9) else '散修高'"
     },
     {
      "op": "chron",
@@ -1249,7 +1249,7 @@
    "weight": 0.4,
    "max": 3,
    "actor_cooldown": 9999,
-   "when": "not g.busy(A) and g.known(A) and g.plv() >= 3 and g.lv(A) < g.plv() and not g.shi(A, g.player()) and g.lf(A) < 0.4 and g.master(A) == null",
+   "when": "not g.busy(A) and g.known(A) and g.plv() >= 9 and g.lv(A) + 3 <= g.plv() and not g.shi(A, g.player()) and g.lf(A) < 0.4 and g.master(A) == null",
    "effects": [
     {
      "op": "offer",

@@ -797,7 +797,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 		"闭关":
 			a["xp"] = qz(float(a["xp"]) + W.rng.randf_range(2.0, 5.0), 10000.0)
 			if W.rng.randf() < 0.4:
-				W.chron(a, W.pv("闭关记", ["闭关数日，心里那道坎松动了些。", "在%s闭了一回关。" % pl, "闭门不出，只托人送过两回饭。"]))
+				W.chron(a, W.pv("闭关记", ["闭关一月，心里那道坎松动了些。", "在%s闭了一回关。" % pl, "闭门不出，只托人送过两回饭。"]))
 		"探秘":
 			if W.rng.randf() < 0.35 + 0.1 * float(a["lv"]) / 9.0:
 				var tr: String = W._ch(TREASURE)
@@ -808,7 +808,7 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 					W.rumor(W.pv("探秘闻", ["听说%s在%s寻到了%s。", "%s从%s回来，带着%s，满面春风。"]) % [an, pl, tr], [a], "宝")
 			else:
 				a["inj"] = maxi(int(a["inj"]), 8)
-				W.chron(a, W.pv("探秘败", ["去%s探一处旧洞府，触了禁制，负伤而回。", "在%s迷了三日路，空手而归。", "在%s遇上守宝的妖兽，带伤逃了出来。"]) % pl)
+				W.chron(a, W.pv("探秘败", ["去%s探一处旧洞府，触了禁制，负伤而回。", "在%s迷了大半个月的路，空手而归。", "在%s遇上守宝的妖兽，带伤逃了出来。"]) % pl)
 				drift(a, "慎", 0.02)
 		"夺宝":
 			if b.is_empty():
@@ -1113,7 +1113,8 @@ static func npc_resolve(W, a: Dictionary, v: String, b: Dictionary, aid: int) ->
 			else:
 				W.chron(a, "想替%s与%s说和，没说成。" % [bn, foe["name"]])
 		"收徒":
-			if b.is_empty() or "师" in W._rel(b, a)["t"]:
+			# v0.13.1（Gemini v6 P0-4）：收徒得比徒弟高出三层以上
+			if b.is_empty() or "师" in W._rel(b, a)["t"] or int(b["lv"]) + 3 > int(a["lv"]):
 				return
 			if W.master_of(b) == null and W.opinion(b, a) > 10:
 				W.R(a, b)["t"].append("徒")
@@ -1387,6 +1388,10 @@ static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dicti
 				_:
 					scene = W.pv("撞见窃", ["{at}，{n}的手悄悄伸进了{v}的袖袋。{v}还在同人说笑。"])
 			var t19 := scene.format(f)
+			# v0.13.1（Gemini v6 P0-4）：差两个大境界的斗法，她插不上手（炼气救元婴不合常理），只能避开余波
+			var ptier := realm_tier(W.plv())
+			if maxi(realm_tier(int(n["lv"])), realm_tier(int(v2["lv"]))) >= ptier + 2:
+				return {"speaker": int(n["id"]), "anon": anon, "text": t19 + "\n两人修为都远在她之上，余波扫过来，路边的树齐腰断了。", "opts": [_o("leave", "退远些，避开余波")]}
 			return {"speaker": int(n["id"]), "anon": anon, "text": t19, "opts": [_o("stop", "出手拦下"), _o("shout", "喝一声"), _o("leave", "装作没看见")]}
 	return {"speaker": int(n["id"]), "text": "%s来过。" % nm, "opts": [_o("ok", "知道了")]}
 
@@ -2086,3 +2091,7 @@ static func why_lines(W, c: Dictionary) -> Array:
 	if not tops.is_empty():
 		out.append("性子：%s" % "、".join(tops.slice(0, 3)))
 	return out
+
+## 大境界：0 炼气（lv 0–8）、1 筑基（9–11）、2 金丹（12–14）、3 元婴（15–17）……
+static func realm_tier(lv: int) -> int:
+	return 0 if lv < 9 else 1 + (lv - 9) / 3

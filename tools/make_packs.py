@@ -60,7 +60,7 @@ g("v_zb_l", "在{p}看中的灵草被{o}夺去。", "到手的兽丹被{o}截了
 g("r_zhengbao", "听说{w}在{p}抢先得了一件宝物，{l}空手而回。", "{w}在{p}和{l}争一株灵草，争赢了。", "{w}从{p}带回一卷残图，据说是从{l}手里截下的。")
 g("v_df_w", "在{p}与{o}斗法，胜。", "一剑挑落了{o}的发冠。", "在{p}把{o}逼退三十里。", "在{p}以一道符破了{o}的护体灵光。", "三十招后，{o}的剑断在{p}。",
   "在{p}与{o}斗了半日，最后一掌定了胜负。")
-g("v_df_l", "在{p}败于{o}手下，重伤。", "被{o}一掌震伤心脉。", "在{p}输给{o}，养了半月伤。", "在{p}被{o}的飞剑穿了肩。", "与{o}斗法落败，本命法器裂了一道缝。",
+g("v_df_l", "在{p}败于{o}手下，重伤。", "被{o}一掌震伤心脉。", "在{p}输给{o}，养了几个月伤。", "在{p}被{o}的飞剑穿了肩。", "与{o}斗法落败，本命法器裂了一道缝。",
   "在{p}被{o}打落山崖，挂在树上才捡回一条命。")
 g("v_df_draw", "在{p}与{o}斗法，斗到天黑不分胜负，各自收手。", "与{o}在{p}交手，两败俱伤，约了来日再战。")
 g("r_doufa", "{w}与{l}在{p}斗法，{l}落败。", "{w}在{p}一剑挑伤了{l}。", "{l}在{p}输给了{w}，被抬回了山门。")
@@ -231,7 +231,7 @@ LIFE = [
         {"id": "plain", "weight": 1.0, "effects": [chron("A", "#d_youli#")]},
         {"id": "find", "weight": "0.08 + 0.1 * int(g.trt(A, '好奇'))", "effects": [chron("A", "#d_youli_find#"), {"op": "xp", "who": "A", "frac": 0.1}]}]},
     {"id": "like", "trigger": "actor", "weight": 1.0, "when": NB, "effects": [setv("like", "g.like(A)"), chron("A", "#d_like_{like}#")]},
-    {"id": "sectday", "trigger": "actor", "weight": 0.9, "when": NB, "effects": [setv("sct", "A.sect"), chron("A", "#d_sect_{sct}#")]},
+    {"id": "sectday", "trigger": "actor", "weight": 0.9, "when": NB, "effects": [setv("sct", "A.sect if (A.sect != '散修' or g.lv(A) < 9) else '散修高'"), chron("A", "#d_sect_{sct}#")]},
     {"id": "gift", "trigger": "actor", "weight": 0.9, "when": NB, "roles": [{"name": "B", "where": "g.met(A, SELF) and g.opn(A, SELF) > 15", "weight": "max(1.0, g.opn(A, SELF))"}],
      "effects": [chron("A", "#d_gift_give#", o="B"), rel("A", "B", f=2)],
      "outcomes": [
@@ -313,7 +313,7 @@ LIFE = [
      "effects": [chron("A", "#d_teach#", o="D"), chron("D", "#d_taught#", o="A"), {"op": "xp", "who": "D", "frac": 0.1}, rel("D", "A", f=2)]},
     {"id": "old", "trigger": "actor", "weight": 3.0, "when": "g.lf(A) > 0.9", "actor_cooldown": 99999, "effects": [chron("A", "#d_old#")]},
     {"id": "seek_player", "trigger": "actor", "weight": 0.4, "max": 3, "actor_cooldown": 9999,
-     "when": NB + " and g.known(A) and g.plv() >= 3 and g.lv(A) < g.plv() and not g.shi(A, g.player()) and g.lf(A) < 0.4 and g.master(A) == null",
+     "when": NB + " and g.known(A) and g.plv() >= 9 and g.lv(A) + 3 <= g.plv() and not g.shi(A, g.player()) and g.lf(A) < 0.4 and g.master(A) == null",
      "effects": [{"op": "offer", "id": "求拜师", "cast": {"B": "A"}}]},
     {"id": "xinmo_spont", "trigger": "actor", "weight": "0.1 + 0.25 * int(g.trt(A, '多疑')) + 0.2 * int(g.trt(A, '记仇')) + 0.2 * int(g.trt(A, '痴情'))",
      "when": NB + " and g.lv(A) >= 6 and not g.xm(A)", "actor_cooldown": 120, "effects": [{"op": "run", "id": "xinmo_start"}]},
@@ -490,7 +490,7 @@ OFFER = [
     {"id": "求拜师", "trigger": "offer", "tier": 1, "tension": -2, "speaker": "B",
      "text": ["{B}在青庐门口跪了一上午，说想拜她为师。", "{B}捧着一包干粮站在桂树下：“我想跟你学。什么都行。”"],
      "choices": [
-        ch("yes", "收下{B}", when="g.plv() >= 3", outcomes=[out("ok", "{B}磕了三个头，额头上沾了泥，笑得像个孩子。", 1.0, [
+        ch("yes", "收下{B}", when="g.plv() >= 9 and g.lv(B) + 3 <= g.plv()", outcomes=[out("ok", "{B}磕了三个头，额头上沾了泥，笑得像个孩子。", 1.0, [
             {"op": "tag", "a": "B", "b": "P", "t": "师", "t2": "徒"}, fav(10, "她收我为徒", 20), pc("收{B}为徒。"), chron("B", "拜{pn}为师。")])]),
         ch("teach", "指点几句，不收徒", outcomes=[out("ok", "她教了{B}一段吐纳。{B}记得很认真。", 1.0, [fav(3), {"op": "xp", "who": "B", "frac": 0.2}, pc("没有收{B}为徒，只指点了几句。")])]),
         ch("refer", "写封信引荐去青云宗", when="B.sect == '散修'", outcomes=[out("ok", "{B}揣着信下了山。后来听说，过了青云宗的问心阶。", 1.0, [
@@ -561,7 +561,7 @@ GEAR = [
     {"id": "xunqi", "trigger": "actor", "weight": "0.15 * int(g.lv(A) >= 3)", "when": NB + " and g.gear_n(A) < 3", "actor_cooldown": 60,
      "outcomes": [
         {"id": "find", "weight": "0.35 + 0.3 * int(g.trt(A, '好奇'))", "effects": [{"op": "gen_item", "who": "A", "origin": "{A}在{p}一处旧洞府里寻得。"}, chron("A", "在{p}一处旧洞府里寻到一件{it}。")]},
-        {"id": "none", "weight": 1.0, "effects": [chron("A", "在{p}寻宝数日，一无所获。")]}]},
+        {"id": "none", "weight": 1.0, "effects": [chron("A", "在{p}寻了一个月的宝，一无所获。")]}]},
     {"id": "zengqi", "trigger": "actor", "weight": 0.3, "when": NB + " and g.partner(A) != null and g.gear_n(A) >= 2", "actor_cooldown": 200,
      "roles": [{"name": "B", "fixed": "g.partner(A)"}],
      "effects": [{"op": "give_item", "a": "A", "b": "B", "h": "{A}赠给道侣{B}。"}, chron("A", "把一件{it}赠给了{B}。"), chron("B", "{A}送来一件{it}，贴身收着。"), rel("B", "A", f=5)]},

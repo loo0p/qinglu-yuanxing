@@ -672,7 +672,7 @@
     {
      "id": "yes",
      "label": "收下{B}",
-     "when": "g.plv() >= 3",
+     "when": "g.plv() >= 9 and g.lv(B) + 3 <= g.plv()",
      "outcomes": [
       {
        "id": "ok",

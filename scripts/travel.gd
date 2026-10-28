@@ -155,7 +155,7 @@ static func why(W, p: String) -> String:
 		if int(W.w["fired"].get(e, 0)) > 0:
 			return "经过那回%s，她知道%s在哪了。" % [e, p]
 	if lay >= int(u["lay"]):
-		return "修到炼气%s层，%s的路她走得了了。" % [LAYER_CN[mini(8, int(u["lay"]) - 1)], p]
+		return "修到炼气%s层，脚力够去%s了。" % [LAYER_CN[mini(8, int(u["lay"]) - 1)], p]
 	# v0.12.1：风声只让她“耳闻”（图上一个“？”），听得再多也不等于认得路（Gemini v5 P1#9）。
 	# 认得要靠：修为够了、在坊市买一张舆图、熟人引路、或经历过那里的事（请柬、招徒…）
 	return ""
