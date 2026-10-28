@@ -126,7 +126,7 @@ func _init() -> void:
 			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
 				sd_n += 1
 				var c: Dictionary = x.C(ev["roles"]["B"])
-				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.portrait_opts(c)["elder"] or Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c))["beard"] != null:
+				if float(c["age"]) >= 36.0 or not (float(c["age"]) < float(x.P()["age"]) or int(c["lv"]) < x.plv()) or x.looks_old(c):   # v0.12.1 起立绘按 portrait_fix 修正（年轻不长胡），按玩家看到的算
 					sd_bad.append("%s %.0f岁 lv%d" % [c["name"], float(c["age"]), int(c["lv"])])
 			x.auto_choose()
 	lines.append("师弟惹祸：16 局 100 日 %d 次" % sd_n)
@@ -143,7 +143,7 @@ func _init() -> void:
 			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
 				bd_n += 1
 				var c: Dictionary = x.C(ev["roles"]["B"])
-				var spc = Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c))
+				var spc = x.portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c)))   # 按玩家看到的立绘（v0.12.1 portrait_fix）
 				if spc["beard"] != null or float(c["age"]) >= 36.0:
 					bd_bad.append("%s %.0f岁 %s" % [c["name"], float(c["age"]), spc["beard"]])
 			x.auto_choose()

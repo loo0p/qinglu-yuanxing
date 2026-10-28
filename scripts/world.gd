@@ -1702,7 +1702,8 @@ func _spawn_kid() -> Dictionary:
 	return c
 
 func fire(tid: String, roles: Dictionary, ctx: Dictionary) -> void:
-	if tid == "师弟惹祸" and not roles.has("B"):
+	# v0.13：一回合一个月，选角到出事可能隔了好几个月，被选的人可能已经长了岁数/破了境——出事时再核一遍，不合就现生一个
+	if tid == "师弟惹祸" and (not roles.has("B") or C(roles["B"]).is_empty() or not _shidi_ok(C(roles["B"]))):
 		roles = {"B": int(_spawn_shidi()["id"])}
 	if tid == "点化" and not roles.has("B"):
 		roles = {"B": int(_spawn_kid()["id"])}
