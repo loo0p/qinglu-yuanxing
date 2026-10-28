@@ -114,9 +114,11 @@ static func dist(a: String, b: String) -> int:
 	if a == b:
 		return 0
 	if a == HOME:
-		return int(PL[b]["d"])
+		return int(PL.get(b, {"d": 1})["d"])
 	if b == HOME:
-		return int(PL[a]["d"])
+		return int(PL.get(a, {"d": 1})["d"])
+	if not PL.has(a) or not PL.has(b):
+		return 1
 	return maxi(1, absi(int(PL[a]["d"]) - int(PL[b]["d"])) + (1 if (a in WILD) != (b in WILD) else 0))
 
 static func _layer(W) -> int:

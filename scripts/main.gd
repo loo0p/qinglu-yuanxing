@@ -2148,6 +2148,9 @@ func _go_roam(p: String) -> void:
 func _sheet_goto(v: Node) -> void:
 	var W = g.world
 	var here := String(g.s.get("roam", {}).get("pl", ""))
+	if here == "" or not TV.PL.has(here):
+		_wl("已经不在外头了。", 14, C_DIM, v)
+		return
 	for p in TV.places(W):
 		if p == here:
 			continue
