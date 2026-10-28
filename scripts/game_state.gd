@@ -287,7 +287,18 @@ func pchron(t: String, day: int = -1) -> void:
 	while lg.size() > World.PLOG_CAP:
 		lg.pop_front()
 
+## v0.13.1（Gemini v6 P0-6）：一样的话只留一条（长闭关不再五遍“赤阳果要熟了”）；
+## 一次解锁好几处新去处，并成一条
 func notice(t: String) -> void:
+	if t in notices:
+		return
+	if t.begins_with("新去处："):
+		var nm := t.substr(4).get_slice("——", 0)
+		for i in notices.size():
+			if String(notices[i]).begins_with("新去处："):
+				var prev := String(notices[i]).substr(4).get_slice("——", 0)
+				notices[i] = "新去处：%s、%s——这几处的路，她都认得了。" % [prev, nm]
+				return
 	notices.append(t)
 
 # ---------------------------------------------------------------- 物品进出
@@ -463,6 +474,14 @@ func tick(mode: String) -> void:
 	var cm := World.cal(I("day"))
 	if int(cm[1]) == 5 and I("plv") < 9 and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress():
 		notice("世事：入夏了，后山向阳坡的赤阳果又要熟了（五到八月，去后山游历时碰得上）。")
+	# v0.13.1（Gemini v6 P0-1）：修到炼气七层，旧主手记里那页筑基丹方自己翻出来——三样主药各在哪、缺了去哪补
+	if I("plv") >= 6 and I("plv") < 9 and not s["flags"].get("zhuji_hint", false):
+		s["flags"]["zhuji_hint"] = true
+		var have := []
+		for it in [["herb_hantanlian", "寒潭莲"], ["herb_chiyangguo", "赤阳果"]]:
+			have.append("%s %s" % [it[1], "有了" if total_n(it[0]) > 0 else "还缺"])
+		notice("旧主手记翻到筑基丹那页：寒潭莲（灵脉水田里种寒潭莲子，莲子坊市旧货摊偶有）、赤阳果（后山五到八月；坊市药铺一年能收一颗晒干的）、青芝三株。眼下：%s。" % "、".join(have))
+		_log("修到炼气七层，翻到旧主手记里的筑基丹方。")
 	if I("day") > XIANGYANG_DEADLINE and not s["flags"].get("xiangyang_expired", false):
 		s["flags"]["xiangyang_expired"] = true   # 只作“葛老三肯代采”的开关，不再是期限
 	if I("shouyuan") <= 0 and not s["ended"]:
@@ -1439,6 +1458,36 @@ func junk_lianzi_available() -> bool:
 	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and I("plv") < 9 \
 		and total_n("seed_lianzi") == 0 and total_n("herb_hantanlian") == 0 and total_n("pill_zhuji") == 0 \
 		and int(s["flags"].get("junk_lz_year", -1)) != int(World.cal(I("day"))[0])
+
+## v0.13.1（Gemini v6 P0-1）：炼气七层以后还缺赤阳果，坊市药铺一年能收到一颗晒干的——比后山贵，但不必干等五到八月
+const DRY_CHIYANG_PRICE := 60
+func dry_chiyang_available() -> bool:
+	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and I("plv") >= 6 and I("plv") < 9 \
+		and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress() \
+		and int(s["flags"].get("dry_cy_year", -1)) != int(World.cal(I("day"))[0])
+
+func buy_dry_chiyang() -> bool:
+	if not dry_chiyang_available() or I("lingshi") < DRY_CHIYANG_PRICE or not s["pending_overflow"].is_empty():
+		return false
+	s["lingshi"] = I("lingshi") - DRY_CHIYANG_PRICE
+	s["flags"]["dry_cy_year"] = int(World.cal(I("day"))[0])
+	add_item("herb_chiyangguo", 1)
+	roam_note("在药铺买下一颗晒干的赤阳果（−%d 灵石）。" % DRY_CHIYANG_PRICE)
+	_log("在坊市药铺买下一颗晒干的赤阳果。")
+	return true
+
+## v0.13.1（Gemini v6 P0-5）：吃不完的青芝拿到坊市药铺批售：十株一批，按当月行情（约五株一块灵石）
+func qz_sell_price() -> int:
+	return maxi(1, roundi(2.0 * Gear.price_idx(I("day"))))
+
+func sell_qingzhi() -> bool:
+	if s["loc"] != "roam" or String(s["roam"].get("pl", "")) != "坊市" or store_n("herb_qingzhi") < 10:
+		return false
+	var got := qz_sell_price()
+	_store_add("herb_qingzhi", -10)
+	s["lingshi"] = I("lingshi") + got
+	roam_note("十株青芝批给了药铺（+%d 灵石）。" % got)
+	return true
 
 func buy_junk_lianzi() -> bool:
 	if not junk_lianzi_available() or I("lingshi") < JUNK_LIANZI_PRICE or not s["pending_overflow"].is_empty():

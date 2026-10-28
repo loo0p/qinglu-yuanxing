@@ -8,7 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.13 试玩版"
+const VERSION = "v0.14 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1032,7 +1032,7 @@ func refresh() -> void:
 	if OS.has_feature("web"):
 		var w = JavaScriptBridge.get_interface("window")
 		if w:
-			w.qinglu_state = JSON.stringify({"screen": screen, "tab": tab, "modal": modal.get("kind", ""), "sheet": sheet, "loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""), "rev": store.rev, "persistent": OS.is_userfs_persistent(), "conflict": store.conflict, "bgm": cur_bgm, "bgm_on": bgm_on, "muted": muted, "unlocked": audio_unlocked})
+			w.qinglu_state = JSON.stringify({"screen": screen, "tab": tab, "modal": modal.get("kind", ""), "sheet": sheet, "loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "lingshi": g.s.get("lingshi", 0), "stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""), "rev": store.rev, "persistent": OS.is_userfs_persistent(), "conflict": store.conflict, "bgm": cur_bgm, "bgm_on": bgm_on, "muted": muted, "unlocked": audio_unlocked})
 
 func _bgm_for_scene() -> String:
 	if screen != "game":
@@ -2769,6 +2769,14 @@ func _roam() -> void:
 		if Gear.auction_month(int(g.s["day"])):
 			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr, 40)
 			ab.add_theme_font_size_override("font_size", 13)
+	if p == "坊市" and (g.dry_chiyang_available() or g.store_n("herb_qingzhi") >= 10):
+		var yr = row(footer, 6)
+		if g.store_n("herb_qingzhi") >= 10:
+			var qb = B("批售青芝 10 株（%d 灵石）" % g.qz_sell_price(), func(): g.sell_qingzhi(), true, yr, 40)
+			qb.add_theme_font_size_override("font_size", 13)
+		if g.dry_chiyang_available():
+			var cb2 = B("药铺：晒干的赤阳果（%d 灵石）" % g.DRY_CHIYANG_PRICE, func(): g.buy_dry_chiyang(), int(g.s["lingshi"]) >= g.DRY_CHIYANG_PRICE, yr, 40)
+			cb2.add_theme_font_size_override("font_size", 13)
 	if p == "坊市" and g.junk_lianzi_available():
 		var jb = B("旧货摊：寒潭莲子（%d灵石）" % g.JUNK_LIANZI_PRICE, func(): g.buy_junk_lianzi(), int(g.s["lingshi"]) >= g.JUNK_LIANZI_PRICE, xr, 40)
 		jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
