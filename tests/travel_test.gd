@@ -59,8 +59,21 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 		var roaming: bool = g.s["loc"] == "roam"
 		var spot := false
 		if g.s["loc"] == "trip":
-			# 路书支线：一路快走回家
-			g.turn_back()
+			if g.in_vignette():
+				# v0.13 地点奇遇（后山/寒潭的老路故事）：挑第一个能选的，结算后回到游历
+				r["vig"] = int(r.get("vig", 0)) + 1
+				if String(g.s["trip"]["stage"]) == "event":
+					for o in g.event_view()["options"]:
+						if o["enabled"]:
+							g.resolve(o["id"])
+							break
+				g.continue_trip()
+				if g.s["loc"] == "trip" and not g.s["ended"]:
+					break
+				continue
+			# 旧档：路书支线一路快走回家
+			if g.turn_back() < 0:
+				break
 			continue
 		if g.s["loc"] != "home" and not roaming:
 			break
@@ -221,7 +234,7 @@ func _init() -> void:
 			if t != "相逢" and t != "引路":
 				other += 1
 	ok(other >= 20, "游历时全局的事照样发生（地点×事件 %d 种）" % other)
-	ok(int(stat.get("引路", 0)) >= 3, "熟人引路出现过（%d 次）" % int(stat.get("引路", 0)))
+	ok(int(stat.get("引路", 0)) >= 2, "熟人引路出现过（%d 次；v0.13 按月记，修为解锁更快，引路需求变少，门槛 3→2）" % int(stat.get("引路", 0)))
 	ok(bad_txt.is_empty(), "游历中的事：无空文字/占位符、正文 ≤170 字、相逢/偶遇不写男修女修（%s）" % ("; ".join(bad_txt.slice(0, 3))))
 	# ② 人在各地走动
 	var x = W.new()
@@ -268,7 +281,7 @@ func _init() -> void:
 	a.new_game("苏青禾", "sect", 4242, true)
 	for i in 6:
 		a.biguan_day()
-	a.start_roam("后山")
+	a.start_roam("坊市")   # v0.13：后山/寒潭会碰上地点奇遇（另测），这里只测存读档
 	for i in 3:
 		a.roam_spot(i)
 		while not a.world.pending().is_empty():
@@ -304,7 +317,7 @@ func _init() -> void:
 	ok(o2.from_dict(od), "没有去处数据的旧档照常读入")
 	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.12.1）")
 	o2.biguan_day()
-	ok(int(o2.s["day"]) == 1 and o2.s["v"] == 2, "旧档补齐后照常过日子，存档版本仍是 2")
+	ok(int(o2.s["day"]) == 1 and int(o2.s["v"]) == 3, "旧档补齐后照常过日子，存档升到 v3（读 v2 不报错）")
 	# ⑥ 每个选项都过一遍
 	var opt_bad := []
 	for sd in [5, 6, 7]:
@@ -336,6 +349,51 @@ func _init() -> void:
 		if _bad(String(ev2["text"])) or _bad(r2) or not TV.unlocked(w4, "云梦泽"):
 			opt_bad.append("引路：%s|%s" % [ev2["text"], r2])
 	ok(opt_bad.is_empty(), "相逢/引路每个选项都有结果、无占位符（%s）" % "; ".join(opt_bad.slice(0, 3)))
+	# ⑦ v0.13：老路书拆成地点奇遇——后山/寒潭游历时碰上葛老三、老龟、向阳坡；赤阳果只在五到八月；不再有第 23 月期限
+	var vg_seen := {}
+	var xy_bad := 0
+	var lg_set := 0
+	for sd in [11, 12, 13, 14]:
+		var v = GS.new()
+		v.new_game("苏青禾", "sect", sd, true)
+		TV.unlock(v.world, "寒潭", "风声", true)
+		v.s["ration"] = 12
+		for rnd in 40:
+			if v.s["ended"]:
+				break
+			v.s["ration"] = 12
+			v.start_roam("后山" if rnd % 2 == 0 else "寒潭")
+			for m in 6:
+				if v.s["loc"] != "roam":
+					break
+				v.roam_spot(m % 3)
+				while not v.world.pending().is_empty():
+					_handle(v, m)
+				if v.in_vignette():
+					var nid := String(v.s["trip"]["node"])
+					vg_seen[nid] = int(vg_seen.get(nid, 0)) + 1
+					if nid == "Hstar":
+						var mo := int(W.cal(int(v.s["day"]))[1])
+						if mo < 5 or mo > 8:
+							xy_bad += 1
+					var evv: Dictionary = v.event_view()
+					for vo in evv["options"]:
+						if vo["enabled"]:
+							v.resolve(vo["id"])
+							break
+					while not v.world.pending().is_empty():
+						_handle(v, m)
+					v.continue_trip()
+			if v.s["loc"] == "roam":
+				v.roam_home()
+			while not v.world.pending().is_empty():
+				_handle(v, rnd)
+		if String(v.s["flags"].get("laogui", "")) != "":
+			lg_set += 1
+	lines.append("地点奇遇（4 局 × 40 趟）：%s" % JSON.stringify(vg_seen))
+	ok(vg_seen.has("H3") and vg_seen.has("T4") and vg_seen.has("Hstar"), "后山/寒潭游历能碰上葛老三、老龟、向阳坡（%s）" % JSON.stringify(vg_seen.keys()))
+	ok(xy_bad == 0, "向阳坡的赤阳果只在五到八月（违例 %d）" % xy_bad)
+	ok(lg_set >= 3, "老龟的结局四局里至少三局定下（%d）" % lg_set)
 	lines.append("事件次数：" + JSON.stringify(stat))
 	lines.append("—— 游历例子 ——")
 	for s in snips.slice(0, 8):

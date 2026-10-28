@@ -163,14 +163,23 @@ static func cn_day(n: int) -> String:
 	return "三十"
 
 ## 今天（或前两天）是不是某个节令；返回节名，不是返回 ""
+## v0.13：按月过以后，七个节一年里占了七个月，太密。改成每年只有一个“今年过的节”
+## （按年份和人物种子轮换，几年下来七个节都轮得到），在它那个月、在青庐才会过上
 func festival_today() -> String:
 	var c := cal(int(w["day"]))
-	for f in FEST_DATES:
-		var md: Array = FEST_DATES[f]
-		if int(md[0]) == int(c[1]):
-			if not w.get("fest_done", {}).has("%d:%s" % [c[0], f]):
-				return f
-	return ""
+	var f := year_festival(int(c[0]))
+	if int(FEST_DATES[f][0]) != int(c[1]):
+		return ""
+	if w.get("fest_done", {}).has("%d:%s" % [c[0], f]):
+		return ""
+	return f
+
+func year_festival(y: int) -> String:
+	var base := 0
+	for c in w["C"].values():
+		if c.get("player", false):
+			base = int(c.get("pseed", 0))
+	return FESTIVALS[posmod(y * 3 + base, FESTIVALS.size())]
 const TREASURES = ["千年雪莲", "一窝赤血灵芝", "一块天外陨铁", "九叶紫参", "一眼地火灵泉", "一株月下昙"]
 const LOTS = ["一卷残缺的剑谱", "一枚上古传送符", "半张丹方", "一盏能照见心魔的琉璃灯", "一只来历不明的空储物镯"]
 const VAR = {

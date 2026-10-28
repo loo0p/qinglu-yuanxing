@@ -1098,7 +1098,7 @@ func _refresh() -> void:
 const GUIDE = {
 	"home": "这院子就是青庐。阳田种青芝，丹炉炼丹，静室闭关——点院里的地方就能打理。山中一月是一回合，修仙的日子要按年算。",
 	"home2": "回来了就好。累了就闭关，采回的灵草放进丹炉。寿元按年减，炼气只有百年，别都耗在路上。",
-	"depart": "这是山外的图。认得的地方点开就能去，“？”是只听过风声的。后山、寒潭照手记上的老路走；别处一月逛一处，看看谁在。",
+	"depart": "这是山外的图。认得的地方点开就能去，“？”是只听过风声的。每处一月逛一个去处，看看谁在；后山、寒潭走着走着会碰上手记里写过的人和事。",
 	"cult": "静室里闭关，一月一月把感悟炼成修为。一闭就是一年、十年也行，江湖照样在走。修为攒满，就能「冲关」：过了心魔那几问，才算筑基。",
 	"jianghu": "山外的人和事都记在「江湖」里。你怎么待人，人家都记得——好的坏的都记得。",
 }
@@ -2362,10 +2362,6 @@ func _sheet_place(v: Node) -> void:
 	if g.store_n("crop_linggu") > 0:
 		var b2 = B("装灵谷", func(): g.load_grain(), int(g.s["ration"]) < 12, pr, 36)
 		b2.add_theme_font_size_override("font_size", 13)
-	if pl.has("route") and g.routes.has(String(pl["route"])):
-		var rid := String(pl["route"])
-		var ob = B("出发：%s（照旧主手记）" % g.routes[rid]["name"], func(): sheet = ""; selected_route = rid; g.start_trip(rid), true, v, 46)
-		ob.add_theme_font_size_override("font_size", 15)
 	var why: String = g.can_roam(p)
 	var gb = B("去%s游历（路上 %d 个月）" % [p, d], func(): _go_roam(p), why == "", v, 50)
 	gb.add_theme_color_override("font_color", C_ACCENT)
@@ -2495,10 +2491,10 @@ func _roam() -> void:
 		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, xr, 40)
 		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bb.add_theme_font_size_override("font_size", 13)
-	if pl.has("route"):
-		var rb = B("照手记走老路：%s" % g.routes[String(pl["route"])]["name"], func(): g.roam_route(), true, xr, 40)
-		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		rb.add_theme_font_size_override("font_size", 13)
+	if p == "坊市" and g.junk_lianzi_available():
+		var jb = B("旧货摊：寒潭莲子（%d灵石）" % g.JUNK_LIANZI_PRICE, func(): g.buy_junk_lianzi(), int(g.s["lingshi"]) >= g.JUNK_LIANZI_PRICE, xr, 40)
+		jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		jb.add_theme_font_size_override("font_size", 13)
 
 ## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
 func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:

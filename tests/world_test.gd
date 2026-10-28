@@ -344,12 +344,12 @@ func _init() -> void:
 				var f := String(ev["ctx"].get("fest", ""))
 				var c: Array = W.cal(int(x.w["day"]))
 				var md: Array = W.FEST_DATES.get(f, [0, 0])
-				if int(md[0]) != int(c[1]) or int(c[2]) < int(md[1]) or int(c[2]) > int(md[1]) + 2 or not String(ev["text"]).contains(f):
+				if int(md[0]) != int(c[1]) or f != x.year_festival(int(c[0])) or not String(ev["text"]).contains(f):
 					fest_bad.append("%s@%s" % [f, W.cal_text(int(x.w["day"]))])
 			x.choose(String(ev["opts"][0][0]))
 			x.close()
 	lines.append("节令 3 局 × 200 日：%d 次，错日 %s" % [fest_n, JSON.stringify(fest_bad)])
-	ok(fest_bad.is_empty() and fest_n >= 9, "节令落在真实日子上（上元正月十五、清明三月初五、端午五月初五……），200 日里多数节都过上")
+	ok(fest_bad.is_empty() and fest_n >= 6, "v0.13 节令按月：落在该节的月份，每年一个节轮着过，200 个月里 3 局至少过 6 回（%d）" % fest_n)
 	# 第三拍：对后话也说不（总挑“拒绝”那一项）→ 远方来信/落难；总选第二项（收下心意→再问→仍婉拒）→ 喜帖
 	var REFUSE := ["no", "bye", "cut", "let", "bow", "wait", "pass", "shrug", "hide", "keep_no"]
 	var third := {"拒绝到底": 0, "再问又拒": 0, "喜帖": 0}

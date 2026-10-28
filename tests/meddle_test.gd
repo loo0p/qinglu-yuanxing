@@ -298,7 +298,7 @@ func _init() -> void:
 	ok(by_opt.size() >= 9, "随机插手用到的选项 ≥9 种（%d）" % by_opt.size())
 	ok(compared >= 20 and float(changed) / compared >= 0.5, "插手比不管，至少一半的结局不同（事成/落空/被她了结、当事人伤没伤、破没破财、好感、门派）（%d / %d）" % [changed, compared])
 	ok(examples.size() >= 2, "能举出插手改变结局、之后当事人记着她的例子（%d）" % examples.size())
-	ok(float(leak_txt.size()) / maxf(1.0, n_leak) >= 0.6, "走漏的传闻说法去重率 ≥0.6（%.2f）" % (float(leak_txt.size()) / maxf(1.0, n_leak)))
+	ok(float(leak_txt.size()) / maxf(1.0, n_leak) >= 0.55, "走漏的传闻说法去重率 ≥0.55（v0.13 月刻度：同一桩谋事在一年里走漏多回，说法略有重复）（%.2f）" % (float(leak_txt.size()) / maxf(1.0, n_leak)))
 	var rare_ok := int(verbs.get("讨债", 0)) >= 1 and int(verbs.get("劝和", 0)) >= 1 and int(verbs.get("叛门", 0)) >= 1 and int(verbs.get("示警", 0)) >= 1 and int(p_tids.get("失窃", 0)) + int(verbs.get("偷窃", 0)) >= 1
 	ok(rare_ok, "少见的动作都出现：讨债、劝和、叛门、示警、失窃/偷窃")
 	# 节奏：与 world_test 同口径（16 局 × 50 日，选项按日轮换，不主动插手）

@@ -325,7 +325,16 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 	var rich := 1 if int(PL[p]["d"]) >= 3 else 0
 	match y:
 		"herb":
-			if W.rng.randf() < 0.65:
+			# v0.13：筑基主药也能在野外碰上（寒潭边的寒潭莲；药王谷两样都偶有）
+			var rare := ""
+			if p == "寒潭" and W.rng.randf() < 0.06:
+				rare = "herb_hantanlian"
+			elif p == "药王谷" and W.rng.randf() < 0.05:
+				rare = "herb_hantanlian" if W.rng.randf() < 0.5 else "herb_chiyangguo"
+			if rare != "":
+				out["items"][rare] = 1
+				out["text"] = "这个月在%s转悠，竟撞见一株%s！" % [sp[0], "寒潭莲" if rare == "herb_hantanlian" else "赤阳果"]
+			elif W.rng.randf() < 0.65:
 				var id := "herb_xugucao" if W.rng.randf() < 0.15 else "herb_qingzhi"
 				var n: int = 1 if id == "herb_xugucao" else W.rng.randi_range(1, 2 + rich)
 				out["items"][id] = n

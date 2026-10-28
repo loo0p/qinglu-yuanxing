@@ -439,11 +439,12 @@ func tick(mode: String) -> void:
 		s["flags"].erase("hungry")
 	s["shouyuan"] = I("shouyuan") - 1
 	# ④ 世事检查
-	if s["flags"].get("world_xiangyang", false) and I("day") > XIANGYANG_DEADLINE and not s["flags"].get("xiangyang_expired", false):
-		s["flags"]["xiangyang_expired"] = true
-		if not s["flags"].get("xiangyang_done", false):
-			_log("向阳坡的赤阳果被采光了。")
-			notice("世事：向阳坡的赤阳果被采光了。")
+	# v0.13：不再有“第 23 个月前”的倒计时——向阳坡每年五到八月结果；入夏时还没筑基、手里没赤阳果，就捎个话
+	var cm := World.cal(I("day"))
+	if int(cm[1]) == 5 and I("plv") < 9 and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress():
+		notice("世事：入夏了，后山向阳坡的赤阳果又要熟了（五到八月，去后山游历时碰得上）。")
+	if I("day") > XIANGYANG_DEADLINE and not s["flags"].get("xiangyang_expired", false):
+		s["flags"]["xiangyang_expired"] = true   # 只作“葛老三肯代采”的开关，不再是期限
 	if I("shouyuan") <= 0 and not s["ended"]:
 		_die_old()
 	if world != null:
@@ -938,6 +939,8 @@ func event_view() -> Dictionary:
 	var base_days := int(ev.get("days", 1))
 	if base_days > 0:
 		base_days += day_mod()
+	if s["trip"].has("roam"):
+		base_days = day_mod()   # 游历时碰上的：这个月已经过了；只有选项写明的耗时（和老龟记仇的雾）另算
 	ev["base_days"] = base_days
 	var opts := []
 	for o in ev.get("options", []):
@@ -1060,12 +1063,25 @@ func _after_node(nid: String, res: Dictionary) -> void:
 		s["trip"]["choices"] = nd.get("next", []).duplicate()
 	s["trip"]["result"] = res
 	s["trip"]["stage"] = "result"
+	if s["trip"].has("roam"):
+		res["end_trip"] = false
+		if res.get("goto", "") != "":
+			s["trip"]["roam"]["force"] = res["goto"]
+		return
 	if res.get("end_trip", false) or nd.get("end", false):
 		res["end_trip"] = true
 
 ## 结果卡点“继续”
 func continue_trip() -> void:
 	if s["loc"] != "trip" or s["trip"]["stage"] != "result":
+		return
+	if s["trip"].has("roam"):
+		var rm: Dictionary = s["trip"]["roam"]
+		var res: Dictionary = s["trip"]["result"]
+		s["loc"] = "roam"
+		s["roam"] = rm
+		roam_note("%s：%s" % [res.get("title", ""), res.get("option", "")])
+		s["trip"] = {}
 		return
 	if s["trip"]["result"].get("end_trip", false):
 		come_home(false)
@@ -1109,8 +1125,8 @@ func come_home(turned_back: bool) -> Dictionary:
 	# 世事：第一次从寒潭回来、结算完之后出现
 	if route_id == "hantan" and not turned_back and not s["flags"].get("world_xiangyang", false):
 		s["flags"]["world_xiangyang"] = true
-		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，%s之前去才有。" % World.cal_text(XIANGYANG_DEADLINE)
-		_log("世事：听说向阳坡的赤阳果熟了，%s前去才摘得到。" % World.cal_text(XIANGYANG_DEADLINE))
+		sum["world"] = "葛老三捎来口信：后山向阳坡的赤阳果每年五到八月结果，山下的人也盯着。"
+		_log("世事：听说后山向阳坡的赤阳果每年五到八月结果。")
 	# 江湖：出门这几天山外发生的事（优先认识的人），回家时一并听说
 	if world != null:
 		var w0 := int(s["trip"].get("w0", s.get("roam", {}).get("w0", 0)))
@@ -1181,6 +1197,13 @@ func roam_spot(i: int) -> Dictionary:
 	if s["loc"] != "roam":
 		return {}
 	var pl := String(s["roam"]["pl"])
+	# v0.13：后山、寒潭的老路（葛老三、老龟、向阳坡……）不再是一条路书，成了在那里游历时会碰上的事
+	var vg := _pick_vignette(pl)
+	if vg != "":
+		s["roam"]["si"] = i
+		s["roam"]["days"] = int(s["roam"]["days"]) + 1
+		_start_vignette(pl, vg)
+		return {"text": "", "items": {}, "ls": 0, "wu": 0, "vignette": vg}
 	var r: Dictionary = TV.roam_day(world, pl, i)
 	for id in r["items"]:
 		add_item(String(id), int(r["items"][id]))
@@ -1192,6 +1215,86 @@ func roam_spot(i: int) -> Dictionary:
 	s["roam"]["days"] = int(s["roam"]["days"]) + 1
 	roam_note(String(r["text"]))
 	return r
+
+## ---- v0.13 地点奇遇：原路书节点按地点加权抽出来，选项照旧结算；结算完回到游历
+const VIGNETTE_P := 0.4
+const VIG_SKIP := ["H5", "T9", "T8", "Tpath"]
+func _pick_vignette(pl: String) -> String:
+	var rid := String(TV.PL.get(pl, {}).get("route", ""))
+	if rid == "" or not routes.has(rid) or not world.pending().is_empty():
+		return ""
+	var force := String(s["roam"].get("force", ""))
+	if force != "" and routes[rid]["nodes"].has(force):
+		s["roam"].erase("force")
+		return force
+	if world.rng.randf() >= VIGNETTE_P:
+		return ""
+	var c := World.cal(I("day"))
+	var seen_any := false
+	for k in s["roadbook"]:
+		if String(k).begins_with(rid + ":"):
+			seen_any = true
+	var last := String(s["flags"].get("vig_last", ""))
+	var cands := []
+	var ws := []
+	for nid in routes[rid]["nodes"]:
+		if nid in VIG_SKIP or nid == last:
+			continue
+		var nd: Dictionary = routes[rid]["nodes"][nid]
+		var ev: Dictionary = events[nd["event"]]
+		var wt := 1.0
+		if nid == "Hstar":
+			# 向阳坡的赤阳果：每年五到八月熟一回
+			if int(c[1]) < 5 or int(c[1]) > 8 or int(s["flags"].get("xy_year", -1)) == int(c[0]):
+				continue
+			wt = 3.0
+		elif nid == "T4":
+			# 老龟：先在寒潭走过一回才碰得上；见过以后偶尔再见（赔罪、还愿）
+			if not seen_any:
+				continue
+			if String(s["flags"].get("laogui", "")) != "" and I("day") - int(s["flags"].get("vig_cd", {}).get(nid, -999)) < 24:
+				continue
+			wt = 3.0 if String(s["flags"].get("laogui", "")) == "" else 0.3
+		else:
+			if bool(ev.get("once", false)) and s["roadbook"].has(rid + ":" + nid):
+				continue
+			if not check(nd.get("visible_if", null)):
+				continue
+			# 能重来的（寒潭野地、猎屋）隔一年才再碰上
+			if I("day") - int(s["flags"].get("vig_cd", {}).get(nid, -999)) < 12:
+				continue
+		cands.append(nid)
+		ws.append(wt)
+	if cands.is_empty():
+		return ""
+	var tot := 0.0
+	for x in ws:
+		tot += x
+	var r: float = world.rng.randf() * tot
+	for k in cands.size():
+		r -= ws[k]
+		if r <= 0:
+			return cands[k]
+	return cands[-1]
+
+func _start_vignette(pl: String, nid: String) -> void:
+	var rid := String(TV.PL[pl]["route"])
+	s["flags"]["vig_last"] = nid
+	var cd: Dictionary = s["flags"].get("vig_cd", {})
+	cd[nid] = I("day")
+	s["flags"]["vig_cd"] = cd
+	if nid == "Hstar":
+		s["flags"]["world_xiangyang"] = true
+		s["flags"].erase("xiangyang_done")
+		s["flags"]["xy_year"] = int(World.cal(I("day"))[0])
+	if rid == "hantan":
+		s["flags"]["hantan_visited"] = true
+	s["trip"] = {"route": rid, "node": nid, "walked": 0, "path": [], "stage": "event", "choices": [], "result": {},
+		"start_day": I("day"), "w0": int(world.w["day"]), "roam": s["roam"].duplicate(true)}
+	s["loc"] = "trip"
+
+func in_vignette() -> bool:
+	return s["loc"] == "trip" and s["trip"].has("roam")
 
 ## 从这里去另一处已认得的地方
 func roam_move(pl: String) -> bool:
@@ -1222,6 +1325,23 @@ func roam_home() -> Dictionary:
 		sum["roam"] = info
 		s["last_home"] = sum
 	return sum
+
+## v0.13：坊市旧货摊偶尔收到寒潭莲子（筑基主药的另一条路：买种子回水田种，二十个月开花），一年一回
+const JUNK_LIANZI_PRICE := 40
+func junk_lianzi_available() -> bool:
+	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and I("plv") < 9 \
+		and total_n("seed_lianzi") == 0 and total_n("herb_hantanlian") == 0 and total_n("pill_zhuji") == 0 \
+		and int(s["flags"].get("junk_lz_year", -1)) != int(World.cal(I("day"))[0])
+
+func buy_junk_lianzi() -> bool:
+	if not junk_lianzi_available() or I("lingshi") < JUNK_LIANZI_PRICE or not s["pending_overflow"].is_empty():
+		return false
+	s["lingshi"] = I("lingshi") - JUNK_LIANZI_PRICE
+	s["flags"]["junk_lz_year"] = int(World.cal(I("day"))[0])
+	add_item("seed_lianzi", 1)
+	roam_note("在旧货摊淘到一颗寒潭莲子（−%d 灵石）。" % JUNK_LIANZI_PRICE)
+	_log("在坊市旧货摊淘到一颗寒潭莲子。")
+	return true
 
 ## 坊市里能补干粮
 func roam_buy_ration() -> bool:
