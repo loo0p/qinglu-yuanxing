@@ -494,6 +494,10 @@ func chron(c: Dictionary, text: String) -> void:
 	var ct := cal_text(int(w["day"]))
 	if text.begins_with(ct):   # 履历每条前面本来就有年月，正文里不再重复
 		text = text.substr(ct.length()).lstrip("，, ")
+	# v0.14.1：同一个月认得好几处路，并成一句“知道了去A、B的路。”
+	if text.begins_with("知道了去") and not lg.is_empty() and int(lg[-1][0]) == int(w["day"]) and String(lg[-1][1]).begins_with("知道了去"):
+		lg[-1][1] = String(lg[-1][1]).trim_suffix("的路。") + "、" + text.substr(4)
+		return
 	var big := is_milestone(text)
 	if not big:
 		var same := 0

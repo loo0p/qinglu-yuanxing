@@ -272,6 +272,15 @@ func realm_text() -> String:
 	return "炼气%s层" % ["一", "二", "三", "四", "五", "六", "七", "八", "九"][layer() - 1]
 
 func _log(t: String) -> void:
+	# v0.14.1：同一个月解锁好几处新去处，行记里也并成一条（出关通知里早就并了）
+	if t.begins_with("新去处：") and not s["log"].is_empty():
+		var last: Dictionary = s["log"][-1]
+		var lt := String(last["text"])
+		if int(last["day"]) == I("day") and lt.begins_with("新去处："):
+			var prev := lt.substr(4).get_slice("——", 0).get_slice("。", 0)
+			var nm := t.substr(4).get_slice("。", 0)
+			last["text"] = "新去处：%s、%s——这几处的路，她都认得了。" % [prev, nm]
+			return
 	s["log"].append({"day": I("day"), "text": t})
 
 ## v0.14：她自己的履历（江湖里人物卡上的那份，按年月）。day<0 = 江湖当月；补记旧月份时按日子插进去，不打乱先后
@@ -798,6 +807,14 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 	var start_cnt := total_n(RECIPES[target]["out"]) if target != "" and RECIPES.has(target) else 0
 	var months := n * 12 if preset == "years" else n
 	var long := (preset in ["years", "gate"]) or (preset == "days" and n >= SECLUDE_MIN)
+	# v0.14.1：修为已满（卡在关口）还闭关：仍是一个月就出关，但不再写“入关 / 关口 / 出关”三笔，并成一行、连着的就累计月数
+	var stalled := long and preset != "gate" and at_gate()
+	if stalled:
+		long = false
+		var m0 := int(world.w["day"]) if world != null else I("day")
+		biguan_day()
+		_stalled_chron(m0)
+		return 1
 	var sum := {"m0": I("day"), "xw0": I("xiuwei"), "r0": realm_text(), "w0": int(world.w["day"]) if world != null else 0}
 	if long:
 		s["seclude"] = true
@@ -835,6 +852,27 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 	if long and done > 0:
 		_seclude_summary(sum, done)
 	return done
+
+func _stalled_chron(m0: int) -> void:
+	if world == null:
+		return
+	if int(s["flags"].get("gate_noted", -1)) != I("plv"):
+		s["flags"]["gate_noted"] = I("plv")
+		pchron("修为到了%s的关口。" % gate_name(), m0)
+	var head := "修为停在%s的关口，" % gate_name()
+	var lg: Array = world.P()["log"]
+	var st: Array = s["flags"].get("stall", [-1, 0, 0])
+	var n := 1
+	if int(st[0]) == I("plv"):
+		# 往回找几条：中间夹了一两件江湖事也接着并
+		for k in range(lg.size() - 1, maxi(-1, lg.size() - 7), -1):
+			if String(lg[k][1]).begins_with(head):
+				n = int(st[1]) + 1
+				m0 = int(st[2])
+				lg.remove_at(k)
+				break
+	s["flags"]["stall"] = [I("plv"), n, m0]
+	pchron(head + ("在静室里又坐了一个月，只攒了些余韵。" if n == 1 else "在静室里前后又坐了%s个月，只攒了些余韵。" % ("两" if n == 2 else World.cn_num(n))), m0)
 
 func _seclude_summary(sum: Dictionary, done: int) -> void:
 	var out := {"months": done, "from": int(sum["m0"]), "r0": sum["r0"], "r1": realm_text(), "lines": []}
@@ -888,7 +926,9 @@ func _known_snapshot() -> Dictionary:
 func _seclude_chron(sum: Dictionary, done: int, out: Dictionary) -> void:
 	if world == null:
 		return
-	if at_gate() and I("xiuwei") >= xw_goal():
+	# v0.14.1：“修为到了关口”每个关口只记一次（修为满了还闭关，不再一回回重记）
+	if at_gate() and I("xiuwei") >= xw_goal() and int(s["flags"].get("gate_noted", -1)) != I("plv"):
+		s["flags"]["gate_noted"] = I("plv")
 		pchron("修为到了%s的关口。" % gate_name())
 	pchron("出关。闭关%s，%d 岁，%s。" % [span_text(done), age_y(), realm_text()])
 	# 山外的事：她认识的人有关的，按事发年月补记（最多 6 件），注明是出关后才听说

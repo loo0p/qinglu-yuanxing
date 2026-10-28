@@ -22,6 +22,8 @@ const Gear = preload("res://scripts/gear.gd")
 
 func _init() -> void:
 	t_seclude()
+	t_stalled()
+	t_unlock_merge()
 	t_proto()
 	t_gen()
 	t_identity()
@@ -53,6 +55,48 @@ func t_seclude() -> void:
 	ok(sorted, "履历按年月先后")
 	ok(txt.contains("入静室闭关") and txt.contains("出关"), "有入关、出关两笔")
 	ok(txt.contains("闭关第十年"), "每年一笔心得")
+
+## v0.14.1：修为满了还闭关——履历里“关口”只记一回，连着几回并成一行，不再“入关/关口/出关”三笔一组地重复
+func t_stalled() -> void:
+	var g = fresh(9)
+	g.s["ration"] = 30
+	g.s["xiuwei"] = g.xw_goal()
+	ok(g.at_gate(), "炼气圆满、修为满 = 卡在筑基关口")
+	var n0: int = g.world.P()["log"].size()
+	var used := 0
+	for i in 3:
+		used += g.biguan("years", 10)
+	var add: Array = g.world.P()["log"].slice(n0)
+	var txt := "\n".join(add.map(func(e): return String(e[1])))
+	print(txt)
+	ok(used == 3, "卡在关口的长闭关每回一个月就出关（共 %d 月）" % used)
+	ok(txt.count("修为到了筑基的关口") == 1, "“修为到了筑基的关口”只记一次")
+	ok(txt.count("修为停在筑基的关口") == 1 and txt.contains("前后又坐了三个月"), "三回空坐并成一行“前后又坐了三个月”（中间夹了别的事也不断开）")
+	ok(not txt.contains("入静室闭关") and not txt.contains("出关。"), "不再写入关、出关")
+	ok(not g.s.has("last_seclude"), "不弹“这些年”出关小结")
+
+## v0.14.1：同一个月认得好几处路——行记和履历各并成一条
+func t_unlock_merge() -> void:
+	var g = GS.new()
+	g.new_game("苏青禾", "sect", 5, true)
+	var TV = load("res://scripts/travel.gd")
+	TV.ensure(g.world)
+	var l0: int = g.s["log"].size()
+	var c0: int = g.world.P()["log"].size()
+	var got := []
+	for p in TV.ORDER:
+		if got.size() < 3 and not g.world.w["unl"].has(p):
+			TV.unlock(g.world, p, "测试")
+			got.append(p)
+	var news: Array = g.s["log"].slice(l0).filter(func(e): return String(e["text"]).begins_with("新去处"))
+	var ch: Array = g.world.P()["log"].slice(c0).filter(func(e): return String(e[1]).begins_with("知道了去"))
+	print(news, ch)
+	ok(got.size() >= 2 and news.size() == 1 and ch.size() == 1, "解锁 %d 处：行记 %d 条、履历 %d 条（都应是 1）" % [got.size(), news.size(), ch.size()])
+	var all_in := true
+	for p in got:
+		if not String(news[0]["text"]).contains(p) or not String(ch[0][1]).contains(p):
+			all_in = false
+	ok(all_in, "并起来的那条里每处地名都在")
 
 func t_proto() -> void:
 	ok(Gear.prop("飞剑", "slot") == "fabao" and is_equal_approx(float(Gear.prop("飞剑", "weight")), 2.0), "prototree：飞剑继承法宝的槽、覆盖重量")
