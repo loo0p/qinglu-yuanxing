@@ -36,7 +36,9 @@ func _go() -> void:
 	for sd in [11, 22, 33]:
 		_clear()
 		rng.seed = sd
+		seed(sd)   # 全局 randi()（建角页抽脸等）也固定
 		main = load("res://scenes/Main.tscn").instantiate()
+		main.new_game_seed = sd * 1000 + 7   # 世界也固定：原来新游戏按时间取种子，同一“种子”每次是不同的一局，“最久 N 次点击日子没动”在 170–620 之间乱跳，CI 偶发失败
 		root.add_child(main)
 		await process_frame
 		var started := false

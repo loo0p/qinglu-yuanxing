@@ -63,6 +63,7 @@ var store = Store.new()
 var legacy = Store.new(Store.LEGACY_SLOT)   # v0.5 的存档：只读，用来迁移，永不改写
 var create_portrait = {}
 var create_pseed = 0
+var new_game_seed := -1   # 新游戏的世界种子；-1 = 按时间随机（玩家）。tests/play_random.gd 设成固定值，让乱点试玩每次跑出同一局
 var person_id = 0       # 江湖：正在看的人物卡
 var person_tab = "life" # life | rel | mem
 var life_all = false    # 生平：是否展开更早的月份
@@ -991,7 +992,7 @@ func safe_name(nm: String) -> String:
 func _start_new() -> void:
 	if store.exists():
 		store.archive()
-	g.new_game(create_name if create_name.strip_edges() != "" else "苏青禾", create_cherish, -1, true)
+	g.new_game(create_name if create_name.strip_edges() != "" else "苏青禾", create_cherish, new_game_seed, true)
 	g.s["portrait"] = create_portrait.duplicate(true) if not create_portrait.is_empty() else _hero_roll("p%d" % randi())
 	play_ms_base = 0
 	session_start = Time.get_ticks_msec()
