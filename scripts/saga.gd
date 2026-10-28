@@ -67,9 +67,10 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 func se_now() -> int:
 	return int(W.w["day"])
 
-## 时间单位：引擎的一“刻”= se_now 的一格。眼下一刻 = 一日；v0.13 改成按月走时，把 se_now 换成月序号、
-## 这里返回“n 个 unit 合多少个月”（日 → n/30.0，年 → n*12）即可，内容包不用改。
-const TICK_UNIT = "day"
+## 时间单位：引擎的一“刻”= se_now 的一格。v0.13 起一刻 = 一月（W.w["day"] 存的是月序号）。
+## 青庐四个内容包声明 unit=month：原来按“日”调好的冷却/连锁/min_t 数字整体改读成月——
+## 一生按年算，二十个月冷却正合“一年三五件要事”（Gemini 评审 二.1）；若逐日换算（÷30），每月的触发概率会饱和。
+const TICK_UNIT = "month"
 const PER_DAY = {"day": 1.0, "month": 30.0, "year": 360.0}
 func se_ticks(n: float, unit: String) -> float:
 	return n * float(PER_DAY.get(unit, 1.0)) / float(PER_DAY[TICK_UNIT])

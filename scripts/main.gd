@@ -1087,7 +1087,8 @@ func _refresh() -> void:
 		"home": _home()
 		"depart": _depart()
 		"cult": _cult()
-		"log": _log_tab()
+		"log", "life": _log_tab()
+		"pack": _pack_tab()
 		"jianghu": _jianghu()
 	_nav()
 	if sheet != "":
@@ -1245,7 +1246,8 @@ func _hud() -> void:
 	mid.add_theme_constant_override("separation", 1)
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_child(mid)
-	L("%s · %s · %d岁" % [g.realm_text(), World.season(int(s["day"])), g.age_y()], 12, C_TEXT, mid)
+	# v0.13 顶栏：境界 · 感悟；进度条；年岁/寿限（Gemini 评审 P1#10.2）
+	L("%s · 悟 %d" % [g.realm_text(), int(s["ganwu"])], 12, C_TEXT, mid)
 	# 进度条：炼气只看这一层（每层 1/9 修为）；筑基以后看这一小境界
 	var pb = ProgressBar.new()
 	if int(s.get("plv", 0)) >= 9:
@@ -1259,6 +1261,8 @@ func _hud() -> void:
 	pb.custom_minimum_size = Vector2(0, 7)
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mid.add_child(pb)
+	var lim := g.age_y() + int(g.shou_years())
+	L("%s · %d/%d岁" % [World.season(int(s["day"])), g.age_y(), lim], 11, C_WARN if int(g.shou_years()) * 5 < lim else C_DIM, mid)
 	for it in [["ico_ration", "ration", int(s["ration"])], ["ico_lingshi", "lingshi", int(s["lingshi"])]]:
 		var h = row(r, 1)
 		IC(it[0], 22, h)
@@ -1276,13 +1280,16 @@ func _hud() -> void:
 
 func _nav() -> void:
 	var r = row(footer, 4)
-	var tabs = [["home", "青庐", "ico_qingzhi"], ["depart", "历练", "ico_ration"], ["log", "行记", "ico_fu"], ["cult", "修炼", "ico_zhuji"]]
+	# v0.13（Gemini 评审 P1#10.1）：青庐 / 历练 / 行囊 / 江湖 / 生平；修炼并进青庐的静室（点院里的静室），行记改名生平
+	var tabs = [["home", "青庐", "ico_qingzhi"], ["depart", "历练", "ico_ration"], ["pack", "行囊", "ico_fu"], ["life", "生平", "ico_zhuji"]]
 	if g.world != null:
 		tabs.insert(3, ["jianghu", "江湖", "ico_lingshi"])
+	var cur: String = "home" if tab == "cult" else ("life" if tab == "log" else tab)
 	for t in tabs:
-		# 选中的页签不再加“● ”（5 个页签时会把“青庐”挤成两行），改用底色 + 主色字
+		# 选中的页签：底色 + 主色字；字色在 normal/hover/pressed/focus 都设上——
+		# 以前只设了 normal，手机上点完按钮停在 focus/hover，字就变回默认色（“选中页签字不对”的毛病）
 		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
-		if tab == t[0]:
+		if cur == t[0]:
 			# v0.12.1：选中态每个状态都给定底色与字色——手机上点过之后按钮停在 hover/focus；且底色要不透明（Gemini v5 P1#10.5）
 			# 底色不能透：历练页底下是深色地图，原来 16% 的主色底透出地图，主色字就看不见了
 			var tsb = _sb(Color("#F6F0E2").lerp(C_ACCENT, 0.14), C_ACCENT, 8, 2, 4)
@@ -1451,6 +1458,30 @@ func _sheet_zao(v: Node) -> void:
 	if not mem.is_empty():
 		var m = mem[-1]
 		L("%s记得：%s" % [m["npc"], m["text"]], 13, C_DIM, v)
+
+## v0.13 行囊页：随身行囊 + 仓里的东西（v0.14 加储物袋、本命法器/法衣/佩饰/功法四格）
+func _pack_tab() -> void:
+	_stage_image("bg_home", 0.72)
+	H("行囊", 24)
+	var c = card()
+	_sheet_pack(c)
+	H("青庐仓里", 20)
+	var c2 = card()
+	var grid = GridContainer.new()
+	grid.columns = 4
+	c2.add_child(grid)
+	var n := 0
+	for id in g.s["store"]:
+		if int(g.s["store"][id]) <= 0:
+			continue
+		n += 1
+		var cell = VBoxContainer.new()
+		grid.add_child(cell)
+		IC(ICON.get(id, "ico_fu"), 30, cell)
+		var nl = L("%s×%d" % [N(id).substr(0, 4), int(g.s["store"][id])], 11, C_TEXT, cell)
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if n == 0:
+		L("（空）", 13, C_DIM, c2)
 
 func _sheet_pack(v: Node) -> void:
 	var s = g.s
@@ -2004,6 +2035,8 @@ func _log_tab() -> void:
 		LW("%s · %s：%s" % [World.cal_short(int(m["day"])), m["npc"], m["text"]], 14, C_TEXT, r)
 	H("青庐行记", 24)
 	var lc = card()
+	if g.world != null:
+		B("她在江湖里的生平（履历）", func(): person_id = 1; person_tab = "life"; modal = {"kind": "person"}, true, lc, 40)
 	var lg: Array = g.s["log"]
 	for i in range(lg.size() - 1, maxi(-1, lg.size() - 40), -1):
 		L("%s  %s" % [World.cal_short(int(lg[i]["day"])), lg[i]["text"]], 13, C_TEXT, lc)

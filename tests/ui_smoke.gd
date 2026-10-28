@@ -87,6 +87,37 @@ func click(prefix: String) -> bool:
 	log_lines.append("找不到按钮「%s」；当前：%s" % [prefix, all])
 	return false
 
+## v0.13：去某处游历，逐月点小去处，直到碰上地点奇遇（loc 变成 trip）
+func roam_until_vignette(pl: String, max_m: int) -> bool:
+	if not seq(["历练", pl, "去%s游历" % pl]):
+		return false
+	var sps: Array = main.TV.spots(pl)
+	for m in max_m:
+		drain_story()
+		if main.g.s["loc"] == "trip":
+			return true
+		if main.g.s["loc"] != "roam":
+			return false
+		main.g.s["ration"] = 12
+		main.refresh()
+		if not click(String(sps[m % sps.size()][0])):
+			return false
+	return main.g.s["loc"] == "trip"
+
+## 读完对话，点第一个能选的选项，再“继续”回到游历
+func play_vignette() -> bool:
+	var ev: Dictionary = main.g.event_view()
+	var lab := ""
+	for o in ev["options"]:
+		if o["enabled"]:
+			lab = String(o["label"])
+			break
+	var ok2 := click(lab)
+	drain_story()
+	ok2 = ok2 and click("继续")
+	drain_story()
+	return ok2 and main.g.s["loc"] == "roam"
+
 func seq(list: Array) -> bool:
 	for x in list:
 		if not click(x):
@@ -111,19 +142,27 @@ func _go() -> void:
 			nav_ok = false
 	log_lines.append("底栏页签不折行：" + ("PASS" if nav_ok else "FAIL"))
 	ok = ok and nav_ok
-	ok = ok and seq(["历练", "后山", "出发：后山"])
-	ok = ok and seq(["溪边", "贴上避水符", "继续", "溪畔野地", "采一把续骨草", "继续", "葛老三", "递上续骨草", "继续", "古松残碑", "拓下碑文", "继续", "归途", "回青庐", "回家", "进屋"])
-	ok = ok and seq(["开第三块阳田", "修炼", "2 日"]) if false else ok and seq(["开第三块阳田", "修炼"])
-	# 闭关 2 日：点 1 日两次
-	ok = ok and seq(["1 日", "1 日", "历练", "● 后山"]) if false else ok and seq(["1 日", "1 日", "历练"])
+	# v0.13：没有路书了——去后山游历，一月逛一处，碰上手记里写过的事（地点奇遇）就照常选，选完回到游历
+	var vg_ok := roam_until_vignette("后山", 30) and play_vignette()
+	vg_ok = vg_ok and seq(["回青庐", "进屋"]) and main.g.s["loc"] == "home"
+	log_lines.append("后山游历碰上地点奇遇、选完回游历、回家：" + ("PASS" if vg_ok else "FAIL"))
+	ok = ok and vg_ok
+	ok = ok and seq(["开第三块阳田", "静室", "一月", "一月", "历练"])
 	# v0.11：寒潭要修到二层或听够风声才认得路；冒烟测试只测界面，这里直接记作认得
 	if main.g.world != null and not main.TV.unlocked(main.g.world, "寒潭"):
 		main.TV.unlock(main.g.world, "寒潭", "风声", true)
 		main.refresh()
-	ok = ok and seq(["寒潭", "+1（1灵石）", "+1（1灵石）", "出发：寒潭"])
-	ok = ok and seq(["冷杉道", "向他打听老龟", "继续", "寒潭野地", "拢紧衣襟", "继续", "潭边石屋", "坐下烤火", "继续", "寒潭老龟", "在石头上坐下", "继续",
-		"冰瀑", "站定", "继续", "猎屋", "点上蜡烛", "继续", "雾林", "掩住口鼻", "继续", "回程野地", "加快脚步", "继续", "归途", "回青庐", "回家", "进屋"])
-	ok = ok and seq(["修炼", "3 日", "历练", "后山", "出发：后山", "溪边", "快走", "继续", "向阳坡", "伏在草里", "继续", "归途", "回青庐", "回家", "进屋"])
+	var ht_ok := roam_until_vignette("寒潭", 30) and play_vignette()
+	ht_ok = ht_ok and seq(["回青庐", "进屋"]) and main.g.s["loc"] == "home"
+	log_lines.append("寒潭游历碰上地点奇遇：" + ("PASS" if ht_ok else "FAIL"))
+	ok = ok and ht_ok
+	# 底栏五个页签都能点开（青庐/历练/行囊/江湖/生平）
+	var nav_ok := true
+	for tb in [["行囊", "pack"], ["生平", "life"], ["江湖", "jianghu"], ["历练", "depart"], ["青庐", "home"]]:
+		drain_story()
+		nav_ok = nav_ok and click(tb[0]) and main.tab == tb[1]
+	log_lines.append("底栏 青庐/历练/行囊/江湖/生平：" + ("PASS" if nav_ok else "FAIL"))
+	ok = ok and nav_ok
 	# v0.11 游历：世界图 → 点坊市 → 去游历 → 逛一处 → 上前搭话（相逢）→ 回青庐
 	var rm_ok := true
 	var gw0 = main.g.world
@@ -212,6 +251,12 @@ func _go() -> void:
 	log_lines.append("第三趟后：D%d 赤阳果 %d 寒潭莲 %d 修为 %d" % [g.s["day"], g.total_n("herb_chiyangguo"), g.total_n("herb_hantanlian"), g.s["xiuwei"]])
 	# 收尾：反复“全部服下 / 按目标排程 / 1 日”直到可以冲关
 	g.s["debug_zhuji"] = "succeed"
+	# v0.13：主药不再靠两条路书必得（游历奇遇/坊市/种莲/野外偶得），冒烟只测界面，这里直接放进仓
+	if g.total_n("herb_chiyangguo") == 0:
+		g.s["store"]["herb_chiyangguo"] = 1
+	if g.total_n("herb_hantanlian") == 0:
+		g.s["store"]["herb_hantanlian"] = 1
+	g.s["store"]["herb_qingzhi"] = int(g.s["store"].get("herb_qingzhi", 0)) + 6
 	for i in 60:
 		if g.can_breakthrough() == "":
 			break
@@ -219,8 +264,8 @@ func _go() -> void:
 		if click("全部服下"):
 			click("服下")
 		click("按目标排程")
-		click("修炼")
-		click("1 日")
+		if _find("静室") and click("静室") and click("三月") and main.modal.get("kind", "") == "seclude":
+			click("推开静室的门")
 	ok = ok and click("◎ 冲关")
 	for i in 3:
 		var q = g.current_xinmo()
@@ -239,7 +284,7 @@ func _go() -> void:
 	log_lines.append("修为精进提示 %d 次：%s" % [ups.size(), " ".join(ups)])
 	ok = ok and ups.size() >= 6
 	ok = ok and g.world != null and stories >= 3
-	ok = ok and g.s["ending"] == "zhuji"
+	ok = ok and int(g.s["plv"]) >= 9   # v0.13：筑基是里程碑，不再是结局
 	# 存档存在且能读回
 	var st = load("res://scripts/save_store.gd").new()
 	var d = st.load_data()
