@@ -43,9 +43,9 @@ with sync_playwright() as p:
         for _ in range(tries):
             ys = [(t, x, y) for t, x, y in btns() if t.startswith(prefix)]
             for t, x, y in ys:
-                if 0 <= y <= H - 90:
+                if 100 <= y <= H - 90:   # 顶栏下、底栏上
                     pg.touchscreen.tap(x, y); pg.wait_for_timeout(wait); return True
-            up = bool(ys) and all(y < 0 for _, _, y in ys)
+            up = bool(ys) and all(y < 100 for _, _, y in ys)
             pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, -220 if up else 220); pg.wait_for_timeout(500)
         return False
     def clear_dialogs(n=12):
@@ -179,5 +179,6 @@ with sync_playwright() as p:
         clear_dialogs()
     step('decades_home', tap('青庐', 1200))
     step('decades_life', tap('生平', 1500))
+    step('decades_lvli', tap('她在江湖里的生平', 1500))   # 闭关以后她自己的履历
     b.close()
 print(json.dumps(res, ensure_ascii=False, indent=1))
