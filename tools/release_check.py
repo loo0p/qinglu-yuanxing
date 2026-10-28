@@ -153,14 +153,14 @@ with sync_playwright() as p:
         gear['bag_btn'] = hit[:1]
         if hit and tap_scroll(hit[0], 1000):
             step('v14_item', True)
-            gear['equipped'] = tap_scroll('装上', 1200)
+            gear['equipped'] = tap('装上', 1200)
             tap('收起', 800)
             clear_dialogs(3)
             slot = [t for t, _, _ in btns() if bought in t and '\n' in t]
             gear['slot_btn'] = slot[:1]
             step('v14_equipped', bool(slot))
             if slot and tap_scroll(slot[0], 1000):
-                gear['unequipped'] = tap_scroll('卸下', 1200)
+                gear['unequipped'] = tap('卸下', 1200)
                 tap('收起', 800)
                 clear_dialogs(3)
                 step('v14_unequipped', gear['unequipped'])
