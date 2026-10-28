@@ -319,7 +319,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 	match oid:
 		"ignore":
 			pt["ig"] = 1
-			out = W.pv("插手不管", ["她没有动。江湖上的事，各有各的因果。", "她把这件事放下了。过几日，自会有下文。", "她听过就罢了，回去照旧炼她的丹。"])
+			out = W.pv("插手不管", ["她没有动。江湖上的事，各有各的因果。", "她把这件事放下了。过些时候，自会有下文。", "她听过就罢了，回去照旧炼她的丹。"])
 			W.chron(p, "听说%s的事，没有插手。" % f["a"])
 			return out
 		"warn":
@@ -331,9 +331,9 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			_m(W, b, "%s提醒过我小心%s" % [pn, f["a"]] if v != "夺宝" else "%s告诉我%s要抢先去取%s" % [pn, f["a"], f["pr"]], 10, "恩", aid)
 			out = W.pv("插手警", ["她托人给{b}带了一句话。回信只有四个字：“知道了，谢。”", "她把话递到了。{b}沉默了一会儿，说：“我欠你一回。”", "那封信送到{b}手里时，{b}正要出门。{tb}把门又关上了。"]).format(f)
 			if v == "偷窃" or v == "造谣":
-				out += "\n" + W.pv("插手警后", ["往后如何，就看{b}自己了。", "几日后自有分晓。"]).format(f)
+				out += "\n" + W.pv("插手警后", ["往后如何，就看{b}自己了。", "过些时候自有分晓。"]).format(f)
 			else:
-				out += "\n（%s有了防备；%s那边几日后见分晓）" % [f["b"], f["a"]]
+				out += "\n（%s有了防备；%s那边过些时候见分晓）" % [f["b"], f["a"]]
 			if _found_out(W, a, 0.2):
 				_m(W, a, "%s给%s通风报信，坏了我的事" % [pn, f["b"]], -10, "怨", aid)
 				out += "\n" + W.pv("插手警露", ["{a}那边，像是知道了是谁递的话。", "后来听说，{a}在打听是谁走漏的风声。"]).format(f)

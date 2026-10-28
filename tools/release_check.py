@@ -95,7 +95,12 @@ with sync_playwright() as p:
         tap(['山涧', '松林', '断崖'][i % 3], 1200)
     step('roam_event', state().get('loc') in ('trip', 'roam'))
     clear_dialogs(20)
-    ok = tap('回青庐', 1500); clear_dialogs()
+    ok = False
+    for _ in range(8):   # 游历里事一件接一件，清完再点回青庐，直到真的到家
+        clear_dialogs(20)
+        if state().get('loc') == 'home':
+            ok = True; break
+        tap('回青庐', 1500)
     step('back_home', ok)
     for tb in ['生平', '行囊', '江湖', '青庐']:
         clear_dialogs()
@@ -105,5 +110,13 @@ with sync_playwright() as p:
     step('seclude', ok)
     clear_dialogs()
     step('after', True)
+    # 几十年后：静室闭关十年 × 3，再看生平（履历按“青庐 N 年”记）和院子顶栏
+    for _ in range(3):
+        clear_dialogs()
+        if tap('静室', 1200) or True:
+            tap('十年', 4000)
+        clear_dialogs()
+    step('decades_home', tap('青庐', 1200))
+    step('decades_life', tap('生平', 1500))
     b.close()
 print(json.dumps(res, ensure_ascii=False, indent=1))
