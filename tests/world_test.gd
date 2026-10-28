@@ -427,7 +427,7 @@ func _init() -> void:
 	# 接进青庐规则：v1 旧档迁移 + 世界随日子走 + 存读档
 	var GS = load("res://scripts/game_state.gd")
 	var h = GS.new()
-	h.new_game("苏青禾", "aunt", 11)
+	h.new_game("苏青禾", "sect", 11)
 	var v1: Dictionary = h.to_dict()
 	v1["v"] = 1
 	v1.erase("world")
@@ -554,7 +554,7 @@ func _init() -> void:
 	ok(nb.is_empty(), "v0.8 新事件：都能选上人、有文字、无占位符、正文 ≤170 字（%s）" % "；".join(nb.slice(0, 4)))
 	# 家里的产出接进事件：有驱瘴丹时，求助多一条“喂丹”，不伤经脉
 	var hh = GS.new()
-	hh.new_game("苏青禾", "aunt", 21, true)
+	hh.new_game("苏青禾", "sect", 21, true)
 	hh.s["store"]["pill_quzhang"] = 1
 	var hw = hh.world
 	var vic: Dictionary = hw.npcs()[0]

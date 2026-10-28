@@ -1330,7 +1330,7 @@ static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dicti
 				"平": ["{at}，{n}抱拳：“久闻，切磋一二？”"]}).format(f)
 			return {"speaker": int(n["id"]), "anon": anon, "text": t13, "opts": [_o("fight", "应战"), _o("yield", "拱手认输，让%s这个名头" % f["tb"]), _o("later", "改日再说")]}
 		"流言":
-			var rm: String = W.pv("流言内容", ["青庐那女修的丹方是偷来的", "她当年在寒潭边见死不救", "她的修为是拿别人的灵根换的", "她和魔门的人有来往", "她欠了一屁股债，连姑母都躲着她", "她采药专挑别人的地盘"])
+			var rm: String = W.pv("流言内容", ["青庐那女修的丹方是偷来的", "她当年在寒潭边见死不救", "她的修为是拿别人的灵根换的", "她和魔门的人有来往", "她欠了一屁股债，连坊市的葛老三都躲着她", "她采药专挑别人的地盘"])
 			ctx["rm"] = rm
 			f["rm"] = rm
 			var t14 = W.pv("流言开", ["{at}，有人背着她嚼舌根：{rm}。传话的人说，最先是从{n}嘴里出来的。", "坊市的熟人支支吾吾地告诉她，外头在传：{rm}。源头像是{n}。", "{at}，有人对她指指点点。她听见一句：“{rm}。”说这话的人，前几日刚和{n}喝过酒。"]).format(f)
@@ -1417,7 +1417,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W.R(n, p)["g"] = maxi(0, int(W.R(n, p)["g"]) - 30)
 						_settle(n, 1, [])
 						mem(W, n, p, "在%s讨回了公道" % at, 4, "了", aid)
-						out = W.pv("寻仇负", ["她输了。{n}收剑：“两清。”走时没回头。", "她的剑落在地上。{n}看了一眼，没有再出手：“这口气出了。”"]).format({"n": nm}) + "\n（受伤：闭关炼化减半 3 日）"
+						out = W.pv("寻仇负", ["她输了。{n}收剑：“两清。”走时没回头。", "她的剑落在地上。{n}看了一眼，没有再出手：“这口气出了。”"]).format({"n": nm}) + "\n（受伤：闭关炼化减半 3 个月）"
 						W.chron(p, "%s寻仇而来，她败了。" % nm)
 						W.chron(n, "向%s讨回了旧账。" % W.pn())
 						drift(n, "仇", -0.03)
@@ -1478,7 +1478,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._inj(2)
 						_add_ls(n, -got2)
 						W.R(p, n)["g"] = int(W.R(p, n)["g"]) + 25
-						out = "她没打过。%s拿走了%s块灵石。\n（受伤：闭关炼化减半 2 日）" % [nm, W.cnum(-got2)]
+						out = "她没打过。%s拿走了%s块灵石。\n（受伤：闭关炼化减半两个月）" % [nm, W.cnum(-got2)]
 						W.chron(p, "在%s遭%s劫掠，带伤而回。" % [at, nm])
 						W.chron(n, "在%s劫了%s。" % [at, W.pn()])
 				"name", "bluff":
@@ -1695,7 +1695,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._inj(3)
 						v["inj"] = maxi(int(v["inj"]), 15)
 						mem(W, n, p, "%s陪我去护%s" % [W.pn(), vn], 14, "助", aid)
-						out = "%s比想的还强。她挨了一掌，%s也没能护住。\n（受伤：闭关炼化减半 3 日）" % [h["name"], vn]
+						out = "%s比想的还强。她挨了一掌，%s也没能护住。\n（受伤：闭关炼化减半 3 个月）" % [h["name"], vn]
 						W.chron(p, "随%s去护%s，负伤。" % [nm, vn])
 				_:
 					mem(W, n, p, "求%s的时候，她推了" % W.pn(), -8, "拒", aid)
@@ -1860,7 +1860,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._wu(2)
 						drift(n, "傲", 0.02)
 						mem(W, n, p, "胜过%s" % W.pn(), 2, "胜", aid)
-						out = "她输了半招，手腕震得发麻。%s收剑：“还行。”\n（感悟 +2，受伤：闭关炼化减半 1 日）" % nm
+						out = "她输了半招，手腕震得发麻。%s收剑：“还行。”\n（感悟 +2，受伤：闭关炼化减半 1 个月）" % nm
 						W.chron(p, "与%s切磋，输了半招。" % nm)
 				"yield":
 					W.fav(n, 3)
@@ -1954,7 +1954,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					else:
 						W._inj(2)
 						mem(W, n, p, "与%s争过宝" % W.pn(), -4, "夺", aid)
-						out = "%s比她快。她扑了个空，还挨了一记。\n（受伤：闭关炼化减半 2 日）" % nm
+						out = "%s比她快。她扑了个空，还挨了一记。\n（受伤：闭关炼化减半 2 个月）" % nm
 						W.chron(p, "在%s与%s争%s，没争过。" % [at, nm, tr])
 				"share":
 					if px(n, "贪") > 0.65 and px(n, "侠") < 0.35 and W.rng.randf() < 0.5:
@@ -1991,7 +1991,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					else:
 						W._inj(2)
 						W.fav(n, 4, "与%s一同涉险" % W.pn(), 4)
-						out = "禁制比想的凶。两人狼狈退出来，%s的袖子烧了半截，还在笑。\n（受伤：闭关炼化减半 2 日）" % nm
+						out = "禁制比想的凶。两人狼狈退出来，%s的袖子烧了半截，还在笑。\n（受伤：闭关炼化减半 2 个月）" % nm
 						W.chron(p, "与%s探洞府，触了禁制。" % nm)
 				"advice":
 					W.fav(n, 3)
@@ -2017,7 +2017,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						mem(W, v2, p, "%s为我挡过一剑" % W.pn(), 16, "救", aid)
 						mem(W, n, p, "%s多管闲事" % W.pn(), -10, "怨", aid)
 						npc_resolve(W, n, verb, v2, aid)
-						out = "她挡了一剑，没挡住第二剑。%s得手走了。%s记住了她。\n（受伤：闭关炼化减半 2 日）" % [nm, vn2]
+						out = "她挡了一剑，没挡住第二剑。%s得手走了。%s记住了她。\n（受伤：闭关炼化减半 2 个月）" % [nm, vn2]
 				"shout":
 					if W.rng.randf() < 0.5:
 						mem(W, v2, p, "%s喊了一声，我才逃掉" % W.pn(), 10, "恩", aid)
@@ -2065,7 +2065,7 @@ static func why_lines(W, c: Dictionary) -> Array:
 	ms.sort_custom(func(a, b): return float(a[0]) > float(b[0]))
 	for x in ms.slice(0, 3):
 		var m: Array = x[1]
-		out.append("记着：%s（%s）" % [say(W, String(m[2])), W.cal_text(int(m[0]))])
+		out.append("记着：%s（%s）" % [say(W, String(m[2])), W.cal_short(int(m[0]))])
 	var tops := []
 	for a in AX:
 		if px(c, a) >= 0.62:

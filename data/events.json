@@ -6,7 +6,7 @@
   "heavy": true,
   "once": true,
   "ganwu": 15,
-  "text": "春雨后，溪水漫过了踏石。袖里的避水符，还带着姑母的墨香。",
+  "text": "春雨后，溪水漫过了踏石。袖里的避水符是葛老三硬塞的：“押金里扣。”",
   "options": [
    {
     "id": "A",
@@ -715,7 +715,7 @@
     "label": "在石头上坐下，陪它坐坐",
     "cost": {
      "days": 2,
-     "note": "陪坐 3 日"
+     "note": "陪坐 3 个月"
     },
     "key": true,
     "thought": "它好像很久没跟人说话了。",
@@ -824,7 +824,7 @@
   "options": [
    {
     "id": "A",
-    "label": "点上蜡烛，给姑母写封信",
+    "label": "点上蜡烛，给家里写封信",
     "visible_if": {
      "not_flag": {
       "letter_pending": true
@@ -880,7 +880,7 @@
   "once": false,
   "ganwu": 0,
   "days": 0,
-  "text": "雾在身后合拢。再走半日，就闻得到姑母的饭香。",
+  "text": "雾在身后合拢。再走一程，就看得见青庐的柴门。",
   "options": [
    {
     "id": "A",

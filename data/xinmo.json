@@ -1,24 +1,24 @@
 {
  "_comment": "心魔题（design-v3.2 §6）。第一幕=开局“最舍不得”保底题；第二幕=老龟题，未遇老龟则从倾向标签题池补。每题 requires=题目引用的事必须发生过；答案 consistent_if=与记录一致才算过。",
  "act1": {
-  "aunt": {
-   "id": "act1_aunt",
+  "sect": {
+   "id": "act1_sect",
    "requires": {},
-   "text": "灯影里坐着姑母，手里还缝着那件旧棉衣。她不抬头，只问：“这一路，你可曾想过家？”",
+   "text": "灯影里是青云宗外门那条九百级的石阶。执事合上名册，头也不抬：“落选之后，你可曾荒废？”",
    "answers": [
     {
-     "label": "我写过信回来",
+     "label": "没有，静室里一年年坐过来",
      "consistent_if": {
-      "flag": {
-       "letter_ever": true
+      "stat_ge": {
+       "biguan_days": 24
       }
      }
     },
     {
-     "label": "想过，只是没写信",
+     "label": "荒废过一阵",
      "consistent_if": {
-      "not_flag": {
-       "letter_ever": true
+      "stat_le": {
+       "biguan_days": 23
       }
      }
     },

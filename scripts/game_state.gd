@@ -1,10 +1,11 @@
 class_name GameState
 extends RefCounted
-## 《青庐远行》v0.3 试玩版 · 规则层（纯逻辑，无 UI）
+## 《青庐远行》规则层（纯逻辑，无 UI）
+## v0.13：一回合 = 一个月（存档里字段仍叫 day，含义是“第几个月”）；境界往后走到化神、寿元按年（docs/design/redesign-v0.13.md）
 ## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
 ## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
 
-const SAVE_VERSION := 2      # v0.6：加了江湖（world）与主角立绘（portrait）；v1 档读入时迁移
+const SAVE_VERSION := 3      # v0.6 v2：江湖与立绘；v0.13 v3：回合=月、境界往后、去掉旧开局的亲戚设定（v1/v2 读入时迁移）
 const World = preload("res://scripts/world.gd")
 const TV = preload("res://scripts/travel.gd")
 const FIELD_DAYS := 6
@@ -32,7 +33,14 @@ const XIANGYANG_DEADLINE := 23
 const ZHUJI_RATE := 0.7
 const ZHUJI_SECOND_DAYS := 3
 const ZHAJI_YUYUN := 20
-const SHOUYUAN_START := 120   # v3.2：炼气寿元 120 日，正常路线用 31–45%
+const AGE0 := 16              # v0.13：十六岁开局
+const SHOUYUAN_START := 100 * 12 - AGE0 * 12   # v0.13：炼气寿元 100 年（按月计），开局余 84 年
+## v0.13：筑基以后（lv 9–18，与江湖人物同一张境界表）：每月闭关所得、每个小境界所需修为
+const XW_BIGUAN_BY_MAJOR := [10, 14, 20, 28, 36]   # 炼气 / 筑基 / 金丹 / 元婴 / 化神
+const XW_STAGE_BY_MAJOR := [600, 2000, 6000, 18000, 30000]
+const GATES := {11: 0.55, 14: 0.45, 17: 0.35, 18: 0.40}   # 大关成功率：→金丹 / →元婴 / →化神 / 渡劫
+const GATE_FAIL_INJ := 12
+const GATE_FAIL_SHOU := 60
 const LAOGUI_A_BASE := 0.35
 const LAOGUI_A_PER_LAYER := 0.05
 const LAOGUI_A_MAX := 0.8
@@ -42,7 +50,7 @@ const GELAOSAN_FRUIT_PRICE := 20
 
 const NAMES := {
 	"res_lingshi": "灵石", "res_xiuwei": "修为", "res_ganwu": "感悟", "res_xinjing": "心境",
-	"res_shouyuan": "寿元", "res_ganliang": "干粮", "herb_qingzhi": "青芝", "seed_lianzi": "寒潭莲子",
+	"res_shouyuan": "寿元", "res_ganliang": "辟谷丹", "herb_qingzhi": "青芝", "seed_lianzi": "寒潭莲子",
 	"herb_hantanlian": "寒潭莲", "herb_chiyangguo": "赤阳果", "herb_xugucao": "续骨草", "crop_linggu": "灵谷",
 	"pill_juqi": "聚气丹", "pill_quzhang": "驱瘴丹", "pill_zhuji": "筑基丹",
 	"fu_bishui": "避水符", "fu_jingshui": "净水符", "fu_dingfeng_can": "残符·定风",
@@ -77,6 +85,8 @@ func new_game(name: String, cherish: String, seed: int = -1, with_world: bool = 
 	if seed < 0:
 		seed = int(Time.get_unix_time_from_system()) ^ randi()
 	rng.seed = seed
+	if cherish == "aunt":
+		cherish = "sect"   # v0.13：旧开局的选项，换成“山门”
 	s = {
 		"v": SAVE_VERSION, "day": 0, "name": name, "cherish": cherish,
 		"xiuwei": 0, "yuyun": 0, "ganwu": 0, "wu_lost": 0,
@@ -85,7 +95,7 @@ func new_game(name: String, cherish: String, seed: int = -1, with_world: bool = 
 		"fields": [{"prog": 0}, {"prog": 0}], "extra": "",
 		"gu_prog": 0, "lian_prog": -1,
 		"queue": [], "zhuji_second": false, "debug_zhuji": "",
-		"store": {}, "ration": 8, "aunt_ration": 0,
+		"store": {}, "ration": 8, "tu": "month", "plv": 0,
 		"pack": [{"id": "fu_bishui", "n": 1, "key": false}], "basket": {},
 		"flags": {}, "tags": {"力": 0, "利": 0, "善": 0, "避": 0},
 		"memory": [], "log": [], "roadbook": {},
@@ -96,7 +106,7 @@ func new_game(name: String, cherish: String, seed: int = -1, with_world: bool = 
 		"stats": {"biguan_days": 0, "trip_days": 0, "heavy": 0, "light": 0, "revisit": 0, "started_ms": Time.get_ticks_msec()},
 		"rng": 0,
 	}
-	_log("%s 背起行囊，离开青庐。" % name)
+	_log("%s 十六岁，外门落选，租下后山脚下的旧洞府青庐，做了散修。" % name)
 	world = null
 	if with_world:
 		start_world(seed)
@@ -113,9 +123,11 @@ func to_dict() -> Dictionary:
 	return s.duplicate(true)
 
 func from_dict(d: Dictionary) -> bool:
-	if not d.has("v") or not (int(d["v"]) in [1, SAVE_VERSION]):
+	if not d.has("v") or not (int(d["v"]) in [1, 2, SAVE_VERSION]):
 		return false
 	s = d.duplicate(true)
+	if int(s["v"]) < 3:
+		_migrate_v3()
 	s["v"] = SAVE_VERSION   # v1 → v2：字段只增不减；江湖由界面层决定是否补开（migrate_world）
 	world = null
 	if s.has("world") and s["world"] is Dictionary:
@@ -127,6 +139,84 @@ func from_dict(d: Dictionary) -> bool:
 	rng.seed = int(s.get("rng_seed", 0))
 	rng.state = int(s.get("rng", 0))
 	return true
+
+## v0.13 迁移（v1/v2 → v3）：旧档的“第 N 日”原样当“第 N 月”（经历一件不丢）；寿元按年龄与境界重算；
+## 旧开局“亲戚处寄存”的干粮并进辟谷丹（多的存成灵谷）；筑基结局不再是结局，从筑基初期接着修
+func _migrate_v3() -> void:
+	s["tu"] = "month"
+	if String(s.get("cherish", "")) == "aunt":
+		s["cherish"] = "sect"
+	var ar := int(s.get("aunt_ration", 0))
+	s.erase("aunt_ration")
+	if ar > 0:
+		var put := mini(ar, RATION_CAP - int(s.get("ration", 0)))
+		s["ration"] = int(s.get("ration", 0)) + maxi(put, 0)
+		if ar - maxi(put, 0) > 0:
+			s["store"]["crop_linggu"] = int(s["store"].get("crop_linggu", 0)) + ar - maxi(put, 0)
+	s["flags"].erase("letter_pending")
+	s["plv"] = 0
+	if bool(s.get("ended", false)) and String(s.get("ending", "")) == "zhuji":
+		s["ended"] = false
+		s["ending"] = ""
+		s["loc"] = "home"
+		s["plv"] = 9
+		s["xiuwei"] = 0
+		s["flags"]["migr_zhuji"] = true
+	if not bool(s.get("ended", false)):
+		s["shouyuan"] = maxi(12, lifespan_m() - age_m_of(int(s.get("day", 0))))
+	s["flags"]["migr_v3"] = true
+
+# ---------------------------------------------------------------- 年月 / 境界 / 寿元（v0.13）
+static func age_m_of(day: int) -> int:
+	return AGE0 * 12 + day
+
+func age_m() -> int:
+	return age_m_of(I("day"))
+
+func age_y() -> int:
+	return int(age_m() / 12)
+
+## 当前境界 lv（0–8 炼气按修为算层；9 起按 plv）
+func plv_now() -> int:
+	return I("plv") if I("plv") >= 9 else layer() - 1
+
+func major() -> int:
+	var lv := plv_now()
+	return 0 if lv < 9 else mini(4, 1 + int((lv - 9) / 3))
+
+func lifespan_m() -> int:
+	return World.lifespan(plv_now() if I("plv") >= 9 else 0) * 12
+
+func xw_goal() -> int:
+	return XW_GOAL if I("plv") < 9 else int(XW_STAGE_BY_MAJOR[major()])
+
+func biguan_xw() -> int:
+	return BIGUAN_XW if I("plv") < 9 else int(XW_BIGUAN_BY_MAJOR[major()])
+
+## 修为满、要冲大关了（炼气圆满 → 筑基；筑基后期 → 金丹；金丹后期 → 元婴；元婴后期 → 化神；化神圆满 → 渡劫）
+func at_gate() -> bool:
+	if I("xiuwei") < xw_goal():
+		return false
+	return I("plv") < 9 or GATES.has(I("plv"))
+
+func gate_name() -> String:
+	match I("plv"):
+		11: return "结丹"
+		14: return "凝婴"
+		17: return "化神"
+		18: return "渡劫"
+	return "筑基"
+
+## 小境界：修为满了自动进（筑基初→中→后 等），多出来的修为带过去
+func _stage_up() -> void:
+	while I("plv") >= 9 and not GATES.has(I("plv")) and I("xiuwei") >= xw_goal():
+		s["xiuwei"] = I("xiuwei") - xw_goal()
+		s["plv"] = I("plv") + 1
+		_log("修为渐深，入%s。" % realm_text())
+		notice("境界：%s" % realm_text())
+
+func shou_years() -> int:
+	return int(ceil(I("shouyuan") / 12.0))
 
 # ---------------------------------------------------------------- 基础量
 func I(k: String) -> int:
@@ -165,11 +255,14 @@ func laogui_a_chance() -> float:
 	return minf(LAOGUI_A_MAX, LAOGUI_A_BASE + LAOGUI_A_PER_LAYER * layer())
 
 func layer() -> int:
+	if I("plv") >= 9:
+		return 9
 	return min(9, 1 + int(I("xiuwei") * 9 / XW_GOAL))
 
 func realm_text() -> String:
-	if s.get("ended", false) and s.get("ending", "") == "zhuji":
-		return "筑基初期"
+	if I("plv") >= 9:
+		var t := World.realm_name(I("plv"))
+		return t + ("圆满" if I("plv") == 18 and I("xiuwei") >= xw_goal() else "")
 	if I("xiuwei") >= XW_GOAL:
 		return "炼气圆满"
 	return "炼气%s层" % ["一", "二", "三", "四", "五", "六", "七", "八", "九"][layer() - 1]
@@ -270,11 +363,12 @@ func resolve_overflow(slot: int) -> void:
 
 # ---------------------------------------------------------------- 日结算（§2.3）
 func gain(v: int, k: String) -> void:
-	var room := XW_GOAL - I("xiuwei")
+	var room := xw_goal() - I("xiuwei")
 	var a := mini(v, maxi(room, 0))
 	s["xiuwei"] = I("xiuwei") + a
 	s["src"][k] = int(s["src"][k]) + a
 	s["yuyun"] = mini(YUYUN_CAP, I("yuyun") + (v - a))
+	_stage_up()
 
 func add_wu(v: int) -> void:
 	if v <= 0:
@@ -339,7 +433,7 @@ func tick(mode: String) -> void:
 			s["unstable"] = I("unstable") - 1
 		var r := mini(cap, I("ganwu"))
 		s["ganwu"] = I("ganwu") - r
-		gain(BIGUAN_XW, "biguan")
+		gain(biguan_xw(), "biguan")
 		gain(r, "ganwu")
 	if mode == "road" and I("ration") > 0:
 		s["flags"].erase("hungry")
@@ -351,13 +445,11 @@ func tick(mode: String) -> void:
 			_log("向阳坡的赤阳果被采光了。")
 			notice("世事：向阳坡的赤阳果被采光了。")
 	if I("shouyuan") <= 0 and not s["ended"]:
-		s["ended"] = true
-		s["ending"] = "zuohua"
-		s["loc"] = "ending"
-		_log("寿元耗尽。她回到青庐静室，在灯下坐化。")
+		_die_old()
 	if world != null:
 		# v0.9：路上（历练）也会碰上事；心魔/结局时世界只过日子
-		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"], mode == "road" and away() and not s["ended"])
+		var sec := bool(s.get("seclude", false))
+		world.tick(mode != "road" and s["loc"] == "home" and not s["ended"] and not sec, mode == "road" and away() and not s["ended"])
 	if on_tick.is_valid():
 		on_tick.call(snapshot(mode))
 
@@ -374,8 +466,8 @@ func _pill_done(name: String) -> void:
 			_store_add("herb_hantanlian", 1)
 			_store_add("herb_chiyangguo", 1)
 			s["yuyun"] = mini(YUYUN_CAP, I("yuyun") + ZHAJI_YUYUN)
-			_log("筑基丹成丹失败：主药保留，得筑基药渣（+%d 余韵）；第二炉 %d 日必成。" % [ZHAJI_YUYUN, ZHUJI_SECOND_DAYS])
-			notice("筑基丹没成：主药还在，第二炉 3 日必成。")
+			_log("筑基丹成丹失败：主药保留，得筑基药渣（+%d 余韵）；第二炉 %d 个月必成。" % [ZHAJI_YUYUN, ZHUJI_SECOND_DAYS])
+			notice("筑基丹没成：主药还在，第二炉 3 个月必成。")
 			return
 		_log("炉火渐熄，筑基丹成了，丹香满室。")
 		notice("筑基丹出炉！")
@@ -489,7 +581,7 @@ func eat_preview(reserve: int) -> Dictionary:
 			total += int(JUQI_XW / 2)
 		else:
 			total += JUQI_XW
-	var to_xw := mini(total, maxi(0, XW_GOAL - I("xiuwei")))
+	var to_xw := mini(total, maxi(0, xw_goal() - I("xiuwei")))
 	return {"n": n, "xw": to_xw, "yuyun": total - to_xw, "halved": halved}
 
 ## “全部服下”：只吃仓里的，不动随身行囊（行囊里带“钥匙”标记的更不会动）
@@ -532,11 +624,11 @@ func rebuild_extra() -> bool:
 		s["fields"].pop_back()
 		s["extra"] = "shuitian"
 		s["gu_prog"] = 0
-		_log("把第三块阳田改成了水田（−%d 灵石，1 日）。" % REBUILD_LINGSHI)
+		_log("把第三块阳田改成了水田（−%d 灵石，1 个月）。" % REBUILD_LINGSHI)
 	else:
 		s["extra"] = "field"
 		s["fields"].append({"prog": 0})
-		_log("把水田改成了第三块阳田（−%d 灵石，1 日）。" % REBUILD_LINGSHI)
+		_log("把水田改成了第三块阳田（−%d 灵石，1 个月）。" % REBUILD_LINGSHI)
 	for i in REBUILD_DAYS:
 		tick("home")
 	return true
@@ -586,7 +678,7 @@ func plant_lianzi() -> bool:
 	_store_add("seed_lianzi", -1)
 	s["lian_prog"] = 0
 	s["flags"]["lian_planted_day"] = I("day")
-	_log("水田种下寒潭莲子（%d 日一熟）。" % SHUI_LIAN_DAYS)
+	_log("水田种下寒潭莲子（%d 个月一熟）。" % SHUI_LIAN_DAYS)
 	return true
 
 ## 播种当日取消退回种子（§2.5）
@@ -656,11 +748,20 @@ func biguan_day() -> bool:
 	tick("biguan")
 	return true
 
-## preset: "refine" 炼完为止 | "pill" 到丹成（target=丹名）| "days" N 日
+## preset: "refine" 炼完为止 | "pill" 到丹成（target=丹名）| "days" N 个月 | "years" N 年 | "gate" 到该冲关
+## v0.13：一次闭关满一年（或选“到破境”）算长闭关：江湖照常按月过，但事不找上门；出关时 s.last_seclude 给“这些年”的摘要。
+## 提前出关：修为满该冲关了、寿元余不到 5 年、丹成（“到丹成”）
+const SECLUDE_MIN := 12
+const SECLUDE_MAX := 1200
 func biguan(preset: String, n: int = 1, target: String = "") -> int:
 	var done := 0
 	var start_cnt := total_n(RECIPES[target]["out"]) if target != "" and RECIPES.has(target) else 0
-	for i in 200:
+	var months := n * 12 if preset == "years" else n
+	var long := (preset in ["years", "gate"]) or (preset == "days" and n >= SECLUDE_MIN)
+	var sum := {"m0": I("day"), "xw0": I("xiuwei"), "r0": realm_text(), "w0": int(world.w["day"]) if world != null else 0}
+	if long:
+		s["seclude"] = true
+	for i in SECLUDE_MAX:
 		if not at_home():
 			break
 		match preset:
@@ -676,15 +777,49 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 						inq = true
 				if not inq:
 					break
-			"days":
-				if done >= n:
+			"days", "years":
+				if done >= months:
 					break
+			"gate":
+				if at_gate() and I("injured") <= 0 and I("unstable") <= 0:
+					break
+		if long and done > 0 and (at_gate() and preset != "gate" or I("shouyuan") < 60):
+			break
 		biguan_day()
 		done += 1
+	s.erase("seclude")
+	if long and done > 0:
+		_seclude_summary(sum, done)
 	return done
 
+func _seclude_summary(sum: Dictionary, done: int) -> void:
+	var out := {"months": done, "from": int(sum["m0"]), "r0": sum["r0"], "r1": realm_text(), "lines": []}
+	if world != null:
+		var mine := []
+		var rest := []
+		for x in world.w["news"]:
+			if int(x[0]) <= int(sum["w0"]):
+				continue
+			var k := false
+			for i in x[2]:
+				if world.known(world.C(i)):
+					k = true
+			(mine if k else rest).append("%s，%s" % [World.cal_short(int(x[0])), String(x[1])])
+		out["lines"] = (mine.slice(maxi(0, mine.size() - 6)) + rest.slice(maxi(0, rest.size() - maxi(0, 6 - mine.size()))))
+		out["n_news"] = mine.size() + rest.size()
+	s["last_seclude"] = out
+	_log("闭关%s，出关时已是%s。" % [span_text(done), date_text()])
+
+## “三年零五个月”“十一个月”
+static func span_text(m: int) -> String:
+	var y := int(m / 12)
+	var r := m % 12
+	if y == 0:
+		return "%s个月" % World.cn_num(r)
+	return "%s年" % World.cn_num(y) + ("" if r == 0 else "零%s个月" % World.cn_num(r))
+
 func xw_full_hint() -> String:
-	if I("xiuwei") >= XW_GOAL:
+	if I("xiuwei") >= xw_goal() and at_gate():
 		return "修为已满，继续闭关只会攒余韵（剩 %d 点到上限）" % (YUYUN_CAP - I("yuyun"))
 	return ""
 
@@ -724,6 +859,14 @@ func check(c) -> bool:
 			"tag_le":
 				for t in v:
 					if int(s["tags"].get(t, 0)) > int(v[t]):
+						return false
+			"stat_ge":
+				for t in v:
+					if int(s["stats"].get(t, 0)) < int(v[t]):
+						return false
+			"stat_le":
+				for t in v:
+					if int(s["stats"].get(t, 0)) > int(v[t]):
 						return false
 			"else":
 				pass
@@ -835,7 +978,7 @@ func _apply(e: Dictionary, res: Dictionary) -> void:
 		res["memory"].append(m["npc"])
 	if e.has("injure"):
 		s["injured"] = maxi(I("injured"), int(e["injure"]))
-		res["lines"].append("受伤：下次闭关前 %d 日炼化减半" % int(e["injure"]))
+		res["lines"].append("受伤：%d 个月内闭关炼化减半" % int(e["injure"]))
 	if e.has("log"):
 		_log(e["log"])
 		res["lines"].append(e["log"])
@@ -939,7 +1082,7 @@ func turn_back() -> int:
 	var d := turn_back_days()
 	for i in d:
 		tick("road")
-	_log("半路折返，走了 %d 日回家。" % d)
+	_log("半路折返，走了 %d 个月回家。" % d)
 	come_home(true)
 	return d
 
@@ -953,20 +1096,12 @@ func come_home(turned_back: bool) -> Dictionary:
 	for id in s["basket"]:
 		_store_add(id, int(s["basket"][id]))
 	s["basket"] = {}
-	# 干粮（§2.4）：仓中灵谷先装袋 → 姑母补到 8 → 家书 / 姑母处寄存的
+	# 辟谷丹（§2.4，v0.13 改）：仓中灵谷先装袋 → 葛老三按租约补到 8（旧开局的亲戚补给 / 家书加粮 / 寄存取消）
 	load_grain()
 	if I("ration") < RATION_TOPUP:
 		s["ration"] = RATION_TOPUP
-	var bonus := 0
-	if s["flags"].get("letter_pending", false):
-		bonus += 3
-		s["flags"]["letter_pending"] = false
-	bonus += I("aunt_ration")
-	var put := mini(bonus, RATION_CAP - I("ration"))
-	s["ration"] = I("ration") + put
-	s["aunt_ration"] = bonus - put
+	s["flags"].erase("letter_pending")
 	sum["ration_after"] = I("ration")
-	sum["aunt_ration"] = I("aunt_ration")
 	sum["turned_back"] = turned_back
 	if route_id == "hantan":
 		s["flags"]["hantan_visited"] = true
@@ -974,8 +1109,8 @@ func come_home(turned_back: bool) -> Dictionary:
 	# 世事：第一次从寒潭回来、结算完之后出现
 	if route_id == "hantan" and not turned_back and not s["flags"].get("world_xiangyang", false):
 		s["flags"]["world_xiangyang"] = true
-		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，第 %d 日之前去才有。" % XIANGYANG_DEADLINE
-		_log("世事：听说向阳坡的赤阳果熟了，第 %d 日前去才摘得到。" % XIANGYANG_DEADLINE)
+		sum["world"] = "葛老三捎来口信：向阳坡的赤阳果熟了，山下的人也盯着，%s之前去才有。" % World.cal_text(XIANGYANG_DEADLINE)
+		_log("世事：听说向阳坡的赤阳果熟了，%s前去才摘得到。" % World.cal_text(XIANGYANG_DEADLINE))
 	# 江湖：出门这几天山外发生的事（优先认识的人），回家时一并听说
 	if world != null:
 		var w0 := int(s["trip"].get("w0", s.get("roam", {}).get("w0", 0)))
@@ -996,7 +1131,7 @@ func come_home(turned_back: bool) -> Dictionary:
 	s["trip"] = {}
 	s["roam"] = {}
 	s["last_home"] = sum
-	_log("推开柴门，回到青庐（干粮 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
+	_log("推开柴门，回到青庐（辟谷丹 %d → %d）。" % [sum["ration_before"], sum["ration_after"]])
 	return sum
 
 # ---------------------------------------------------------------- v0.11 游历：去一处地方，每天挑个小去处走走
@@ -1036,7 +1171,7 @@ func _walk(d: int, pl: String) -> void:
 		if s["loc"] != "roam":
 			return
 		tick("road")
-	roam_note("走了%d日，到了%s。" % [d, pl])
+	roam_note("走了%d个月，到了%s。" % [d, pl])
 
 ## 游历一日：去第 i 个小去处（耗 1 日、1 份干粮）
 func roam_spot(i: int) -> Dictionary:
@@ -1080,8 +1215,8 @@ func roam_home() -> Dictionary:
 		tick("road")
 		if s["loc"] != "roam":
 			return {}
-	var info := "在%s一带游历了 %d 日。" % [s["roam"]["pl"], int(s["roam"].get("days", 0))]
-	_log("从%s回来，路上走了 %d 日。" % [s["roam"]["pl"], d])
+	var info := "在%s一带游历了 %d 个月。" % [s["roam"]["pl"], int(s["roam"].get("days", 0))]
+	_log("从%s回来，路上走了 %d 个月。" % [s["roam"]["pl"], d])
 	var sum := come_home(false)
 	if not sum.is_empty():
 		sum["roam"] = info
@@ -1096,7 +1231,7 @@ func roam_buy_ration() -> bool:
 	s["ration"] = I("ration") + 1
 	return true
 
-## 后山、寒潭：沿姑母画的老路书走一趟（原来的路线，成了这两处的支线）
+## 后山、寒潭：沿《旧主手记》里的老路走一趟（原来的路线，成了这两处的支线）
 func roam_route() -> bool:
 	if s["loc"] != "roam" or not world.pending().is_empty():
 		return false
@@ -1116,17 +1251,32 @@ func roam_route() -> bool:
 func can_breakthrough() -> String:
 	if not at_home():
 		return "要在青庐静室"
-	if I("xiuwei") < XW_GOAL:
-		return "修为未满（%d/%d）" % [I("xiuwei"), XW_GOAL]
-	if store_n("pill_zhuji") < 1:
+	if I("xiuwei") < xw_goal() or not at_gate():
+		return "修为未满（%d/%d）" % [I("xiuwei"), xw_goal()]
+	if I("plv") < 9 and store_n("pill_zhuji") < 1:
 		return "手上没有筑基丹"
 	if I("unstable") > 0:
-		return "心境不稳：先闭关 %d 日" % I("unstable")
+		return "心境不稳：先闭关 %d 个月" % I("unstable")
+	if I("injured") > 0 and I("plv") >= 9:
+		return "伤还没好（%d 个月）" % I("injured")
 	return ""
+
+## v0.13：大关成功率（筑基仍是 v3.2 的筑基丹 + 心魔；之后的大关过了心魔还要看这一下）
+func gate_chance() -> float:
+	return float(GATES.get(I("plv"), 1.0))
 
 ## 选题：第一幕=最舍不得；第二幕=老龟（没遇到就用倾向标签题补）
 func pick_xinmo() -> Array:
 	var qs := []
+	if I("plv") >= 9:
+		# 筑基以后：从倾向题库里按种子挑两问（每次冲关不一样）
+		var pool := []
+		for q in xinmo["tag_pool"]:
+			if check(q["requires"]):
+				pool.append(q)
+		while qs.size() < 2 and not pool.is_empty():
+			qs.append(pool.pop_at(rng.randi() % pool.size()))
+		return qs
 	var a1 = xinmo["act1"].get(s["cherish"], null)
 	if a1 != null and check(a1["requires"]):
 		qs.append(a1)
@@ -1146,7 +1296,7 @@ func pick_xinmo() -> Array:
 func start_breakthrough() -> bool:
 	if can_breakthrough() != "":
 		return false
-	tick("home")   # 冲关耗 1 日
+	tick("home")   # 冲关耗 1 个月
 	var ids := []
 	for q in pick_xinmo():
 		ids.append(q["id"])
@@ -1184,13 +1334,68 @@ func answer_xinmo(i: int) -> Dictionary:
 	if int(s["xm"]["idx"]) < s["xm"]["ids"].size():
 		return {"done": false}
 	if s["xm"]["ok"]:
-		_store_add("pill_zhuji", -1)
-		s["ended"] = true
-		s["ending"] = "zhuji"
-		s["loc"] = "ending"
-		_log("第 %d 日，筑基功成。" % I("day"))
-		return {"done": true, "passed": true}
+		return _gate_pass()
 	s["loc"] = "home"
 	s["unstable"] = 3
-	_log("心魔劫未过：她答的，与她做过的对不上。筑基丹还在，先闭关 3 日（炼化减半）。")
+	if I("plv") < 9:
+		_log("心魔劫未过：她答的，与她做过的对不上。筑基丹还在，先闭关 3 个月（炼化减半）。")
+	else:
+		_log("心魔劫未过：她答的，与她做过的对不上。先闭关 3 个月（炼化减半）再冲。")
 	return {"done": true, "passed": false}
+
+## 心魔过了：筑基必成（v3.2）；之后的大关再看成功率；渡劫成 = 飞升
+func _gate_pass() -> Dictionary:
+	s["loc"] = "home"
+	var lv := I("plv")
+	if lv < 9:
+		_store_add("pill_zhuji", -1)
+		_raise_to(9)
+		_log("%s，筑基功成。" % date_text())
+		return {"done": true, "passed": true, "gate": "筑基", "ok": true}
+	var ok := rng.randf() < gate_chance()
+	match String(s.get("debug_gate", "")):
+		"succeed": ok = true
+		"fail": ok = false
+	var gn := gate_name()
+	if not ok:
+		s["injured"] = maxi(I("injured"), GATE_FAIL_INJ)
+		s["xiuwei"] = int(I("xiuwei") * 0.75)
+		s["shouyuan"] = I("shouyuan") - GATE_FAIL_SHOU
+		s["flags"]["gate_fail"] = int(s["flags"].get("gate_fail", 0)) + 1
+		if lv == 18:
+			s["ended"] = true
+			s["ending"] = "jiewu"
+			s["loc"] = "ending"
+			_log("%s，雷劫第九道落下，她没有接住。" % date_text())
+			return {"done": true, "passed": true, "gate": gn, "ok": false, "ended": true}
+		_log("%s，冲击%s未成，经脉受损（伤 %d 个月，修为退了两成半，折寿 5 年）。" % [date_text(), gn, GATE_FAIL_INJ])
+		if I("shouyuan") <= 0:
+			_die_old()
+		return {"done": true, "passed": true, "gate": gn, "ok": false}
+	if lv == 18:
+		s["ended"] = true
+		s["ending"] = "feisheng"
+		s["loc"] = "ending"
+		_log("%s，九道雷劫过尽，她白日飞升。" % date_text())
+		return {"done": true, "passed": true, "gate": gn, "ok": true, "ended": true}
+	_raise_to(lv + 1)
+	_log("%s，%s功成，入%s。" % [date_text(), gn, realm_text()])
+	return {"done": true, "passed": true, "gate": gn, "ok": true}
+
+func _raise_to(lv: int) -> void:
+	var before := lifespan_m()
+	s["plv"] = lv
+	s["xiuwei"] = 0
+	s["shouyuan"] = I("shouyuan") + maxi(0, lifespan_m() - before)
+
+func _die_old() -> void:
+	if s["ended"]:
+		return
+	s["ended"] = true
+	s["ending"] = "zuohua"
+	s["loc"] = "ending"
+	_log("寿元耗尽。她回到青庐静室，在灯下坐化，享年 %d 岁。" % age_y())
+
+## “青庐 N 年 · 某月”（第 0 月 = 青庐元年正月）
+func date_text(day: int = -1) -> String:
+	return World.cal_text(I("day") if day < 0 else day)

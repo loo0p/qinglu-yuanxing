@@ -225,7 +225,7 @@ static func options(W, pt: Dictionary) -> Array:
 	match String(pt["v"]):
 		"寻仇", "截杀":
 			o.append(_o("warn", ("给%s递个话" if W.known(b) else "托人给%s捎个信（1 灵石）") % f["b"]))
-			o.append(_o("guard", "赶去%s身边（耽搁 2 日）" % f["b"]))
+			o.append(_o("guard", "赶去%s身边（耽搁 2 个月）" % f["b"]))
 			if String(pt["v"]) == "寻仇":
 				o.append(_o("mediate", ("去找%s说和" % f["a"]) if ls < 5 else "备一份礼去找%s说和（5 灵石）" % f["a"]))
 			elif String(a["sect"]) != "散修":
@@ -236,10 +236,10 @@ static func options(W, pt: Dictionary) -> Array:
 				o.append(_o("join", "帮%s一把" % f["a"]))
 		"偷窃":
 			o.append(_o("warn", "提醒%s看好灵石匣" % f["b"]))
-			o.append(_o("catch", "守在暗处，当场拿住%s（耽搁 1 日）" % f["a"]))
+			o.append(_o("catch", "守在暗处，当场拿住%s（耽搁 1 个月）" % f["a"]))
 			o.append(_o("report", "去%s告%s一状" % [a["sect"] if String(a["sect"]) != "散修" else "坊市管事那里", f["a"]]))
 		"夺宝":
-			o.append(_o("first", "抢先去%s取宝（耽搁 1 日）" % f["pl"]))
+			o.append(_o("first", "抢先去%s取宝（耽搁 1 个月）" % f["pl"]))
 			o.append(_o("warn", "给%s递个话" % f["b"]))
 			o.append(_o("mediate", "劝两边各退一步，宝物对半"))
 			if not close_b:
@@ -254,7 +254,7 @@ static func options(W, pt: Dictionary) -> Array:
 			o.append(_o("spoil", "提醒%s：%s这人……" % [f["b"], f["a"]]))
 		"叛门":
 			o.append(_o("persuade", "去劝%s再想想" % f["a"]))
-			o.append(_o("help", "替%s引开巡山的人（耽搁 1 日）" % f["a"]))
+			o.append(_o("help", "替%s引开巡山的人（耽搁 1 个月）" % f["a"]))
 			o.append(_o("report", "去%s报信" % f["sect"]))
 		"讨债":
 			var k := int(pt.get("owe", 1))
@@ -355,14 +355,14 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			else:
 				W._inj(3)
 				b["inj"] = maxi(int(b["inj"]), 10)
-				out = W.pv("插手护败", ["她挡在{b}身前，挨了{a}一掌。{a}没再追，只说：“看在她的面上，今日先到这里。”", "两个人都没占到便宜。{b}伤得不重，她的袖子上全是血。"]).format(f) + "\n（受伤：闭关炼化减半 3 日）"
+				out = W.pv("插手护败", ["她挡在{b}身前，挨了{a}一掌。{a}没再追，只说：“看在她的面上，今日先到这里。”", "两个人都没占到便宜。{b}伤得不重，她的袖子上全是血。"]).format(f) + "\n（受伤：闭关炼化减半 3 个月）"
 				_m(W, b, "%s为我挨了%s一掌" % [pn, f["a"]], 20, "救", aid)
 				_m(W, a, "%s多管闲事" % pn, -8, "怨", aid)
 				W.chron(b, "%s寻上门来，%s拼着受伤护住了自己。" % [f["a"], pn])
 				W.chron(a, "去找%s，%s挡在前头，没能得手。" % [f["b"], pn])
 			W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 5)
 			W.chron(p, "赶去%s身边，挡下了%s。" % [f["b"], f["a"]] if win else "赶去护着%s，与%s斗了一场。" % [f["b"], f["a"]])
-			out += "\n（耽搁两日：闭关炼化减半 2 日）" if win else ""
+			out += "\n（耽搁两个月：闭关炼化减半 2 个月）" if win else ""
 		"join":
 			W.meet(a)
 			pt["p"] = 2
@@ -389,7 +389,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				out = W.pv("插手助成", ["有她在旁，{a}这回没有失手。{b}看她的那一眼，她记了很久。", "她帮{a}了了这件事。{a}拱了拱手，没多说什么。"]).format(f)
 			else:
 				W._inj(2)
-				out = W.pv("插手助败", ["两个人一起去，还是没讨到便宜。{a}骂了一句，她肩上挂了彩。", "{b}早有防备。她和{a}各自带伤退走。"]).format(f) + "\n（受伤：闭关炼化减半 2 日）"
+				out = W.pv("插手助败", ["两个人一起去，还是没讨到便宜。{a}骂了一句，她肩上挂了彩。", "{b}早有防备。她和{a}各自带伤退走。"]).format(f) + "\n（受伤：闭关炼化减半 2 个月）"
 			_gossip(W, [b, a], "听说%s帮着%s对付%s。" % [pn, f["a"], f["b"]], "听说%s帮人做过不光彩的事" % pn, -3, aid)
 			W.chron(p, "帮%s对付了%s。" % [f["a"], f["b"]])
 		"mediate":
@@ -474,7 +474,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				W.AG.npc_resolve(W, a, "偷窃", b, aid)
 				_m(W, b, "%s替我守过一夜灵石匣" % pn, 6, "助", aid)
 				out = W.pv("插手捉空", ["她守了一夜，只听见一声瓦响。等她追出去，人已经没影了。", "{a}比她想的机灵。第二天{b}发现灵石匣空了一半。"]).format(f)
-			out += "\n（耽搁一日：闭关炼化减半 1 日）"
+			out += "\n（耽搁一个月：闭关炼化减半 1 个月）"
 			W.chron(p, "替%s守了一夜灵石匣。" % f["b"])
 		"first":
 			W._inj(1)
@@ -492,7 +492,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				W.AG.npc_resolve(W, a, "夺宝", b, aid)
 				_m(W, a, "%s也去抢过%s" % [pn, f["pr"]], -4, "夺", aid)
 				out = W.pv("插手先空", ["她赶到{pl}，只看见一截新断的枝子。有人先到了。", "{pl}的雾太大，她绕了半夜，等找到地方，那里只剩一个土坑。"]).format(f)
-			out += "\n（耽搁一日：闭关炼化减半 1 日）"
+			out += "\n（耽搁一个月：闭关炼化减半 1 个月）"
 			W.chron(p, "去%s抢%s。" % [f["pl"], f["pr"]])
 		"refute":
 			pt["p"] = 2
@@ -550,9 +550,9 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					if o != a and String(o["sect"]) == String(pt.get("sect", "")) and W.rng.randf() < 0.5:
 						W.remember(o, p, "%s放走了叛门的%s" % [pn, f["a"]], -8, "怨", aid)
 						W.R(o, p)["g"] = int(W.R(o, p)["g"]) + 6
-				out = W.pv("插手助叛露", ["她引着巡山的人绕了半座山。{a}下了山，她却被认了出来。", "{a}走了。第二天{sect}的人找到青庐，问她那夜在哪。"]).format(f) + "\n（耽搁三日：闭关炼化减半 3 日）"
+				out = W.pv("插手助叛露", ["她引着巡山的人绕了半座山。{a}下了山，她却被认了出来。", "{a}走了。第二天{sect}的人找到青庐，问她那夜在哪。"]).format(f) + "\n（耽搁三个月：闭关炼化减半 3 个月）"
 			else:
-				out = W.pv("插手助叛", ["她在后山点了一把火。巡山的人都往那边去了，{a}从另一头下了山。", "那夜很黑。她在山门外学了三声鸟叫，{a}的影子就消失在了石阶尽头。"]).format(f) + "\n（耽搁一日：闭关炼化减半 1 日）"
+				out = W.pv("插手助叛", ["她在后山点了一把火。巡山的人都往那边去了，{a}从另一头下了山。", "那夜很黑。她在山门外学了三声鸟叫，{a}的影子就消失在了石阶尽头。"]).format(f) + "\n（耽搁一个月：闭关炼化减半 1 个月）"
 			W.chron(p, "帮%s下了%s的山。" % [f["a"], f["sect"]])
 		"pay":
 			var k2 := int(pt.get("owe", 1))

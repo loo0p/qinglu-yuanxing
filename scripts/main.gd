@@ -5,6 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
+const World = preload("res://scripts/world.gd")
 const Store = preload("res://scripts/save_store.gd")
 const VERSION = "v0.12.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
@@ -18,7 +19,7 @@ const C_PAPER := Color(0.985, 0.97, 0.935, 0.94)
 const C_INK := Color("#4A3F33")
 const C_GOLD := Color("#C9973B")
 const NAMES_PRESET = ["苏青禾", "林晚照", "沈知微", "温小满"]
-const SPEAKER = {"aunt": "姑母", "turtle": "老龟", "gelaosan": "葛老三", "heroine": ""}
+const SPEAKER = {"turtle": "老龟", "gelaosan": "葛老三", "heroine": ""}
 const ICON = {"herb_qingzhi": "ico_qingzhi", "herb_hantanlian": "ico_lian", "seed_lianzi": "ico_lian", "herb_chiyangguo": "ico_guo",
 	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_juqi", "fu_bishui": "ico_fu", "fu_jingshui": "ico_fu",
 	"fu_dingfeng_can": "ico_fu", "herb_xugucao": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
@@ -31,7 +32,7 @@ const MAP_POS = {
 		"T8": Vector2(0.76, 0.68), "T9": Vector2(0.80, 0.90)},
 }
 # 青庐庭院热点（courtyard.webp）
-const HOT = {"field": Vector2(0.27, 0.69), "furnace": Vector2(0.82, 0.69), "room": Vector2(0.62, 0.46), "aunt": Vector2(0.20, 0.47)}
+const HOT = {"field": Vector2(0.27, 0.69), "furnace": Vector2(0.82, 0.69), "room": Vector2(0.62, 0.46), "zao": Vector2(0.20, 0.47)}
 
 class Ring extends Control:
 	var value = 0.0
@@ -68,9 +69,9 @@ var life_all = false    # 生平：是否展开更早的月份
 var screen = "title"     # title | create | game
 var tab = "home"         # home | depart | cult | log | jianghu
 var modal: Dictionary = {}
-var sheet = ""           # 底部抽屉：field | furnace | aunt | pack | stats | ""
+var sheet = ""           # 底部抽屉：field | furnace | zao | pack | stats | ""
 var create_name = "苏青禾"
-var create_cherish = "aunt"
+var create_cherish = "sect"
 var selected_route = "houshan"
 var sel_place = ""       # v0.11 世界图上点开的地方
 var dev_roam_pl := "坊市"  # 调试：roam:<地名> 在哪处游历
@@ -805,7 +806,7 @@ func _press(cb: Callable) -> void:
 	var grew := false
 	if in_game and screen == "game" and g.s.has("xiuwei") and not g.s.get("ended", false):
 		grew = _layer_up(lay0, full0)
-	if after[2] == "zhuji" and before[2] == "":
+	if after[2] == "feisheng" and before[2] == "":
 		sfx("breakthrough")
 	elif grew:
 		sfx("success")
@@ -978,7 +979,7 @@ func _start_new() -> void:
 	screen = "game"
 	tab = "home"
 	g.s["guide"] = {"seen": {}, "off": false}   # 新手提示只给新开的局；旧档/迁移来的档没有这个键，不显示
-	modal = {"kind": "msg", "portrait": "aunt", "title": "姑母", "text": "姑母把一张避水符塞进她袖里：“后山的溪涨水了，先去那边认认路。”\n“筑基不急。人要先回来。”"}
+	modal = {"kind": "msg", "portrait": "gelaosan", "title": "葛老三", "text": "坊市的葛老三把一串铜钥匙和一本发黄的手记交到她手里：“青庐的前任洞主走了好些年，路都记在这本子上。租钱一年一结。”\n“辟谷丹我按月给你补上——别饿死在山里，我收不着钱。”"}
 
 
 
@@ -1002,7 +1003,7 @@ func refresh() -> void:
 		ui.modulate = Color(1, 1, 1, 0.0)
 		create_tween().tween_property(ui, "modulate:a", 1.0, 0.22)
 		scroll.scroll_vertical = 0
-		if g.s.get("ending", "") == "zhuji" and g.s.get("loc", "") == "ending" and not prev_key.contains("|ending|"):
+		if g.s.get("ending", "") == "feisheng" and g.s.get("loc", "") == "ending" and not prev_key.contains("|ending|"):
 			_fx_breakthrough()
 	if OS.has_feature("web"):
 		var w = JavaScriptBridge.get_interface("window")
@@ -1092,13 +1093,13 @@ func _refresh() -> void:
 	if sheet != "":
 		_sheet()
 
-# ------------------------------------------------------------ 新手提示（姑母留的字条）
-## 只在新开的局、前 6 日里出现；每张只出一次；“不必再提”就全关（设置里可再打开）。
+# ------------------------------------------------------------ 新手提示（《旧主手记》夹页）
+## 只在新开的局、前 6 个月里出现；每张只出一次；“不必再提”就全关（设置里可再打开）。
 const GUIDE = {
-	"home": "这院子就是青庐。阳田种青芝，丹炉炼丹，静室闭关——点院里的地方就能打理。日子在这里过，一天是一天。",
-	"home2": "回来了就好。累了就闭关，采回的灵草放进丹炉。寿元一日日少，别都耗在路上。",
-	"depart": "这是山外的图。认得的地方点开就能去，“？”是只听过风声的。后山、寒潭照姑母的路书走；别处一天逛一处，看看谁在。",
-	"cult": "静室里闭关，一日一日把感悟炼成修为。修为攒满，院里会出现「冲关」：过了心魔那几问，才算筑基。",
+	"home": "这院子就是青庐。阳田种青芝，丹炉炼丹，静室闭关——点院里的地方就能打理。山中一月是一回合，修仙的日子要按年算。",
+	"home2": "回来了就好。累了就闭关，采回的灵草放进丹炉。寿元按年减，炼气只有百年，别都耗在路上。",
+	"depart": "这是山外的图。认得的地方点开就能去，“？”是只听过风声的。后山、寒潭照手记上的老路走；别处一月逛一处，看看谁在。",
+	"cult": "静室里闭关，一月一月把感悟炼成修为。一闭就是一年、十年也行，江湖照样在走。修为攒满，就能「冲关」：过了心魔那几问，才算筑基。",
 	"jianghu": "山外的人和事都记在「江湖」里。你怎么待人，人家都记得——好的坏的都记得。",
 }
 func _guide_key() -> String:
@@ -1124,8 +1125,8 @@ func _guide() -> void:
 	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	var hr = row(v, 6)
-	IC("vn_aunt" if tex("vn_aunt") else "ico_ration", 30, hr)
-	H("姑母留的字条", 17, C_ACCENT, hr)
+	IC("ico_fu", 30, hr)
+	H("旧主手记", 17, C_ACCENT, hr)
 	L(GUIDE[k], 14, C_TEXT, v)
 	var br = row(v, 6)
 	var b1 = B("记下了", func(): gd["seen"][k] = true; _save(), true, br, 44)
@@ -1237,19 +1238,23 @@ func _hud() -> void:
 	p.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.9), Color(0.29, 0.25, 0.2, 0.35), 10, 1, 6))
 	hud.add_child(p)
 	var r = row(p, 8)
-	var dl = H("第%d日" % int(s["day"]), 20, C_ACCENT, r)
+	var dl = H(World.cal_short(int(s["day"])), 16, C_ACCENT, r)
 	dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var mid = VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("separation", 1)
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_child(mid)
-	L(g.realm_text(), 12, C_TEXT, mid)
-	# 进度条只看这一层（每层 1/9 修为），一层满一次，比整条 600 慢慢挪看得见（总数在行囊页的环里）
+	L("%s · %s · %d岁" % [g.realm_text(), World.season(int(s["day"])), g.age_y()], 12, C_TEXT, mid)
+	# 进度条：炼气只看这一层（每层 1/9 修为）；筑基以后看这一小境界
 	var pb = ProgressBar.new()
-	var per := float(GS.XW_GOAL) / 9.0
-	pb.max_value = per
-	pb.value = per if int(s["xiuwei"]) >= GS.XW_GOAL else float(int(s["xiuwei"])) - per * (g.layer() - 1)
+	if int(s.get("plv", 0)) >= 9:
+		pb.max_value = g.xw_goal()
+		pb.value = mini(int(s["xiuwei"]), g.xw_goal())
+	else:
+		var per := float(GS.XW_GOAL) / 9.0
+		pb.max_value = per
+		pb.value = per if int(s["xiuwei"]) >= GS.XW_GOAL else float(int(s["xiuwei"])) - per * (g.layer() - 1)
 	pb.show_percentage = false
 	pb.custom_minimum_size = Vector2(0, 7)
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1314,7 +1319,7 @@ func _sheet() -> void:
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "aunt": "姑母", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处"}.get(sheet, "")
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处"}.get(sheet, "")
 	var ht = H(tl, 24, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
@@ -1324,7 +1329,7 @@ func _sheet() -> void:
 	match sheet:
 		"field": _sheet_field(v)
 		"furnace": _sheet_furnace(v)
-		"aunt": _sheet_aunt(v)
+		"zao": _sheet_zao(v)
 		"pack": _sheet_pack(v)
 		"stats": _sheet_stats(v)
 		"place": _sheet_place(v)
@@ -1366,7 +1371,7 @@ func _queue_text() -> String:
 		return "空"
 	var parts = []
 	for q in g.s["queue"]:
-		parts.append("%s(%d日)" % [GS.RECIPES[q[0]]["name"], int(q[1])])
+		parts.append("%s(%d月)" % [GS.RECIPES[q[0]]["name"], int(q[1])])
 	return " → ".join(parts)
 
 func _sheet_field(v: Node) -> void:
@@ -1380,12 +1385,12 @@ func _sheet_field(v: Node) -> void:
 			ring(r, int(s["lian_prog"]), GS.SHUI_LIAN_DAYS, 64, Color("#6B8FA8"), "%d/20" % int(s["lian_prog"]), "水田 · 寒潭莲")
 		else:
 			ring(r, int(s["gu_prog"]), GS.FIELD_DAYS, 64, Color("#6B8FA8"), "%d/6" % int(s["gu_prog"]), "水田 · 灵谷")
-	L("每块阳田 6 日一熟，收青芝 2 株，自动入仓。", 13, C_DIM, v)
+	L("每块阳田 6 个月一熟，收青芝 2 株，自动入仓。", 13, C_DIM, v)
 	if g.can_plant_lianzi():
-		BI("水田种下寒潭莲子（20 日）", "ico_lian", func(): g.plant_lianzi(), true, v)
+		BI("水田种下寒潭莲子（20 个月）", "ico_lian", func(): g.plant_lianzi(), true, v)
 	if s["extra"] != "":
 		var rb: String = g.can_rebuild_extra()
-		var bb = B("改建第 5 点 → %s（1 日 · 10 灵石）%s" % ["水田" if s["extra"] == "field" else "第三块阳田", "" if rb == "" else "（" + rb + "）"], func(): g.rebuild_extra(), rb == "", v, 36)
+		var bb = B("改建第 5 点 → %s（1 个月 · 10 灵石）%s" % ["水田" if s["extra"] == "field" else "第三块阳田", "" if rb == "" else "（" + rb + "）"], func(): g.rebuild_extra(), rb == "", v, 36)
 		bb.add_theme_font_size_override("font_size", 13)
 
 func _sheet_furnace(v: Node) -> void:
@@ -1397,12 +1402,12 @@ func _sheet_furnace(v: Node) -> void:
 		var q = s["queue"][i]
 		var rc = GS.RECIPES[q[0]]
 		var total = rc["days"] if not (q[0] == "zhuji" and s["zhuji_second"]) else GS.ZHUJI_SECOND_DAYS
-		ring(qr, total - int(q[1]), total, 50, C_GOLD, "%d日" % int(q[1]), rc["name"].substr(0, 2))
+		ring(qr, total - int(q[1]), total, 50, C_GOLD, "%d月" % int(q[1]), rc["name"].substr(0, 2))
 	var r = row(v, 6)
 	for k in ["juqi", "quzhang", "zhuji"]:
 		var why: String = g.can_enqueue(k)
 		var rc = GS.RECIPES[k]
-		var b = BI("%s\n%d青芝·%d日" % [rc["name"], rc["qz"], rc["days"] if not (k == "zhuji" and s["zhuji_second"]) else 3], ICON[rc["out"]], func(): g.enqueue(k), why == "", r, 54)
+		var b = BI("%s\n%d青芝·%d月" % [rc["name"], rc["qz"], rc["days"] if not (k == "zhuji" and s["zhuji_second"]) else 3], ICON[rc["out"]], func(): g.enqueue(k), why == "", r, 54)
 		b.add_theme_font_size_override("font_size", 13)
 	var r2 = row(v)
 	B("按目标排程", _auto_sched, true, r2, 40)
@@ -1433,10 +1438,10 @@ func _sheet_furnace(v: Node) -> void:
 	if res > 0:
 		B("连留的也吃", func(): modal = {"kind": "confirm_eat", "pv": g.eat_preview(0), "reserve": 0}, true, r3)
 
-func _sheet_aunt(v: Node) -> void:
+func _sheet_zao(v: Node) -> void:
 	var r = row(v, 10)
-	IC("por_aunt", 72, r)
-	var lines = ["“丹炉别空着，青芝放久了也是放。”", "“出门前，干粮多带两日。”", "“累了就回来。”"]
+	IC("ico_fu", 72, r)
+	var lines = ["手记上写：“丹炉别空着，青芝放久了也是放。”", "手记上写：“出门前，辟谷丹多带两颗。”", "手记上写：“闭关前，把田种上。”", "手记上写：“寒潭的老龟记仇，别招它。”"]
 	var t = L(lines[int(g.s["day"]) % lines.size()], 15, C_TEXT, r)
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1490,15 +1495,15 @@ func _sheet_stats(v: Node) -> void:
 	var s = g.s
 	var r = row(v, 10)
 	r.alignment = BoxContainer.ALIGNMENT_CENTER
-	ring(r, int(s["xiuwei"]), GS.XW_GOAL, 64, C_GOLD, str(int(s["xiuwei"])), "修为/600")
+	ring(r, int(s["xiuwei"]), g.xw_goal(), 64, C_GOLD, str(int(s["xiuwei"])), "修为/%d" % g.xw_goal())
 	ring(r, int(s["ganwu"]), GS.WU_SOFTCAP, 64, C_ACCENT, str(int(s["ganwu"])), "待炼化")
 	ring(r, int(s["yuyun"]), GS.YUYUN_CAP, 64, Color("#8A6BA8"), str(int(s["yuyun"])), "余韵")
-	ring(r, int(s["shouyuan"]), GS.SHOUYUAN_START, 64, C_WARN, str(int(s["shouyuan"])), "寿元")
+	ring(r, int(s["shouyuan"]), g.lifespan_m(), 64, C_WARN, str(g.shou_years()), "寿元/年")
 	var st = []
 	if int(s["injured"]) > 0:
-		st.append("受伤 %d 日" % int(s["injured"]))
+		st.append("受伤 %d 个月" % int(s["injured"]))
 	if int(s["unstable"]) > 0:
-		st.append("心境不稳 %d 日" % int(s["unstable"]))
+		st.append("心境不稳 %d 个月" % int(s["unstable"]))
 	st.append("倾向：力 %d · 利 %d · 善 %d · 避 %d" % [s["tags"]["力"], s["tags"]["利"], s["tags"]["善"], s["tags"]["避"]])
 	L(" · ".join(st), 12, C_DIM, v)
 	var grid = GridContainer.new()
@@ -1563,7 +1568,7 @@ func _title() -> void:
 		var d = store.load_data()
 		if d != null:
 			var st = d["state"]
-			var cb = BI("继续 · %s · 第%d日" % [safe_name(String(st.get("name", ""))), int(st.get("day", 0))], "ico_ration", _continue, true, footer, 60)
+			var cb = BI("继续 · %s · %s" % [safe_name(String(st.get("name", ""))), World.cal_short(int(st.get("day", 0)))], "ico_ration", _continue, true, footer, 60)
 			cb.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cb.add_theme_font_size_override("font_size", 18)
 		else:
@@ -1572,7 +1577,7 @@ func _title() -> void:
 		var ld = legacy.load_data()
 		if ld != null:
 			var lst = ld["state"]
-			var lb = BI("继续 v0.5 旧档 · %s · 第%d日" % [safe_name(String(lst.get("name", ""))), int(lst.get("day", 0))], "ico_ration", func(): _continue(true), true, footer, 60)
+			var lb = BI("继续 v0.5 旧档 · %s · %s" % [safe_name(String(lst.get("name", ""))), World.cal_short(int(lst.get("day", 0)))], "ico_ration", func(): _continue(true), true, footer, 60)
 			lb.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lb.add_theme_font_size_override("font_size", 16)
 			L("旧档会复制一份到新版本继续玩，原档不改。", 12, C_DIM, footer).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1610,7 +1615,7 @@ func _create() -> void:
 			_mark(b)
 	H("最舍不得", 22, C_ACCENT, c)
 	var cr = row(c)
-	for ch in [["aunt", "姑母", "por_aunt"], ["town", "小镇", "ico_ration"], ["book", "旧书", "ico_fu"]]:
+	for ch in [["sect", "山门", "ico_zhuji"], ["town", "小镇", "ico_ration"], ["book", "旧书", "ico_fu"]]:
 		var b2 = BI(ch[1], ch[2], func(): create_cherish = ch[0], true, cr, 56)
 		b2.add_theme_constant_override("icon_max_width", 34)
 		b2.add_theme_font_size_override("font_size", 16)
@@ -1798,16 +1803,14 @@ func _modal() -> void:
 			var sm: Dictionary = modal["sum"]
 			var c = card()
 			H("回到青庐", 26, C_ACCENT, c)
-			L("姑母从灶间探出头：“回来了？先吃饭。”", 15, C_TEXT, c)
+			L(["灶膛是冷的。她生了火，烧上一壶水。", "柴门吱呀一声。院里的青芝又长高了些。", "门槛上压着葛老三留的字条：辟谷丹补上了，租钱别忘。"][int(g.s["day"]) % 3], 15, C_TEXT, c)
 			var bk: Dictionary = sm.get("basket", {})
 			var ir = HFlowContainer.new()
 			ir.add_theme_constant_override("h_separation", 6)
 			c.add_child(ir)
 			for id in bk:
 				chip("%s ×%d" % [N(id), int(bk[id])], ir, ICON.get(id, ""), Color("#3E6B3A"))
-			chip("干粮 %d→%d" % [sm["ration_before"], sm["ration_after"]], ir, "ico_ration")
-			if int(sm["aunt_ration"]) > 0:
-				chip("姑母处寄存 %d" % int(sm["aunt_ration"]), ir, "ico_ration")
+			chip("辟谷丹 %d→%d" % [sm["ration_before"], sm["ration_after"]], ir, "ico_ration")
 			if sm.get("turned_back", false):
 				L("半路折返。", 13, C_DIM, c)
 			if sm.has("roam"):
@@ -1822,6 +1825,24 @@ func _modal() -> void:
 				H("世事", 20, C_WARN, w)
 				L(sm["world"], 14, C_TEXT, w)
 			B("进屋", func(): modal = {}, true, footer, 52)
+		"seclude":
+			_stage_image("bg_biguan", 0.35)
+			_spacer()
+			var sq: Dictionary = modal["sum"]
+			var c = card()
+			H("出关", 26, C_ACCENT, c)
+			L("闭关%s。入关时是%s，出关已是%s，%d 岁。" % [GS.span_text(int(sq["months"])), World.cal_text(int(sq["from"])), g.date_text(), g.age_y()], 15, C_TEXT, c)
+			if String(sq["r0"]) != String(sq["r1"]):
+				L("境界：%s → %s" % [sq["r0"], sq["r1"]], 15, C_ACCENT, c)
+			else:
+				L("境界：%s" % sq["r1"], 14, C_DIM, c)
+			L("寿元余 %d 年" % g.shou_years(), 13, C_WARN, c)
+			if not sq.get("lines", []).is_empty():
+				var nw = card()
+				H("这些年，山外" + ("（共 %d 件，只记了要紧的）" % int(sq.get("n_news", 0)) if int(sq.get("n_news", 0)) > sq["lines"].size() else ""), 18, C_ACCENT, nw)
+				for tl in sq["lines"]:
+					LW("· " + String(tl), 13, C_TEXT, nw)
+			B("推开静室的门", func(): modal = {}, true, footer, 52)
 		"thought":
 			_stage_image(_trip_bg(), 0.3)
 			_spacer()
@@ -1860,7 +1881,7 @@ func _extra_choice() -> void:
 	LW("第三块阳田：青芝多一半，快。", 14, C_TEXT, r1)
 	var r2 = row(c)
 	IC("ico_lian", 44, r2)
-	LW("水田：出灵谷当干粮，还能种寒潭莲子，是后路。", 14, C_TEXT, r2)
+	LW("水田：出灵谷，能顶辟谷丹，还能种寒潭莲子，是后路。", 14, C_TEXT, r2)
 	BI("开第三块阳田", "ico_qingzhi", func(): g.choose_extra("field"), true, footer, 50)
 	BI("开水田", "ico_lian", func(): g.choose_extra("shuitian"), true, footer, 50)
 
@@ -1897,11 +1918,11 @@ func _home() -> void:
 	hotspot("阳田", "ico_qingzhi", _at(r, HOT["field"]) + Vector2(0, -60), func(): sheet = "field")
 	hotspot("丹炉" + ("·%s" % GS.RECIPES[s["queue"][0][0]]["name"].substr(0, 2) if not s["queue"].is_empty() else ""), "ico_juqi", _at(r, HOT["furnace"]) + Vector2(-10, -78), func(): sheet = "furnace", 100)
 	hotspot("静室", "ico_zhuji", _at(r, HOT["room"]) + Vector2(0, -30), func(): tab = "cult")
-	hotspot("姑母", "ico_ration", _at(r, HOT["aunt"]) + Vector2(10, -40), func(): sheet = "aunt")
+	hotspot("灶间", "ico_fu", _at(r, HOT["zao"]) + Vector2(10, -40), func(): sheet = "zao")
 	_spacer()
 	_light_notes()
 	if g.can_breakthrough() == "":
-		var bb = B("◎ 冲关（筑基，耗 1 日）", func(): g.start_breakthrough(), true, footer, 52)
+		var bb = B(_gate_label(), func(): g.start_breakthrough(), true, footer, 52)
 		bb.add_theme_color_override("font_color", C_WARN)
 
 # ------------------------------------------------------------ 修炼 / 闭关
@@ -1911,7 +1932,7 @@ func _cult() -> void:
 	H(g.realm_text(), 28, C_ACCENT)
 	var rr = row()
 	rr.alignment = BoxContainer.ALIGNMENT_CENTER
-	var rg = ring(rr, int(s["xiuwei"]), GS.XW_GOAL, 132, C_GOLD, "", "修为")
+	var rg = ring(rr, int(s["xiuwei"]), g.xw_goal(), 132, C_GOLD, "", "修为")
 	var nl = L("", 26, C_TEXT, rg)
 	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nl.position = Vector2.ZERO
@@ -1925,7 +1946,7 @@ func _cult() -> void:
 	body.add_child(cr)
 	chip("待炼化 %d" % int(s["ganwu"]), cr, "", C_ACCENT)
 	chip("余韵 %d/120" % int(s["yuyun"]), cr, "", Color("#6B4F8A"))
-	chip("寿元 %d" % int(s["shouyuan"]), cr, "", C_WARN)
+	chip("%d 岁 · 寿元余 %d 年" % [g.age_y(), g.shou_years()], cr, "", C_WARN)
 	chip("聚气丹已服 %d" % int(s["juqi_eaten"]), cr, "ico_juqi")
 	if int(s["injured"]) > 0 or int(s["unstable"]) > 0:
 		chip("炼化减半", cr, "", C_WARN)
@@ -1934,24 +1955,41 @@ func _cult() -> void:
 		L(hint, 13, C_WARN)
 	_spacer()
 	var c = card()
-	L("闭关：田和丹炉照常走", 13, C_DIM, c)
+	L("闭关：田和丹炉照常走；闭满一年，江湖的事不找上门", 13, C_DIM, c)
 	var r = row(c)
-	for n in [1, 3, 5]:
-		B("%d 日" % n, func(): g.biguan("days", n), true, r, 46)
-	B("炼完为止（约 %d 日）" % int(ceil(s["ganwu"] / 20.0)), func(): g.biguan("refine"), s["ganwu"] > 0, c, 42)
+	for pr in [["一月", "days", 1], ["三月", "days", 3], ["一年", "years", 1], ["十年", "years", 10]]:
+		var pp: Array = pr
+		B(pp[0], func(): _seclude(pp[1], pp[2]), true, r, 46)
+	var r2 = row(c)
+	B("炼完为止（约 %d 个月）" % int(ceil(s["ganwu"] / 20.0)), func(): _seclude("refine", 1), s["ganwu"] > 0, r2, 42)
+	B("闭到修为圆满", func(): _seclude("gate", 1), not g.at_gate(), r2, 42)
 	var tgt = ""
 	for q in s["queue"]:
 		if q[0] == "zhuji":
 			tgt = "zhuji"
 	if tgt == "" and not s["queue"].is_empty():
 		tgt = s["queue"][0][0]
-	B("到丹成（%s）" % (GS.RECIPES[tgt]["name"] if tgt != "" else "炉空"), func(): g.biguan("pill", 1, tgt), tgt != "", c, 42)
+	B("到丹成（%s）" % (GS.RECIPES[tgt]["name"] if tgt != "" else "炉空"), func(): _seclude("pill", 1, tgt), tgt != "", c, 42)
 	var why: String = g.can_breakthrough()
 	if why != "":
 		L("冲关：" + why, 12, C_DIM, c)
-	var bb = B("◎ 冲关（筑基，耗 1 日）", func(): g.start_breakthrough(), why == "", footer, 50)
+	var bb = B(_gate_label(), func(): g.start_breakthrough(), why == "", footer, 50)
 	if why == "":
 		bb.add_theme_color_override("font_color", C_WARN)
+
+## v0.13：冲关按钮上写清是哪一关、几成把握
+func _gate_label() -> String:
+	if int(g.s.get("plv", 0)) < 9:
+		return "◎ 冲关（筑基，耗 1 个月）"
+	return "◎ 冲关（%s，约 %d 成把握）" % [g.gate_name(), int(round(g.gate_chance() * 10))]
+
+## v0.13：闭关；闭满一年的长闭关出关时给“这些年”的摘要
+func _seclude(preset: String, n: int, target: String = "") -> void:
+	g.s.erase("last_seclude")
+	g.biguan(preset, n, target)
+	if g.s.has("last_seclude"):
+		modal = {"kind": "seclude", "sum": g.s["last_seclude"]}
+		g.s.erase("last_seclude")
 
 # ------------------------------------------------------------ 行记
 func _log_tab() -> void:
@@ -1959,16 +1997,16 @@ func _log_tab() -> void:
 	H("人物记得的事", 24)
 	if g.s["memory"].is_empty():
 		L("（还没有）", 13, C_DIM)
-	var pk = {"老龟": "por_turtle", "姑母": "por_aunt", "葛老三": "por_gelaosan"}
+	var pk = {"老龟": "por_turtle", "葛老三": "por_gelaosan"}
 	for m in g.s["memory"]:
 		var r = row(card())
 		IC(pk.get(m["npc"], "por_heroine"), 40, r)
-		LW("第%d日 · %s：%s" % [int(m["day"]), m["npc"], m["text"]], 14, C_TEXT, r)
+		LW("%s · %s：%s" % [World.cal_short(int(m["day"])), m["npc"], m["text"]], 14, C_TEXT, r)
 	H("青庐行记", 24)
 	var lc = card()
 	var lg: Array = g.s["log"]
 	for i in range(lg.size() - 1, maxi(-1, lg.size() - 40), -1):
-		L("第%d日  %s" % [int(lg[i]["day"]), lg[i]["text"]], 13, C_TEXT, lc)
+		L("%s  %s" % [World.cal_short(int(lg[i]["day"])), lg[i]["text"]], 13, C_TEXT, lc)
 
 
 # ------------------------------------------------------------ v0.11.2 地点画风：每处一套底图 / 题头 / 纸色 / 边饰 / 世界图小景
@@ -2166,7 +2204,7 @@ func _depart_routes() -> void:
 	for ru in rt["rumors"]:
 		var rc = row(card(), 8)
 		var who = String(ru["text"]).split("：")[0] if String(ru["text"]).contains("：") else ""
-		IC({"姑母": "por_aunt", "葛老三": "por_gelaosan"}.get(who, "por_heroine"), 38, rc)
+		IC({"葛老三": "por_gelaosan"}.get(who, "por_heroine"), 38, rc)
 		var tl = L(String(ru["text"]), 13, C_ACCENT if ru.get("key", false) else C_TEXT, rc)
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2174,7 +2212,7 @@ func _depart_routes() -> void:
 	var pc = card()
 	var pr = row(pc, 6)
 	IC("ico_ration", 30, pr)
-	var rl = L("干粮 %d/12" % s["ration"], 15, C_TEXT, pr)
+	var rl = L("辟谷丹 %d/12" % s["ration"], 15, C_TEXT, pr)
 	rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var b1 = B("+1（1灵石）", func(): g.buy_rations(1), s["ration"] < 12 and s["lingshi"] > 0, pr, 36)
@@ -2228,7 +2266,7 @@ func _depart() -> void:
 		var pn: String = p
 		if TV.unlocked(W, p):
 			var ka: Array = TV.known_at(W, p)
-			var lab = "%s\n%d日%s" % [p, TV.dist(TV.HOME, p), ("·熟人%d" % ka.size()) if not ka.is_empty() else ""]
+			var lab = "%s\n%d月%s" % [p, TV.dist(TV.HOME, p), ("·熟人%d" % ka.size()) if not ka.is_empty() else ""]
 			var mlk: Dictionary = PLACE_LOOK.get(p, {})
 			var vig := ("vig_" + String(mlk["k"])) if not mlk.is_empty() else ""
 			var b = hotspot(lab, vig, at, func(): sel_place = pn; sheet = "place", 100)
@@ -2303,7 +2341,7 @@ func _sheet_place(v: Node) -> void:
 	var nm := []
 	for sp in TV.spots(p):
 		nm.append(String(sp[0]))
-	_wl("离青庐 %d 日 · 去处：%s" % [d, "、".join(nm)], 14, C_TEXT, v)
+	_wl("离青庐 %d 个月 · 去处：%s" % [d, "、".join(nm)], 14, C_TEXT, v)
 	var ka: Array = TV.known_at(W, p)
 	if ka.is_empty():
 		_wl("听说那边人来人往，认得的人倒没听说在。", 13, C_DIM, v)
@@ -2316,7 +2354,7 @@ func _sheet_place(v: Node) -> void:
 			_mini_face(c, 60.0, ar)
 	var pr = row(v, 6)
 	IC("ico_ration", 28, pr)
-	var rl = L("干粮 %d/12%s" % [int(g.s["ration"]), "（来回就要 %d）" % (d * 2) if int(g.s["ration"]) < d * 2 + 1 else ""], 14, C_WARN if int(g.s["ration"]) < d * 2 + 1 else C_TEXT, pr)
+	var rl = L("辟谷丹 %d/12%s" % [int(g.s["ration"]), "（来回就要 %d）" % (d * 2) if int(g.s["ration"]) < d * 2 + 1 else ""], 14, C_WARN if int(g.s["ration"]) < d * 2 + 1 else C_TEXT, pr)
 	rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var b1 = B("+1（1灵石）", func(): g.buy_rations(1), int(g.s["ration"]) < 12 and int(g.s["lingshi"]) > 0, pr, 36)
@@ -2326,10 +2364,10 @@ func _sheet_place(v: Node) -> void:
 		b2.add_theme_font_size_override("font_size", 13)
 	if pl.has("route") and g.routes.has(String(pl["route"])):
 		var rid := String(pl["route"])
-		var ob = B("出发：%s（姑母的路书）" % g.routes[rid]["name"], func(): sheet = ""; selected_route = rid; g.start_trip(rid), true, v, 46)
+		var ob = B("出发：%s（照旧主手记）" % g.routes[rid]["name"], func(): sheet = ""; selected_route = rid; g.start_trip(rid), true, v, 46)
 		ob.add_theme_font_size_override("font_size", 15)
 	var why: String = g.can_roam(p)
-	var gb = B("去%s游历（路上 %d 日）" % [p, d], func(): _go_roam(p), why == "", v, 50)
+	var gb = B("去%s游历（路上 %d 个月）" % [p, d], func(): _go_roam(p), why == "", v, 50)
 	gb.add_theme_color_override("font_color", C_ACCENT)
 	if why != "":
 		L(why, 13, C_WARN, v)
@@ -2359,7 +2397,7 @@ func _sheet_goto(v: Node) -> void:
 			continue
 		var pn: String = p
 		var ka: Array = TV.known_at(W, p)
-		var b = B("%s（%d日）%s" % [p, TV.dist(here, p), ("  熟人%d" % ka.size()) if not ka.is_empty() else ""], func(): sheet = ""; g.roam_move(pn), true, v, 42)
+		var b = B("%s（%d月）%s" % [p, TV.dist(here, p), ("  熟人%d" % ka.size()) if not ka.is_empty() else ""], func(): sheet = ""; g.roam_move(pn), true, v, 42)
 		b.add_theme_font_size_override("font_size", 14)
 
 # ------------------------------------------------------------ v0.11 游历：在一处地方，一天去一个小去处，看看今天谁在
@@ -2380,17 +2418,17 @@ func _roam() -> void:
 		body.add_child(tag)
 		var tr = row(tag)
 		H(p, 24, C_ACCENT, tr)
-		var sl0 = L("游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()], 13, C_DIM, tr)
+		var sl0 = L("游历 %d 个月 · 回青庐 %d 个月" % [int(rm.get("days", 0)), g.roam_home_days()], 13, C_DIM, tr)
 		sl0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	else:
 		_stage_image("pl_" + String(lk["k"]), float(lk["wa"]), lk["wash"])
-		_place_banner(p, lk, "游历 %d 日 · 回青庐 %d 日" % [int(rm.get("days", 0)), g.roam_home_days()])
+		_place_banner(p, lk, "游历 %d 个月 · 回青庐 %d 个月" % [int(rm.get("days", 0)), g.roam_home_days()])
 		place_look = lk
 	# 今天去哪：每个小去处 1 日、1 份干粮
 	# v0.11.4：矮屏（高 <700，如 360×640）小去处并成一排、只写地名，整页不用滚动
 	var short_scr: bool = get_viewport_rect().size.y < 700
 	var sc = card()
-	L("今天去哪儿走走（各 1 日）", 14, C_INK, sc)
+	L("这个月去哪儿走走（各 1 个月）", 14, C_INK, sc)
 	var spots: Array = TV.spots(p)
 	var spr = row(sc, 6) if short_scr else null
 	for i in spots.size():
@@ -2440,25 +2478,25 @@ func _roam() -> void:
 		for it in lg.slice(-1 if short_scr else -2):
 			if short_scr:
 				# 矮屏只留最近一行，放不下用省略号（点小去处时整段在提示里看过了）
-				var ll = L("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
+				var ll = L("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
 				ll.autowrap_mode = TextServer.AUTOWRAP_OFF
 				ll.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 				ll.custom_minimum_size.x = 1
 			else:
-				_wl("第%d日·%s" % [int(it[0]), String(it[1])], 13, C_DIM, lc)
+				_wl("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
 	_spacer()
 	var fr = row(footer, 6)
-	var hb = B("回青庐（%d日）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
+	var hb = B("回青庐（%d月）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 46)
 	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var xr = row(footer, 6)
 	if p == "坊市":
-		var bb = B("买干粮（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, xr, 40)
+		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, xr, 40)
 		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bb.add_theme_font_size_override("font_size", 13)
 	if pl.has("route"):
-		var rb = B("走姑母的路书：%s" % g.routes[String(pl["route"])]["name"], func(): g.roam_route(), true, xr, 40)
+		var rb = B("照手记走老路：%s" % g.routes[String(pl["route"])]["name"], func(): g.roam_route(), true, xr, 40)
 		rb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rb.add_theme_font_size_override("font_size", 13)
 
@@ -2570,7 +2608,7 @@ func _trip_choose() -> void:
 		if days > 0:
 			days += g.day_mod()
 		var rv: bool = g.is_revisit(nid)
-		var lab = "%s\n%s%s" % [ev["title"], ("%d日" % days) if days > 0 else "到家", "·熟路" if rv else ("·要事" if ev.get("heavy", false) else "")]
+		var lab = "%s\n%s%s" % [ev["title"], ("%d月" % days) if days > 0 else "到家", "·熟路" if rv else ("·要事" if ev.get("heavy", false) else "")]
 		var b = hotspot(lab, "", _at(r, pos.get(nid, pos["_start"])), func(): g.enter_node(nid), 92)
 		b.custom_minimum_size = Vector2(92, 46)
 		b.size = Vector2(92, 46)
@@ -2584,14 +2622,14 @@ func _trip_choose() -> void:
 	body.add_child(hc)
 	var hr = row(hc)
 	H(rt["name"], 22, C_ACCENT, hr)
-	L("已走 %d 日 · 点路标前行" % int(t["walked"]), 13, C_DIM, hr).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	L("已走 %d 个月 · 点路标前行" % int(t["walked"]), 13, C_DIM, hr).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if g.day_mod() > 0:
-		L("老龟记仇：寒潭每段路 +%d 日" % g.day_mod(), 12, C_WARN)
+		L("老龟记仇：寒潭每段路 +%d 个月" % g.day_mod(), 12, C_WARN)
 	_spacer()
 	if int(t["walked"]) > 0:
-		B("半路折返（%d 日，每日扣干粮）" % g.turn_back_days(), func(): _turn_back(), true, footer, 42)
+		B("半路折返（%d 个月，每月一颗辟谷丹）" % g.turn_back_days(), func(): _turn_back(), true, footer, 42)
 	else:
-		B("不去了，回家（0 日）", func(): _turn_back(), true, footer, 42)
+		B("不去了，回家", func(): _turn_back(), true, footer, 42)
 
 func _turn_back() -> void:
 	g.turn_back()
@@ -2602,7 +2640,7 @@ func _cost_text(o: Dictionary) -> String:
 	var parts = []
 	var d = int(o["days"])
 	if d > 0:
-		parts.append(o.get("cost", {}).get("note", "%d 日" % d))
+		parts.append(o.get("cost", {}).get("note", "%d 个月" % d))
 	var c: Dictionary = o.get("cost", {})
 	for id in c.get("items", {}):
 		parts.append("%s×%d" % [N(id), int(c["items"][id])])
@@ -2669,7 +2707,7 @@ func _trip_quick() -> void:
 	var c = card()
 	H(ev["title"], 24, C_ACCENT, c)
 	L("走过的路，脚下熟了，一晃就过去。", 14, C_DIM, c)
-	B("快走（%d 日）" % (1 + g.day_mod()), func(): g.quick_walk(), true, footer, 52)
+	B("快走（%d 个月）" % (1 + g.day_mod()), func(): g.quick_walk(), true, footer, 52)
 
 func _trip_result() -> void:
 	var res: Dictionary = g.s["trip"]["result"]
@@ -2695,7 +2733,7 @@ func _trip_result() -> void:
 	fr.add_theme_constant_override("v_separation", 4)
 	c.add_child(fr)
 	if int(res.get("days", 0)) > 0:
-		chip("%d 日 · 粮余 %d" % [res["days"], g.s["ration"]], fr, "ico_ration")
+		chip("%d 个月 · 辟谷丹余 %d" % [res["days"], g.s["ration"]], fr, "ico_ration")
 	if int(res.get("ganwu", 0)) > 0:
 		chip("感悟 +%d" % res["ganwu"], fr, "", C_ACCENT)
 	for id in res.get("items", {}):
@@ -2747,36 +2785,52 @@ func _xinmo() -> void:
 func _answer(i: int) -> void:
 	var r: Dictionary = g.answer_xinmo(i)
 	if r.get("done", false) and not r.get("passed", true):
-		modal = {"kind": "msg", "title": "心魔未平", "text": "雾里那个声音笑了一声，散了。她睁开眼，额上一层冷汗。\n有一句回答，和她做过的事对不上。筑基丹还在，先闭关 3 日（炼化减半），再冲关。"}
+		modal = {"kind": "msg", "title": "心魔未平", "text": "雾里那个声音笑了一声，散了。她睁开眼，额上一层冷汗。\n有一句回答，和她做过的事对不上。%s先闭关 3 个月（炼化减半），再冲关。" % ("筑基丹还在，" if int(g.s.get("plv", 0)) < 9 else "")}
+	elif r.get("done", false) and r.has("gate") and not r.get("ended", false):
+		if r.get("ok", false):
+			_fx_breakthrough()
+			sfx("breakthrough")
+			var tx := {"筑基": "灵气在丹田里沉下去，凝成一汪。推门出来时，院里的阳田都绿了。\n寿元延至两百年。往后的路，要按十年、百年算了。",
+				"结丹": "丹田里那汪灵液越转越紧，凝成了一粒金丹。\n寿元延至五百年。", "凝婴": "金丹碎了，又长出一个小小的人来，眉眼和她一样。\n寿元延至千年。",
+				"化神": "元婴睁开了眼。她看青庐的院子，像看掌心的纹路。\n寿元延至两千年。"}
+			modal = {"kind": "msg", "title": "%s功成" % r["gate"], "text": "%s，%s\n如今是%s。" % [g.date_text(), tx.get(String(r["gate"]), ""), g.realm_text()]}
+		else:
+			modal = {"kind": "msg", "title": "%s未成" % r["gate"], "text": "关口没冲过去。经脉受损，要养一年；修为退了两成半，折寿五年。\n%s。" % g.date_text()}
 
 var show_log = false
 func _ending() -> void:
 	var s = g.s
 	_stage_image("bg_ending", 0.1)
-	if s["ending"] == "zhuji":
-		var t = H("筑基", 64, C_ACCENT)
+	if s["ending"] == "feisheng":
+		var t = H("飞升", 64, C_ACCENT)
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_spacer()
 		beat_i = 99
-		dialog(String(s["name"]), "vn_heroine_smile", "第 %d 日，她在青庐静室筑基。那一夜，后山的溪水退了，寒潭上的雾散了一半。姑母在门外坐到天亮。推门出来时，院里的阳田都绿了。" % s["day"], false)
+		dialog(String(s["name"]), "vn_heroine_smile", "%s，九道雷劫落在青庐后山。最后一道散了，天上开了一道门。她回头看了一眼院子，%d 岁，白日飞升。" % [g.date_text(), g.age_y()], false)
+	elif s["ending"] == "jiewu":
+		var t3 = H("劫灰", 52, C_ACCENT)
+		t3.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_spacer()
+		var ec3 = card()
+		L("%s，第九道雷劫落下，她没有接住。青庐后山烧焦了一片，第二年春天，那里长出了一丛青芝。" % g.date_text(), 16, C_TEXT, ec3)
 	else:
 		var t2 = H("坐化于青庐", 44, C_ACCENT)
 		t2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_spacer()
 		var ec2 = card()
-		L("寿元耗尽。她回到青庐静室，在灯下合上了眼。窗外，后山的溪水还是那样流着。", 16, C_TEXT, ec2)
+		L("%s，寿元耗尽。她回到青庐静室，在灯下合上了眼，享年 %d 岁。窗外，后山的溪水还是那样流着。" % [g.date_text(), g.age_y()], 16, C_TEXT, ec2)
 	var c = card()
 	var fr = HFlowContainer.new()
 	fr.add_theme_constant_override("h_separation", 6)
 	c.add_child(fr)
 	var st = s["stats"]
-	chip("历练 %d 日" % st["trip_days"], fr, "ico_ration")
-	chip("闭关 %d 日" % st["biguan_days"], fr, "ico_zhuji")
+	chip("历练 %s" % GS.span_text(int(st["trip_days"])), fr, "ico_ration")
+	chip("闭关 %s" % GS.span_text(int(st["biguan_days"])), fr, "ico_zhuji")
 	chip("要事 %d" % st["heavy"], fr, "", C_WARN)
 	chip("用时 %.0f 分钟" % (float(s.get("play_ms", 0)) / 60000.0), fr, "", C_ACCENT)
 	if show_log:
 		for e in s["log"]:
-			L("第%d日  %s" % [int(e["day"]), e["text"]], 13, C_TEXT, c)
+			L("%s  %s" % [World.cal_short(int(e["day"])), e["text"]], 13, C_TEXT, c)
 	B("收起行记" if show_log else "翻开青庐行记", func(): show_log = not show_log, true, footer, 40)
 	B("回标题", func(): screen = "title", true, footer, 46)
 
@@ -2851,7 +2905,7 @@ func _story_check() -> void:
 		sheet = ""
 		sfx("page")
 
-const LIGHT_TIDS = ["灵田", "闭关小成", "姑母来信", "夜雨", "旧物", "宗门大比", "飞升异象", "师门书信", "坊市传闻"]
+const LIGHT_TIDS = ["灵田", "闭关小成", "家书", "夜雨", "旧物", "宗门大比", "飞升异象", "师门书信", "坊市传闻"]
 
 ## 院里的小字：最近收进来的日常小事（最多 3 条），点一下展开看全文
 func _light_notes() -> void:
@@ -3024,13 +3078,13 @@ func _jianghu() -> void:
 		var pid: int = w.MD.news_pid(w, news[i])
 		if pid >= 0:
 			var nr = row(nc, 6)
-			LW("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nr)
+			LW("%s  %s" % [World.cal_short(int(news[i][0])), news[i][1]], 13, C_TEXT, nr)
 			var mb = B("插手", func(): _meddle(pid), true, nr, 40)
 			mb.size_flags_horizontal = Control.SIZE_SHRINK_END
 			mb.custom_minimum_size.x = 64
 			mb.add_theme_font_size_override("font_size", 14)
 		else:
-			L("第%d日  %s" % [int(news[i][0]), news[i][1]], 13, C_TEXT, nc)
+			L("%s  %s" % [World.cal_short(int(news[i][0])), news[i][1]], 13, C_TEXT, nc)
 
 func _person() -> void:
 	var w = g.world
@@ -3051,7 +3105,8 @@ func _person() -> void:
 	hr.add_child(info)
 	H(String(c["name"]), 26, C_ACCENT, info)
 	var realm = g.realm_text() if is_p else w.status(c)
-	L("%s · %s" % [String(c["sect"]), realm], 14, C_TEXT, info)
+	var agey := g.age_y() if is_p else int(float(c.get("age", 0)))
+	L("%s · %s%s" % [String(c["sect"]), realm, (" · %d 岁" % agey) if agey > 0 else ""], 14, C_TEXT, info)
 	if not is_p:
 		L("关系：%s" % w.rel_word(c), 14, C_WARN if w.rel_word(c) in ["仇", "有隙"] else C_TEXT, info)
 	var tf = HFlowContainer.new()
@@ -3150,7 +3205,7 @@ func _person() -> void:
 			if ms.is_empty():
 				L("%s对她还没什么印象。" % ("她" if c["sex"] == "女" else "他"), 13, C_DIM, cc)
 			for m in ms:
-				L("第%d日  %s" % [int(m[0]), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
+				L("%s  %s" % [World.cal_short(int(m[0])), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
 	if String(g.s.get("loc", "")) == "roam" and tab != "jianghu":
 		# v0.11.1：从游历页的画像卡点开的，看完回游历页
 		B("回%s" % String(g.s["roam"].get("pl", "")), func(): modal = {}; life_all = false, true, footer, 46)
@@ -3172,9 +3227,9 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	for o in w.w["C"].values():
 		if int(o["id"]) != int(c["id"]) and not o.get("player", false) and String(o["name"]).length() >= 2:
 			ppl.append(o)
-	var months := []
+	var months := []   # v0.13：按年分组（变量名沿用）
 	for e in lg:
-		var m := (maxi(int(e[0]), 1) - 1) / 30
+		var m := int(w.cal(int(e[0]))[0])
 		if months.is_empty() or int(months[-1][0]) != m:
 			months.append([m, []])
 		months[-1][1].append(e)
@@ -3183,13 +3238,19 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 	for mi in range(months.size() - 1, first - 1, -1):
 		var m: int = months[mi][0]
 		var hr = row(cc, 8)
-		var mt: String = w.cal_text(m * 30 + 1)
-		H(mt.substr(0, mt.length() - 2), 20, C_ACCENT, hr)
-		var sub = L("第 %d–%d 日 · %d 件" % [m * 30 + 1, m * 30 + 30, months[mi][1].size()], 13, C_DIM, hr)
+		H("青庐" + w.year_name(m), 20, C_ACCENT, hr)
+		var age_txt := ""
+		if c.get("player", false):
+			age_txt = "%d 岁 · " % int((GS.AGE0 * 12 + m * 12 + 1) / 12)
+		elif c.has("age"):
+			var ay := int(float(c["age"]) - float(int(w.w["day"]) - (m * 12 + 1)) / 12.0)
+			if ay > 0:
+				age_txt = "%d 岁 · " % ay
+		var sub = L("%s%d 件" % [age_txt, months[mi][1].size()], 13, C_DIM, hr)
 		sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		for e in months[mi][1]:
 			var er = row(cc, 6)
-			var dl = L(w.cn_day(int(w.cal(int(e[0]))[2])), 13, C_GOLD, er)
+			var dl = L(w.MONTH_NAMES[int(w.cal(int(e[0]))[1]) - 1], 13, C_GOLD, er)
 			dl.custom_minimum_size = Vector2(40, 0)
 			dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			dl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -3316,7 +3377,7 @@ func _dev(cmd: String) -> String:
 			refresh()
 		"extra":
 			# 调试：灵脉第五点的二选一（第一次历练回来后）
-			g.new_game("苏青禾", "aunt", 5, true)
+			g.new_game("苏青禾", "sect", 5, true)
 			g.s["portrait"] = _hero_roll("p5")
 			g.s["trips_done"] = 1
 			g.s["extra"] = ""
@@ -3332,7 +3393,7 @@ func _dev(cmd: String) -> String:
 				_reroll_portrait()
 				refresh()
 				return cmd
-			g.new_game("苏青禾", "aunt", 5, true)
+			g.new_game("苏青禾", "sect", 5, true)
 			g.s["portrait"] = _hero_roll("p5")
 			g.s["trips_done"] = 1
 			g.s["extra"] = "field"
@@ -3626,7 +3687,7 @@ func _dev(cmd: String) -> String:
 			modal = {}
 			refresh()
 		"event":
-			g.new_game("苏青禾", "aunt", 3, true)
+			g.new_game("苏青禾", "sect", 3, true)
 			g.s["portrait"] = _hero_roll("p3")
 			screen = "game"
 			modal = {}
@@ -3648,14 +3709,15 @@ func _dev(cmd: String) -> String:
 			if cmd == "ending":
 				g.s["day"] = 41
 				g.s["loc"] = "ending"
-				g.s["ending"] = "zhuji"
+				g.s["ending"] = "feisheng"
 				g.s["ended"] = true
-				g.s["log"].append({"day": 41, "text": "第 41 日，筑基功成。"})
+				g.s["plv"] = 18
+				g.s["log"].append({"day": 41, "text": "九道雷劫过尽，她白日飞升。"})
 			g.notices.clear()
 			_save()
 			refresh()
 		"laogui", "depart", "home", "cult":
-			g.new_game("苏青禾", "aunt", 3, true)
+			g.new_game("苏青禾", "sect", 3, true)
 			g.s["portrait"] = _hero_roll("p3")
 			screen = "game"
 			modal = {}

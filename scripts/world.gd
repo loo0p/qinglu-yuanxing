@@ -36,7 +36,7 @@ const T = {
 	"朱果之争": [1, 8, false, 99, 0, 10, 1.0], "站队": [1, 10, false, 99, 0, 12, 2.2], "拜师": [1, -4, false, 99, 6, 0, 1.0],
 	"师父考验": [1, 0, true, 99, 0, 0, 1.0], "道侣遇险": [2, 20, false, 2, 0, 30, 3.0], "道侣口角": [0, 3, false, 99, 0, 10, 1.0],
 	"心魔": [1, -15, false, 99, 0, 15, 4.0], "魔修袭镇": [2, 30, false, 1, 20, 0, 2.0], "秘境": [2, 15, false, 3, 8, 20, 1.5],
-	"姑母来信": [0, -2, false, 99, 0, 8, 1.0], "夜雨": [0, -2, false, 99, 0, 8, 1.0], "灵田": [0, -2, false, 99, 0, 8, 1.0],
+	"家书": [0, -2, false, 99, 0, 8, 1.0], "夜雨": [0, -2, false, 99, 0, 8, 1.0], "灵田": [0, -2, false, 99, 0, 8, 1.0],
 	"访客": [0, -2, false, 99, 0, 6, 1.0], "坊市欺客": [0, 4, false, 99, 0, 10, 1.0], "师门书信": [0, 4, false, 99, 0, 10, 1.0],
 	"义结金兰": [0, -6, false, 99, 0, 6, 1.0], "飞升异象": [0, -2, false, 99, 0, 6, 1.0], "闭关小成": [0, -2, false, 99, 0, 8, 1.0],
 	"旧物": [0, -2, false, 99, 0, 8, 1.0], "宗门大比": [0, 1, false, 99, 0, 25, 1.0], "劫修拦路": [1, 8, false, 99, 5, 12, 1.0],
@@ -71,7 +71,7 @@ const T = {
 ## 信物（v0.8）：结下深交时双方各留一件旧物；人没了，东西可能流落坊市
 const KEEPSAKES = ["半截断玉簪", "一卷写满批注的旧丹经", "一枚墨麟片", "一只旧铜铃", "一方绣了兰草的帕子", "一枚刻了字的桃木符",
 	"半块合璧玉佩", "一支竹笛", "一颗磨圆了的剑穗玉珠", "一只缺了口的小瓷瓶", "一枚褪色的同心结", "一柄只有巴掌长的木剑"]
-const MY_KS = ["她亲手编的剑穗", "一只装着青芝籽的小布囊", "姑母给的一枚旧铜钱", "一支她削的木簪", "一块青庐桂树下捡的青石", "一张她画的寒潭路书"]
+const MY_KS = ["她亲手编的剑穗", "一只装着青芝籽的小布囊", "外门发的一枚旧腰牌", "一支她削的木簪", "一块青庐桂树下捡的青石", "一张她画的寒潭路书"]
 ## 人物的记号（v0.8）：由立绘的花钿/痣/疤与喜好派生，出场时带一句，帮着记住人
 const SIG_MARK = {"huadian_plum": ["梅花花钿", "眉心点着一朵梅花花钿"], "huadian_flame": ["火焰花钿", "眉心一簇火焰花钿"], "huadian_dots": ["三点花钿", "眉间三点朱砂"],
 	"huadian_moon": ["月牙花钿", "眉心一弯红月牙"], "huadian_drop": ["青水滴花钿", "眉心一点青水滴"], "mole_eye": ["泪痣", "眼角一颗泪痣"], "mole_eye2": ["泪痣", "眼下一颗小痣"],
@@ -80,22 +80,50 @@ const SIG_MARK = {"huadian_plum": ["梅花花钿", "眉心点着一朵梅花花�
 const SIG_LIKE = {"桂花糕": ["桂花糕香", "袖里总揣着一包桂花糕"], "古琴": ["那张旧琴", "背上负着一张旧琴"], "好剑": ["新换的剑穗", "剑穗总是新换的"], "丹方": ["一身药香", "身上一股淡淡的药香"],
 	"灵茶": ["小茶罐", "腰间挂着一只小茶罐"], "旧书": ["袖口的墨迹", "袖口总沾着墨"], "梅花": ["衣角的梅", "衣角绣着一枝梅"], "烈酒": ["酒葫芦", "腰间挂着一只酒葫芦"],
 	"星图": ["望天的习惯", "走着走着总要抬头看天"], "木簪": ["那支木簪", "发间一支旧木簪"]}
-const CLOSE_TAGS = ["道侣", "师", "徒", "结义"]
+const CLOSE_TAGS = ["道侣", "师", "徒", "结义", "亲"]
 const FESTIVALS = ["上元", "清明", "端午", "七夕", "中秋", "重阳", "冬至"]
 ## 历法：第 1 日是正月初一，每月 30 日（与「她的生平」的月份分组一致）。节令按月日落在真实的日子上
 ## （清明、冬至是节气，这里取农历里大致的日子：三月初五、冬月二十）。
 const FEST_DATES = {"上元": [1, 15], "清明": [3, 5], "端午": [5, 5], "七夕": [7, 7], "中秋": [8, 15], "重阳": [9, 9], "冬至": [11, 20]}
 const MONTH_NAMES = ["正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"]
 
-## 日子 → [年(0 起), 月(1–12), 日(1–30)]
+## v0.13：一回合 = 一个月。回合 → [年(0 起), 月(1–12), 日(取 1，兼容旧调用)]；第 0、1 回合都是元年正月
 static func cal(day: int) -> Array:
 	var d := maxi(day, 1) - 1
-	return [d / 360, (d / 30) % 12 + 1, d % 30 + 1]
+	return [d / 12, d % 12 + 1, 1]
 
-## “正月十五”“次年三月初五”
+const SEASONS = ["春", "春", "春", "夏", "夏", "夏", "秋", "秋", "秋", "冬", "冬", "冬"]
+static func season(day: int) -> String:
+	return SEASONS[int(cal(day)[1]) - 1]
+
+static func cn_num(n: int) -> String:
+	var d := ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"]
+	if n < 10:
+		return d[n]
+	if n < 20:
+		return "十" + ("" if n == 10 else d[n % 10])
+	if n < 100:
+		return d[n / 10] + "十" + ("" if n % 10 == 0 else d[n % 10])
+	if n < 1000:
+		var r := n % 100
+		return d[n / 100] + "百" + ("" if r == 0 else (("零" + d[r]) if r < 10 else (("一" if r < 20 else "") + cn_num(r))))
+	if n < 10000:
+		var r2 := n % 1000
+		return d[n / 1000] + "千" + ("" if r2 == 0 else (("零" if r2 < 100 else "") + (("一" + cn_num(r2)) if r2 >= 10 and r2 < 20 else cn_num(r2))))
+	return str(n)
+
+static func year_name(y: int) -> String:
+	return "元年" if y <= 0 else cn_num(y + 1) + "年"
+
+## “青庐元年正月”“青庐三十二年冬月”
 static func cal_text(day: int) -> String:
 	var c := cal(day)
-	return ("" if c[0] == 0 else ("次年" if c[0] == 1 else "第%s年" % cnum(c[0] + 1))) + MONTH_NAMES[c[1] - 1] + cn_day(c[2])
+	return "青庐" + year_name(int(c[0])) + MONTH_NAMES[c[1] - 1]
+
+## 短写：“三十二年冬月”（列表里用）
+static func cal_short(day: int) -> String:
+	var c := cal(day)
+	return year_name(int(c[0])) + MONTH_NAMES[c[1] - 1]
 
 ## v0.12.1：给玩家看的叙述里一律用汉字数目（“第七回”“十二块灵石”），按钮上的数值注记（−3 灵石、感悟 +2）照旧用数字
 static func cnum(n: int) -> String:
@@ -139,7 +167,7 @@ func festival_today() -> String:
 	var c := cal(int(w["day"]))
 	for f in FEST_DATES:
 		var md: Array = FEST_DATES[f]
-		if int(md[0]) == int(c[1]) and int(c[2]) >= int(md[1]) and int(c[2]) <= int(md[1]) + 2:
+		if int(md[0]) == int(c[1]):
 			if not w.get("fest_done", {}).has("%d:%s" % [c[0], f]):
 				return f
 	return ""
@@ -254,7 +282,7 @@ func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 			a["gt"] = int(t["id"])
 			R(a, t)["g"] = 60
 			remember(a, t, "%s害过我的亲人" % t["name"], -30)
-	chron(P(), "自姑母家出来，住进后山脚下的青庐。")
+	chron(P(), "十六岁，青云宗外门落选，租下后山脚下的旧洞府青庐，做了散修。")
 	for c in npcs():
 		c["pre"] = saga().bio(c)   # v0.12 前尘：入局之前的履历（带年岁），也会结下师承、旧情
 	# v0.12.1：不再开局指定“命定之人”与一场排好日子的离别（Gemini v5 P0#3）；缘分与生死都从人自己的来往里长出来
@@ -341,7 +369,7 @@ static func realm_name(lv: int) -> String:
 	return REALMS[lv] + ["初期", "中期", "后期"][(lv - 9) % 3]
 
 static func lifespan(lv: int) -> int:
-	return 100 if lv < 9 else (200 if lv < 12 else (500 if lv < 15 else 1000))
+	return 100 if lv < 9 else (200 if lv < 12 else (500 if lv < 15 else (1000 if lv < 18 else 2000)))
 
 func realm(c: Dictionary) -> String:
 	return realm_name(int(c["lv"]))
@@ -578,13 +606,15 @@ func plv() -> int:
 		return int(P()["lv"])
 	if g.s.get("ending", "") == "zhuji":
 		return 9
-	return g.layer() - 1
+	return g.plv_now() if g.has_method("plv_now") else g.layer() - 1
 
 func _sync_player() -> void:
 	var p := P()
 	p["lv"] = plv()
 	if g != null:
 		p["name"] = String(g.s.get("name", p["name"]))
+		if g.has_method("age_m"):
+			p["age"] = qz(g.age_m() / 12.0, 10000.0)
 
 func _inj(days: int) -> void:
 	if g != null:
@@ -614,10 +644,10 @@ func tick(home: bool = true, road: bool = true) -> void:
 	w["day"] = int(w["day"]) + 1
 	_sync_player()
 	# v0.9：她在哪（青庐 / 路上的某处）。只用来微调“谁会碰上她”的权重，不挡任何事
-	w["here"] = "青庐" if home else _road_place()
+	w["here"] = "青庐" if home or (g != null and String(g.s.get("loc", "")) in ["home", "xinmo", "ending"]) else _road_place()
 	P()["place"] = w["here"]
 	for c in npcs():
-		c["age"] = qz(float(c["age"]) + 1.0 / 360.0, 10000.0)   # 取整到 4 位：JSON 往返不丢精度
+		c["age"] = qz(float(c["age"]) + 1.0 / 12.0, 10000.0)   # v0.13：一回合一个月；取整到 4 位：JSON 往返不丢精度
 		if int(c["inj"]) > 0:
 			c["inj"] = int(c["inj"]) - 1
 		c["xp"] = qz(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0) * (1.8 if c.has("dh") else 1.0), 10000.0)
@@ -657,8 +687,9 @@ func tick(home: bool = true, road: bool = true) -> void:
 	for c in npcs():
 		if c["alive"] and rng.randf() < 0.08:
 			saga().beat(c)   # v0.12：各人按自己的性子、念头、关系出一件小事（含旧的“独行”）
-	if rng.randf() < 0.04 and npcs().size() < 30:
+	if rng.randf() < 0.04 and npcs().size() < NPC_CAP:
 		newcomer()
+	_generations()
 	AG.daily(self)
 	TV.daily(self)   # v0.11：人按念头在各地走动；她的去处逐步解锁
 	saga().daily()   # v0.12：到期的连锁事件 + 世界级的大比、秘境
@@ -667,6 +698,150 @@ func tick(home: bool = true, road: bool = true) -> void:
 	if (home or road) and w["pending"].is_empty():
 		storyteller(home)
 	_save_rng()
+
+# ---------------------------------------------------------------- v0.13 世代：生子、收徒、掌门继位、旧人压缩
+const NPC_CAP := 36
+const BIRTH_P := 0.0025     # 道侣每月生子
+const PUPIL_P := 0.0015     # 筑基以上每月收徒
+const HEAD_SECTS := ["青云宗", "玄霜谷", "落霞宫", "万剑门", "药王谷", "血煞门", "阴骨教"]
+
+func _generations() -> void:
+	if not w.has("gen"):
+		w["gen"] = {"kids": [], "heads": {}, "n_birth": 0, "n_come": 0, "n_pupil": 0, "n_succ": 0, "n_pruned": 0}
+	var gen: Dictionary = w["gen"]
+	var now := int(w["day"])
+	# ① 道侣生子：记进父母履历，十六年（192 月）后入仙途
+	var seen := {}
+	for c in npcs():
+		if c["player"]:
+			continue
+		var pt = partner(c)
+		if pt == null or not pt["alive"] or pt["player"] or seen.has(int(c["id"])):
+			continue
+		seen[int(pt["id"])] = true
+		if float(c["age"]) > lifespan(int(c["lv"])) * 0.8 or float(pt["age"]) > lifespan(int(pt["lv"])) * 0.8:
+			continue
+		if rng.randf() < BIRTH_P:
+			var mo: Dictionary = c if String(c["sex"]) == "女" else pt
+			var fa: Dictionary = pt if mo == c else c
+			var sx: String = "女" if rng.randf() < 0.5 else "男"
+			var nm: String = String(fa["name"]).substr(0, _surn_len(String(fa["name"]))) + _ch(F_GIV if sx == "女" else M_GIV) + (_ch(F_GIV if sx == "女" else M_GIV) if rng.randf() < 0.6 else "")
+			gen["kids"].append({"due": now + 192, "name": nm, "sex": sx, "sect": String(_ch([fa, mo])["sect"]), "fa": int(fa["id"]), "mo": int(mo["id"])})
+			gen["n_birth"] = int(gen["n_birth"]) + 1
+			var kid_t := "%s添了一个%s，取名%s。" % [cal_text(now), "女儿" if sx == "女" else "儿子", nm]
+			chron(fa, kid_t)
+			chron(mo, kid_t)
+			if known(fa) or known(mo):
+				rumor("%s与%s添了个%s，名叫%s。" % [fa["name"], mo["name"], "女儿" if sx == "女" else "儿子", nm], [fa, mo], "子")
+	# ② 孩子长大，入仙途
+	var keep := []
+	for k in gen["kids"]:
+		if int(k["due"]) > now:
+			keep.append(k)
+			continue
+		if npcs().size() >= NPC_CAP + 4:
+			k["due"] = now + 12
+			keep.append(k)
+			continue
+		var sect := String(k["sect"])
+		var c := _new_char(String(k["sex"]), sect, 0)
+		c["name"] = String(k["name"])
+		c["age"] = 16.0
+		gen["n_come"] = int(gen["n_come"]) + 1
+		var pa := []
+		for pid in [int(k["fa"]), int(k["mo"])]:
+			var o := C(pid)
+			if o.is_empty():
+				continue
+			pa.append(o)
+			R(c, o)["f"] = 60
+			R(o, c)["f"] = 60
+			R(c, o)["t"].append("亲")
+			R(o, c)["t"].append("亲")
+		var who := "、".join(pa.map(func(o): return String(o["name"]) + ("（已故）" if not o["alive"] else "")))
+		chron(c, ("%s之后。" % who if who != "" else "") + ("十六岁入仙途，拜入%s。" % sect if sect != "散修" else "十六岁入仙途，做了散修。"))
+		var pk := false
+		for o in pa:
+			pk = pk or known(o)
+		if pk:
+			rumor("%s家的孩子%s长大了，入了仙途。" % [String(pa[0]["name"]), c["name"]], [c] + pa, "子")
+	gen["kids"] = keep
+	# ③ 收徒：筑基以上，没有在世徒弟的，偶尔收一个新人
+	if npcs().size() < NPC_CAP:
+		for c in npcs():
+			if c["player"] or int(c["lv"]) < 9 or rng.randf() >= PUPIL_P:
+				continue
+			var has_pupil := false
+			for k2 in c["rel"]:
+				var o2 := C(int(k2))
+				if not o2.is_empty() and o2["alive"] and "徒" in c["rel"][k2]["t"]:
+					has_pupil = true
+			if has_pupil:
+				continue
+			var pu := _new_char("", String(c["sect"]), rng.randi_range(0, 2))
+			R(c, pu)["t"].append("徒")
+			R(pu, c)["t"].append("师")
+			R(c, pu)["f"] = 40
+			R(pu, c)["f"] = 50
+			chron(pu, "初入仙途，拜在%s门下。" % c["name"])
+			chron(c, "%s收%s为徒。" % [cal_text(now), pu["name"]])
+			gen["n_pupil"] = int(gen["n_pupil"]) + 1
+			if known(c):
+				rumor("%s收了个徒弟，叫%s。" % [c["name"], pu["name"]], [c, pu], "徒")
+			break
+	# ④ 掌门：每宗修为最高者；掌门不在了，次月继位
+	if true:
+		for sect in HEAD_SECTS:
+			var hid := int(gen["heads"].get(sect, 0))
+			var h := C(hid) if hid > 0 else {}
+			if not h.is_empty() and h["alive"] and String(h["sect"]) == sect:
+				continue
+			var best = null
+			for c in npcs():
+				if c["player"] or String(c["sect"]) != sect:
+					continue
+				if best == null or int(c["lv"]) > int(best["lv"]) or (int(c["lv"]) == int(best["lv"]) and float(c["age"]) > float(best["age"])):
+					best = c
+			if best == null:
+				continue
+			gen["heads"][sect] = int(best["id"])
+			if hid > 0:
+				gen["n_succ"] = int(gen["n_succ"]) + 1
+				chron(best, "%s继任%s掌门。" % [cal_text(now), sect])
+				rumor("%s掌门%s之后，%s继任掌门。" % [sect, ("%s不在了" % h["name"]) if not h.is_empty() else "出缺", best["name"]], [best], "继")
+			else:
+				chron(best, "为%s掌门。" % sect)
+	# ⑤ 旧人压缩：死了 30 年以上、她不认识的，只留名字、宗门、境界和最后几条履历
+	if now % 12 == 0:
+		for id in _ids(w["C"]):
+			var c: Dictionary = w["C"][id]
+			if c["alive"] or c["player"] or c.has("pz") or known(c):
+				continue
+			var dd := int(c["log"][-1][0]) if not c["log"].is_empty() else 0
+			if now - dd < 360:
+				continue
+			c["pz"] = 1
+			c["mem"] = []
+			c["log"] = c["log"].slice(maxi(0, c["log"].size() - 3))
+			var keep_rel := {}
+			for k3 in c["rel"]:
+				var o3 := C(int(k3))
+				if not o3.is_empty() and (o3["alive"] or known(o3)):
+					var r3: Dictionary = c["rel"][k3]
+					if not r3["t"].is_empty():
+						keep_rel[k3] = r3
+			c["rel"] = keep_rel
+			gen["n_pruned"] = int(gen["n_pruned"]) + 1
+
+func _surn_len(nm: String) -> int:
+	for sn in SURN:
+		if String(sn).length() == 2 and nm.begins_with(sn):
+			return 2
+	return 1
+
+func head_of(sect: String) -> Dictionary:
+	var hid := int(w.get("gen", {}).get("heads", {}).get(sect, 0))
+	return C(hid) if hid > 0 else {}
 
 func _road_place() -> String:
 	if g != null and String(g.s.get("loc", "")) == "roam":
@@ -1331,7 +1506,7 @@ func bind(tid: String) -> Variant:
 			return _r1(_pick(func(c): return side(c) == "魔" and int(c["lv"]) >= pl2 + 2 and not _close_p(c) and not xia(c)))
 		"秘境":
 			return {} if npcs().size() >= 3 else null
-		"姑母来信", "夜雨", "灵田", "闭关小成":
+		"家书", "夜雨", "灵田", "闭关小成":
 			return {}
 		"访客":
 			return _r1(_pick(func(c): return known(c) and int(R(c, p)["f"]) > 0))
@@ -1669,7 +1844,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 					"死":
 						if not tgt["alive"] and _flag("mourned:%d" % int(tgt["id"])) == 0:
 							hk.append(_o("incense", "去%s坟前上一炷香" % tgt["name"]))
-			return {"speaker": 0, "text": pv("传闻", ["坊市茶摊上听人说：%s", "说书先生今天讲的是：%s", "药铺伙计压低声音告诉她：%s", "过路的散修提了一句：%s", "姑母的信末添了一句：%s", "排队买盐时，前头两个女修在嚼舌根：%s", "渡口的船夫一边撑篙一边说：%s"]) % ctx["news"],
+			return {"speaker": 0, "text": pv("传闻", ["坊市茶摊上听人说：%s", "说书先生今天讲的是：%s", "药铺伙计压低声音告诉她：%s", "过路的散修提了一句：%s", "家书末尾添了一句：%s", "排队买盐时，前头两个女修在嚼舌根：%s", "渡口的船夫一边撑篙一边说：%s"]) % ctx["news"],
 				"opts": (hk + [_o("ok", "听过就算")]) if not hk.is_empty() else ok}
 		"赠礼":
 			var gs := _sample(LIKES, 3)
@@ -1719,8 +1894,8 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			return {"speaker": 0, "text": pv("心魔起", ["闭关时心魔起，幻出的是：%s。", "夜半入定，眼前又是%s。", "灯影里浮出旧事——%s。", "周天走到一半，丹田一冷。耳边有人低声说起%s。", "她睁眼，静室还是静室。可墙上的影子在演%s。"]) % m[2],
 				"opts": [_o("face", "直视它"), _o("chant", "闭目诵经")]}
 		"魔修袭镇":
-			return {"speaker": int(n["id"]), "text": "%s的人从北边下来了，山下小镇起了火。%s" % [n["sect"], pv("袭镇", ["钟声敲到第三下就断了。", "姑母家就在镇东头。", "风里全是焦味。"])],
-				"opts": [_o("guard", "护着镇口"), _o("hide", "带姑母进山躲")]}
+			return {"speaker": int(n["id"]), "text": "%s的人从北边下来了，山下小镇起了火。%s" % [n["sect"], pv("袭镇", ["钟声敲到第三下就断了。", "镇东头住着几户她从小认得的人家。", "风里全是焦味。"])],
+				"opts": [_o("guard", "护着镇口"), _o("hide", "带镇上的老人孩子进山躲")]}
 		"秘境":
 			var pool := npcs().filter(func(x): return int(x["lv"]) < 12)
 			if pool.size() < 3:
@@ -1737,15 +1912,18 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			ctx["party"] = ids
 			return {"speaker": 0, "text": pv("秘境", ["古战场秘境开了。门口等着的有%s。", "云梦泽深处的秘境浮出了水面，%s都去了。", "一道残阵在后山裂开，%s约她一同进去。"]) % "、".join(names),
 				"opts": [_o("in", "结伴进去"), _o("out", "守在外面")]}
-		"姑母来信":
-			return {"speaker": 0, "text": pv("姑母", ["姑母来信，说镇上的桂花开了，问她吃饭没有。", "姑母托人捎来一罐腌菜，罐底压着十个铜板。", "姑母来信，只写了“冷了加衣”四个字。", "姑母说隔壁王婶的孙子会走路了，又问她何时回。", "姑母的信被雨打湿了一半，剩下那半是叮嘱。", "姑母信里说梦见她小时候爬树，摔了也不哭。"]), "opts": ok}
+		"家书":
+			# v0.13：家在山下桃溪镇；四十年后爹娘不在了，来信的是镇上的后辈
+			if int(w["day"]) < 480:
+				return {"speaker": 0, "text": pv("家书", ["娘来信，说镇上的桂花开了，问她吃饭没有。", "家里托人捎来一罐腌菜，罐底压着十个铜板。", "爹来信，只写了“冷了加衣”四个字。", "娘说隔壁王婶的孙子会走路了，又问她何时回。", "家书被雨打湿了一半，剩下那半是叮嘱。", "娘信里说梦见她小时候爬树，摔了也不哭。"]), "opts": ok}
+			return {"speaker": 0, "text": pv("家书后", ["桃溪镇来了封信，是侄孙写的，字歪歪扭扭，说老宅的桂树还在。", "镇上的后辈来信，问祖上那位修仙的姑奶奶还记不记得家。", "桃溪镇的祠堂翻修，来信请她题一块匾。", "来信的人她不认得，信里说：家里人都记得您。"]), "opts": ok}
 		"夜雨":
 			var ks := []
 			for k in _ids(P()["rel"]):
 				if int(P()["rel"][k]["m"]) == 1:
 					ks.append(C(k)["name"])
 			if ks.is_empty():
-				ks = ["姑母"]
+				ks = ["桃溪镇的爹娘"]
 			return {"speaker": 0, "text": pv("夜雨", ["檐下滴了一夜的水。她数着数着，想到了%s。", "夜雨敲窗。她想起%s。", "灯花爆了一下。她没来由地想起%s。", "山里起雾，像那年和%s走过的那段路。", "听见檐下风铃响，以为是%s来了。", "梦见%s站在桂树下，醒来记不清说了什么。"]) % _ch(ks), "opts": ok}
 		"灵田":
 			return {"speaker": 0, "text": pv("灵田", ["田垄上落了一只白鹭，站了半个时辰才走。", "灵田里冒了一株不认识的苗。", "鸟啄了半垄青芝。", "今年的青芝结得密。", "夜里下了霜，她给灵田盖了草帘。", "田埂边的野兔又来了，她没赶它。", "引水的竹管裂了，修了一下午。"]), "opts": ok}
@@ -1753,7 +1931,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			var tails: Dictionary = {"好奇": ["问了很多丹炉的事。", "翻她的药篓，一样一样问名字。"], "淡泊": ["喝完就走了。", "坐在檐下看了半日云，走时道了声叨扰。"], "傲气": ["嫌她的茶淡。", "指点了她两句剑法，也不管她要不要听。"],
 				"温柔": ["走前替她把晾的衣裳收了。", "见她袖口磨破了，留下一卷针线。"], "贪财": ["眼睛在灵田上转了好几圈。", "问她丹炉卖不卖。"], "侠义": ["顺手把塌了的篱笆扶正了。", "说山下有户人家病了，问她讨了两包药。"],
 				"痴情": ["说起一个人，说了一半又停了。", "看着院里的桂树出神，茶凉了也没喝。"], "多疑": ["坐下前先看了看四下。", "茶端到嘴边，又放下，先看她喝。"], "嗜战": ["非要同她比划两招才肯走。", "说起前日一场斗法，比划得茶碗都翻了。"],
-				"阴狠": ["笑着夸她的灵田长得好。", "问起她姑母住在镇上哪一头。"], "怯懦": ["说话声音很轻，喝完茶就告辞了。", "连声道谢，走到柴门口又回来道了一遍。"], "圆滑": ["把坊市的新鲜事讲了个遍。", "走时留下一张名帖，说有事尽管找。"],
+				"阴狠": ["笑着夸她的灵田长得好。", "问起她家里还有什么人。"], "怯懦": ["说话声音很轻，喝完茶就告辞了。", "连声道谢，走到柴门口又回来道了一遍。"], "圆滑": ["把坊市的新鲜事讲了个遍。", "走时留下一张名帖，说有事尽管找。"],
 				"记仇": ["说起一个旧仇人，咬着牙笑。", "临走前问她，这些日子可有生人从山道上过。"], "薄情": ["喝了半碗就走了。", "话没说几句，起身就走，也没回头。"]}
 			var tail: String = pv("访客尾:" + String(n["traits"][0]), tails[n["traits"][0]]) if tails.has(n["traits"][0]) else pv("访客尾", ["坐了一刻。", "看了一会儿她的灵田。", "临走前替她添了灶里的柴。"])
 			var vpre := ""
@@ -1872,8 +2050,8 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				"opts": [_o("train", "回去闭关"), _o("visit", "登门道贺"), _o("shrug", "一笑置之")]}
 		"旧债上门":
 			return {"speaker": int(n["id"]), "text": pv("旧债", [
-				"%s拿着一张发黄的借据找上门：姑母年轻时向%s借过三块灵石，“连本带利，六块。”" % [nm, ("%s的师父" % ta(n)) if String(n["sect"]) == "散修" else String(n["sect"])],
-				"“你家姑母欠我一炉丹。”%s把借据拍在桌上，“十年了。”" % nm,
+				"%s拿着一张发黄的借据找上门：青庐的前任洞主向%s借过三块灵石，“人走了，账还在。连本带利，六块。”" % [nm, ("%s的师父" % ta(n)) if String(n["sect"]) == "散修" else String(n["sect"])],
+				"“这洞府的老主人欠我一炉丹。”%s把借据拍在桌上，“十年了。”" % nm,
 				"%s在柴门外站着，手里捏着一张旧契：“这青庐的地，原先是租我家的。”" % nm]),
 				"opts": [_o("pay", "认了，还钱"), _o("dan", "拿一粒自炼的聚气丹抵债") if _has("pill_juqi") else _o("dan", "提出炼一炉丹抵债"), _o("deny", "不认这笔账")]}
 		"节令":
@@ -1885,9 +2063,9 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				w["fest_done"] = {}
 			w["fest_done"]["%d:%s" % [cal(int(w["day"]))[0], fest]] = true
 			ctx["fest"] = fest
-			var fx: String = pv("节景:" + fest, {"上元": ["镇上挂满了灯", "山下的灯一盏接一盏亮起来，像一条河", "有人在镇口放了一盏孔明灯，飘过了青庐"], "清明": ["山下飘着纸钱的灰", "细雨落了一整天，山路上都是上坟的人", "坊市的柳枝卖得比灵草还快"], "端午": ["河边在赛龙舟", "姑母托人捎来五只粽子，用红线扎着", "镇上家家门口插了艾草"], "七夕": ["镇上的姑娘都在穿针乞巧", "夜里银河很亮，坊市有人卖双生结", "有人在桥头放了一河的莲灯"], "中秋": ["月亮大得像要落进灵田", "姑母寄来两块月饼，一块已经压碎了", "镇上有人在月下吹箫，吹了一夜"], "重阳": ["坊市有人卖茱萸和菊花酒", "后山的菊花开了一坡", "镇上的老人结伴上山登高"], "冬至": ["姑母信里说包了饺子", "院里的水缸结了一层薄冰", "山下的人家早早掩了门，烟囱里冒着白气"]}[fest])
+			var fx: String = pv("节景:" + fest, {"上元": ["镇上挂满了灯", "山下的灯一盏接一盏亮起来，像一条河", "有人在镇口放了一盏孔明灯，飘过了青庐"], "清明": ["山下飘着纸钱的灰", "细雨落了一整天，山路上都是上坟的人", "坊市的柳枝卖得比灵草还快"], "端午": ["河边在赛龙舟", "家里托人捎来五只粽子，用红线扎着", "镇上家家门口插了艾草"], "七夕": ["镇上的姑娘都在穿针乞巧", "夜里银河很亮，坊市有人卖双生结", "有人在桥头放了一河的莲灯"], "中秋": ["月亮大得像要落进灵田", "家里寄来两块月饼，一块已经压碎了", "镇上有人在月下吹箫，吹了一夜"], "重阳": ["坊市有人卖茱萸和菊花酒", "后山的菊花开了一坡", "镇上的老人结伴上山登高"], "冬至": ["家书里说镇上包了饺子", "院里的水缸结了一层薄冰", "山下的人家早早掩了门，烟囱里冒着白气"]}[fest])
 			return {"speaker": 0, "text": "%s%s到了，%s。%s" % [(cal_text(int(w["day"])) + "，") if real_day != "" else "", fest, fx, pv("节尾", ["青庐里只有她一个人。", "她站在院里听了一会儿山下的动静。", "灶上的水开了，她没去管。", "她把那件旧披风翻出来，又放了回去。", "丹炉里的火映着墙，她一个人坐了很久。"])],
-				"opts": [_o("town", "下山凑个热闹"), _o("home", "在青庐守着"), _o("aunt", "给姑母捎点东西（2 灵石）")]}
+				"opts": [_o("town", "下山凑个热闹"), _o("home", "在青庐守着"), _o("aunt", "给家里捎点东西（2 灵石）")]}
 		"远方来信":
 			return {"speaker": int(n["id"]), "text": pv("远信", [
 				"一封从南边来的信，字迹她认得，是%s的。信里说%s在泽边开了间小药铺，问她灵田今年收成如何，一句也没提旧事。" % [nm, ta(n)],
@@ -2023,7 +2201,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "help":
 				_inj(2)
 				fav(n, 25, "重伤时%s救了我" % pn(), 30)
-				out = pv("求助救", ["她守了一夜，渡了三日修为。%s醒来，只说了一句：“记下了。”", "她把人背回青庐，灵气渡了一遍又一遍。天亮时%s睁开眼，看了她很久。", "她以指尖逼出毒血，又守着药炉熬到三更。%s醒来第一句是：“你不该救我。”"]) % nm + "\n（经脉微损：闭关炼化减半 2 日）"
+				out = pv("求助救", ["她守了一夜，渡了三日修为。%s醒来，只说了一句：“记下了。”", "她把人背回青庐，灵气渡了一遍又一遍。天亮时%s睁开眼，看了她很久。", "她以指尖逼出毒血，又守着药炉熬到三更。%s醒来第一句是：“你不该救我。”"]) % nm + "\n（经脉微损：闭关炼化减半 2 个月）"
 				chron(p, "%s救下重伤的%s，耗了三日修为。" % [ctx.get("where", "寒潭边"), nm])
 				chron(n, "重伤倒在%s，被%s所救。" % [ctx.get("where", "寒潭边"), pn()])
 				schedule(rng.randi_range(8, 25), "报恩", {"B": int(n["id"])}, {"where": ctx.get("where", "寒潭边")})
@@ -2078,7 +2256,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(3)
 					R(n, p)["g"] = int(R(n, p)["g"]) - 30
-					out = pv("仇败", ["她败了。丹炉被砸出一道裂。%s出了这口气，扬长而去。", "三招之后，她的剑落进了灵田。%s一脚踢翻丹炉，头也不回地走了。", "她撑着门框站起来时，%s已经出了柴门。丹炉上多了一道裂。"]).replace("%s", nm) + "\n（受伤：闭关炼化减半 3 日）"
+					out = pv("仇败", ["她败了。丹炉被砸出一道裂。%s出了这口气，扬长而去。", "三招之后，她的剑落进了灵田。%s一脚踢翻丹炉，头也不回地走了。", "她撑着门框站起来时，%s已经出了柴门。丹炉上多了一道裂。"]).replace("%s", nm) + "\n（受伤：闭关炼化减半 3 个月）"
 					chron(p, "%s寻上青庐，她败了，丹炉被砸。" % nm)
 					chron(n, "砸了%s的丹炉。" % pn())
 			elif oid == "pay" or oid == "beg":
@@ -2146,7 +2324,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(4)
 					R(n, p)["g"] = int(R(n, p)["g"]) + 20
-					out = pv("寻凶败", ["与%s一战，败，伤了根基。", "%s比传闻里更狠。她拼着挨了一掌才脱身。", "她的剑断在%s手里，人是被过路的樵夫背回来的。"]) % nm + "\n（重伤：闭关炼化减半 4 日）"
+					out = pv("寻凶败", ["与%s一战，败，伤了根基。", "%s比传闻里更狠。她拼着挨了一掌才脱身。", "她的剑断在%s手里，人是被过路的樵夫背回来的。"]) % nm + "\n（重伤：闭关炼化减半 4 个月）"
 					chron(p, pv("寻凶败记", ["寻%s报仇，败了，伤了根基。", "与%s一战，重伤而回。"]) % nm)
 					var hb := hunt(int(n["id"]))
 					hb["st"] = 1
@@ -2212,7 +2390,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(3)
 					R(n, p)["g"] = int(R(n, p)["g"]) + 15
-					out = "她败了。%s翻遍青庐，什么也没找到，临走踢翻了丹炉。\n（受伤：闭关炼化减半 3 日）" % nm
+					out = "她败了。%s翻遍青庐，什么也没找到，临走踢翻了丹炉。\n（受伤：闭关炼化减半 3 个月）" % nm
 					chron(p, "%s寻上青庐，她不敌，丹炉被踢翻。" % nm)
 			elif oid == "give":
 				var lost := _ling(-mini(8, lingshi()))
@@ -2287,7 +2465,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					out = pv("朱果胜", ["她先摘到了。%s的脸色很难看。", "%s的手慢了半寸，朱果落在她掌心。", "绕着朱果树斗了三合，她摘了果子就走。"]).replace("%s", nm) + "\n（朱果入腹：感悟 +15）"
 				else:
 					_inj(2)
-					out = pv("朱果败", ["她挨了%s一掌，朱果没了。", "朱果被%s摘走，她肩上青了一块。", "被%s一道剑气削了半截袖子。"]) % nm + "\n（受伤：闭关炼化减半 2 日）"
+					out = pv("朱果败", ["她挨了%s一掌，朱果没了。", "朱果被%s摘走，她肩上青了一块。", "被%s一道剑气削了半截袖子。"]) % nm + "\n（受伤：闭关炼化减半 2 个月）"
 			else:
 				fav(n, 5)
 				out = pv("朱果让", ["她把朱果让给了%s。", "她退了一步，朱果归了%s。", "%s道了声承让，她笑了笑。"]) % nm
@@ -2349,7 +2527,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				if hk2 != null and not hk2.is_empty() and hk2["alive"]:
 					AG._settle(hk2, int(n["id"]), [])
 					remember(hk2, p, "%s护着%s" % [pn(), nm], -8, "辱")
-				out = pv("遇险寻", ["她赶到%s，在一处背风的崖下找到了%s。" % [dpl, nm], "她循着命灯的余光一路寻到%s。%s看见她，先笑了一下。" % [dpl, nm], "她背着%s离开%s时，两个人都只剩半条命。" % [nm, dpl]]) + ("\n（用去驱瘴丹 ×1；只是累着了：闭关炼化减半 1 日）" if oid == "pill" else "\n（奔波受伤：闭关炼化减半 3 日）")
+				out = pv("遇险寻", ["她赶到%s，在一处背风的崖下找到了%s。" % [dpl, nm], "她循着命灯的余光一路寻到%s。%s看见她，先笑了一下。" % [dpl, nm], "她背着%s离开%s时，两个人都只剩半条命。" % [nm, dpl]]) + ("\n（用去驱瘴丹 ×1；只是累着了：闭关炼化减半一个月）" if oid == "pill" else "\n（奔波受伤：闭关炼化减半三个月）")
 				chron(p, "%s在%s遇险，她赶去，把人找了回来。" % [nm, dpl])
 			elif rng.randf() < (0.4 if hk2 != null else 0.15):
 				out = pv("遇险失", ["消息再没有来。", "命灯在第九夜熄了。她守着那盏灯，坐到天亮。"])
@@ -2379,7 +2557,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				_inj(1)
 				out = pv("心魔败", ["它没有散。出关后三日不想说话。", "她败下阵来，吐了一口血，在静室里躺了一日。", "它笑她。她没能还嘴。"])
 			else:
-				out = pv("心魔诵", ["经诵到第七遍，灯影平了。", "她闭着眼，把姑母教的那段经一字一字念完。", "木鱼敲了一夜，到鸡鸣才停。"])
+				out = pv("心魔诵", ["经诵到第七遍，灯影平了。", "她闭着眼，把外门早课的那段经一字一字念完。", "木鱼敲了一夜，到鸡鸣才停。"])
 			chron(p, "心魔起，" + out.split("\n")[0])
 		"魔修袭镇":
 			var helpers := npcs().filter(func(x): return side(x) == "正" and int(R(x, p)["f"]) > 20).slice(0, 2)
@@ -2391,12 +2569,12 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					hn.append(h["name"])
 				R(n, p)["g"] = int(R(n, p)["g"]) + 30
 				_inj(3)
-				out = ("她守在镇口，%s闻讯赶来。" % "、".join(hn) if not hn.is_empty() else pv("袭镇守", ["她一个人守在镇口。", "镇口只剩她一个人和一把剑。"])) + pv("袭镇明", ["天亮时，火灭了。", "鸡叫头遍，北边的人退了。"]) + "\n（受伤：闭关炼化减半 3 日）"
+				out = ("她守在镇口，%s闻讯赶来。" % "、".join(hn) if not hn.is_empty() else pv("袭镇守", ["她一个人守在镇口。", "镇口只剩她一个人和一把剑。"])) + pv("袭镇明", ["天亮时，火灭了。", "鸡叫头遍，北边的人退了。"]) + "\n（受伤：闭关炼化减半 3 个月）"
 				chron(p, "%s带人袭镇，她守在镇口。" % nm)
 			else:
 				remember(p, n, "小镇那夜的火光", -20)
-				out = pv("袭镇躲", ["她背着姑母进了后山。回头时，半边天是红的。", "她拉着姑母钻进后山的石缝，听了一夜的哭喊。"])
-				chron(p, "%s血洗小镇那夜，她背着姑母进了后山。" % nm)
+				out = pv("袭镇躲", ["她背着一个走不动的老婆婆进了后山。回头时，半边天是红的。", "她拉着两个孩子钻进后山的石缝，听了一夜的哭喊。"])
+				chron(p, "%s血洗小镇那夜，她护着镇上的老人孩子进了后山。" % nm)
 			rumor("%s血洗了后山下的小镇。" % nm, [n])
 		"秘境":
 			var party := []
@@ -2454,7 +2632,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				_inj(2)
 				_ling(-int(ctx.get("cost", 0)))
 				R(p, n)["g"] = int(R(p, n)["g"]) + 25
-				out = pv("劫败", ["她没打过。灵石被搜走了。", "剑被挑飞，储物袋也被扯了去。", "她退到崖边，只好松手交出灵石。"]) + "\n（受伤：闭关炼化减半 2 日）"
+				out = pv("劫败", ["她没打过。灵石被搜走了。", "剑被挑飞，储物袋也被扯了去。", "她退到崖边，只好松手交出灵石。"]) + "\n（受伤：闭关炼化减半 2 个月）"
 				chron(p, pv("劫败记", ["被%s拦路，没打过。", "在山口吃了%s的亏，灵石被劫。", "夜路上遇见%s，伤了，灵石也没保住。"]) % nm)
 		"宗门招徒":
 			meet(n)
@@ -2476,14 +2654,14 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					R(n, p)["t"].append("同门")
 					_wu(10)
 					fav(n, 8)
-					out = ["她走到第九百级时，筐里的石头一块没少。执事在名册上添了她的名字。", "幻阵里她看见了姑母，看见了青庐，最后看见了自己。她走了出来。", "第七招，她的剑停在对方喉前一寸。"][k4] + "
+					out = ["她走到第九百级时，筐里的石头一块没少。执事在名册上添了她的名字。", "幻阵里她看见了桃溪镇，看见了青庐，最后看见了自己。她走了出来。", "第七招，她的剑停在对方喉前一寸。"][k4] + "
 她成了%s的外门弟子。（感悟 +10）" % sect
 					chron(p, "过了%s的外门考核，挂名为外门弟子。" % sect)
 				else:
 					_inj(1)
 					_wu(4)
 					out = ["第六百级上她腿一软，石头滚了一地。", "幻阵里她在青庐门口站了一夜，没能迈出去。", "她输了半招。对方收剑时说：“明年再来。”"][k4] + "
-（落选；吃了些苦头：闭关炼化减半 1 日，感悟 +4）"
+（落选；吃了些苦头：闭关炼化减半 1 个月，感悟 +4）"
 					chron(p, "去考%s外门，落选了。" % sect)
 			else:
 				_wu(5)
@@ -2541,7 +2719,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					var lost2 := _ling(-mini(10, lingshi()))
 					R(p, n)["g"] = int(R(p, n)["g"]) + 30
 					out = "她没冲出去。醒来时躺在路边，储物袋空了，少了 %d 块灵石。
-（重伤：闭关炼化减半 4 日）" % -lost2
+（重伤：闭关炼化减半 4 个月）" % -lost2
 					chron(p, "被%s伏击，重伤，灵石被劫。" % nm)
 			elif oid == "talisman":
 				if _roll(pl + 2.0, float(n["lv"]), 5, 4):
@@ -2550,7 +2728,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(2)
 					out = "符烧到一半就灭了。她挨了一刀才脱身。
-（受伤：闭关炼化减半 2 日）"
+（受伤：闭关炼化减半 2 个月）"
 					chron(p, "被%s伏击，带伤脱身。" % nm)
 			else:
 				var lost3 := _ling(-mini(6, lingshi()))
@@ -2578,7 +2756,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					_inj(1)
 					fav(n, 3)
 					out = "对方不认这个面子，动了手。她护着%s退出来，胳膊上挂了彩。
-（受伤：闭关炼化减半 1 日）" % nm
+（受伤：闭关炼化减半 1 个月）" % nm
 					chron(p, "带%s去赔罪，没谈拢，动了手。" % nm)
 			else:
 				fav(n, -10, "那回%s没管我" % pn(), -8)
@@ -2619,7 +2797,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(2)
 					out = "%s的剑比她快。%s归了%s。
-（受伤：闭关炼化减半 2 日）" % [nm, it4, ta(n)]
+（受伤：闭关炼化减半 2 个月）" % [nm, it4, ta(n)]
 					chron(p, "与%s争%s，落败。" % [nm, it4])
 			elif oid == "share":
 				_wu(8)
@@ -2652,7 +2830,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				var lost5 := _ling(-mini(6, lingshi()))
 				fav(n, 5)
 				out = "她把%s块灵石数给%s。借据当着她的面撕了，扔进了灶膛。" % [cnum(-lost5), nm]
-				chron(p, "替姑母还了%s一笔旧账。" % nm)
+				chron(p, "替青庐的前任洞主还了%s一笔旧账。" % nm)
 			elif oid == "dan" and _has("pill_juqi"):
 				_use("pill_juqi")
 				fav(n, 8, "%s拿自炼的丹抵了债" % pn(), 6)
@@ -2671,7 +2849,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			else:
 				R(n, p)["g"] = int(R(n, p)["g"]) + 15
 				rumor("%s说青庐那个女修赖账。" % nm, [n])
-				out = pv("赖账", ["她说，姑母没提过这事。%s把借据收回去，冷笑一声走了。", "她把借据看了两遍：“这不是姑母的字。”%s脸色一变，夺过借据就走。"]).replace("%s", nm)
+				out = pv("赖账", ["她说，租洞府时葛老三没提过这笔账。%s把借据收回去，冷笑一声走了。", "她把借据和《旧主手记》对了对：“这不是他的字。”%s脸色一变，夺过借据就走。"]).replace("%s", nm)
 				chron(p, "%s来讨旧债，她没认。" % nm)
 		"节令":
 			var fest2: String = ctx.get("fest", "中秋")
@@ -2688,12 +2866,12 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					chron(p, "%s下山逛了一圈。" % fest2)
 			elif oid == "home":
 				_wu(5)
-				out = pv("节守", ["她给灵田浇了水，给丹炉添了炭，早早睡了。（感悟 +5）", "她在院里坐着，听山下的鞭炮响到半夜。（感悟 +5）", "她给姑母留的那副碗筷摆好了，又收了回去。打坐到天明。（感悟 +5）"])
+				out = pv("节守", ["她给灵田浇了水，给丹炉添了炭，早早睡了。（感悟 +5）", "她在院里坐着，听山下的鞭炮响到半夜。（感悟 +5）", "她多摆了一副碗筷，想了想，又收了回去。打坐到天明。（感悟 +5）"])
 				chron(p, "%s在青庐过的。" % fest2)
 			else:
 				_ling(-mini(2, lingshi()))
-				out = pv("节寄", ["她托人给姑母捎了一包新茶和两块灵石。回信说，钱留着，茶收了。", "她托人给姑母捎去两块灵石和一盒胭脂。回信说：老了，涂给谁看。末尾又添一句：颜色很好。", "她给姑母捎了东西。回信很长，一半在骂她乱花钱，一半在问她冷不冷。"])
-				chron(p, "%s给姑母捎了东西。" % fest2)
+				out = pv("节寄", ["她托人给家里捎了一包新茶和两块灵石。回信说，钱留着，茶收了。", "她托人给娘捎去两块灵石和一盒胭脂。回信说：老了，涂给谁看。末尾又添一句：颜色很好。", "她给家里捎了东西。回信很长，一半在骂她乱花钱，一半在问她冷不冷。"])
+				chron(p, "%s给家里捎了东西。" % fest2)
 		"远方来信":
 			if oid == "reply":
 				fav(n, 5)
@@ -2735,7 +2913,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				R(n, p)["g"] = 0
 				out = pv("落难救", ["她拔剑上前。人散了之后，%s低着头说了一句：“那些话，是我嘴贱。”" % nm, "她把%s扶回青庐，上了药。%s一夜没睡，天亮时留下一句“对不住”就走了。" % [nm, ta(n)]]) + ("
 （用去驱瘴丹 ×1，伤好得快）" if oid == "pill" else "
-（受了点伤：闭关炼化减半 1 日）")
+（受了点伤：闭关炼化减半 1 个月）")
 				chron(p, "%s落难，她出了手。旧怨就此了了。" % nm)
 				chron(n, "落难时被%s所救。" % pn())
 			else:
@@ -2775,7 +2953,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				fav(a3, 4, "那夜%s谁也没让" % pn(), 10)
 				fav(b3, 10, "那夜%s拼着伤了根基保我" % pn(), 18)
 				R(a3, b3)["g"] = maxi(0, int(R(a3, b3)["g"]) - 15)
-				out = "她站在门槛上，接了%s三剑，一步没退。天亮时%s收了剑，走了；她吐出一口血。\n（强保两边，伤了经脉：闭关炼化减半 5 日）" % [a3["name"], a3["name"]]
+				out = "她站在门槛上，接了%s三剑，一步没退。天亮时%s收了剑，走了；她吐出一口血。\n（强保两边，伤了经脉：闭关炼化减半 5 个月）" % [a3["name"], a3["name"]]
 				chron(p, "%s与%s为%s结仇，%s寻上青庐。她拼着受伤，两边都保了下来。" % [a3["name"], b3["name"], cause, a3["name"]])
 			else:
 				var x2: Dictionary = a3 if oid == "a" else b3
@@ -2909,7 +3087,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			_ling(6)
 			chron(p, "当年柴门外的孩子%s，如今已是%s，上山来谢她。" % [nm, realm(n)])
 			rumor("%s逢人便说，自己微末时在青庐外得%s一语点醒。" % [nm, pn()], [n])
-		"姑母来信", "夜雨", "灵田", "飞升异象", "旧物", "宗门大比", "师门书信":
+		"家书", "夜雨", "灵田", "飞升异象", "旧物", "宗门大比", "师门书信":
 			pass
 	return out
 

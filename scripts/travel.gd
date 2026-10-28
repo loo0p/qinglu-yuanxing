@@ -14,7 +14,7 @@ const ORDER = ["后山", "坊市", "寒潭", "药王谷", "青云宗", "云梦�
 const WILD = ["后山", "寒潭", "云梦泽", "古战场", "秘境"]
 ## d 离青庐几日；xy 世界图上的位置；bg 游历时的底图；spots 小去处 [名, 一句景, 出产]；hint 没去过时听来的传闻
 const PL = {
-	"后山": {"d": 1, "xy": [0.18, 0.78], "bg": "bg_houshan", "route": "houshan", "hint": "青庐背后的山，姑母年轻时常去采药。",
+	"后山": {"d": 1, "xy": [0.18, 0.78], "bg": "bg_houshan", "route": "houshan", "hint": "青庐背后的山，《旧主手记》里画满了这里的山路。",
 		"spots": [["山涧", "溪水绕石，背阴处长着青芝", "herb"], ["松林", "松针厚软，常有人在此打坐", "wu"], ["断崖", "崖上风大，挂着采药人的旧绳", "ls"]]},
 	"坊市": {"d": 1, "xy": [0.80, 0.82], "bg": "bg_fangshi", "hint": "山下的坊市，散修们在那里换灵石、听消息。",
 		"spots": [["茶肆", "说书人一拍醒木，满堂都是江湖事", "news"], ["拍卖行", "今日挂出来的东西，件件有来历", "ls"], ["巷尾", "旧货摊挤着旧货摊，什么人都有", "herb"]]},
@@ -24,7 +24,7 @@ const PL = {
 		"spots": [["药圃", "一畦一畦的灵草，看园的弟子打着哈欠", "herb"], ["丹房外", "炉火日夜不熄，丹香飘出半里", "wu"], ["谷口医棚", "求医的人排到了路边", "news"]]},
 	"青云宗": {"d": 2, "xy": [0.50, 0.45], "bg": "bg_leitai", "hint": "北面云里有座青云宗，山门前九百级石阶。",
 		"spots": [["山门", "知客弟子迎来送往，眼睛很尖", "news"], ["演武场", "剑光一道接一道，叫好声不断", "wu"], ["藏经阁外", "阁外的石凳上总有人在抄书", "wu"]]},
-	"云梦泽": {"d": 3, "xy": [0.80, 0.37], "bg": "bg_yeyu", "hint": "往东三日，有一片望不到边的芦苇荡，渔人说水下有洞府。",
+	"云梦泽": {"d": 3, "xy": [0.80, 0.37], "bg": "bg_yeyu", "hint": "往东走上三个月，有一片望不到边的芦苇荡，渔人说水下有洞府。",
 		"spots": [["芦荡", "芦花齐腰，风一过便是一片白浪", "herb"], ["渔村", "渔人晒着网，说起泽里的怪事", "news"], ["水下洞", "要憋一口长气才潜得下去", "ls"]]},
 	"玄霜谷": {"d": 3, "xy": [0.18, 0.33], "bg": "bg_hantan", "hint": "西北有座终年落雪的山谷，谷里的人说话也冷。",
 		"spots": [["冰瀑", "整面瀑布冻成了一块玉", "wu"], ["谷口", "守谷的弟子呵着白气", "news"], ["霜林", "树上挂着冰凌，一碰叮当作响", "herb"]]},
@@ -329,14 +329,14 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 				var id := "herb_xugucao" if W.rng.randf() < 0.15 else "herb_qingzhi"
 				var n: int = 1 if id == "herb_xugucao" else W.rng.randi_range(1, 2 + rich)
 				out["items"][id] = n
-				out["text"] = "在%s转了一日，采到%s ×%d。" % [sp[0], "续骨草" if id == "herb_xugucao" else "青芝", n]
+				out["text"] = "这个月在%s转悠，采到%s ×%d。" % [sp[0], "续骨草" if id == "herb_xugucao" else "青芝", n]
 		"ls":
 			if W.rng.randf() < 0.6:
 				out["ls"] = W.rng.randi_range(1, 3 + rich * 2)
 				out["text"] = "在%s帮人搭了把手，得了%s块灵石。" % [sp[0], W.cnum(int(out["ls"]))]
 		"wu":
 			out["wu"] = W.rng.randi_range(2, 4 + rich)
-			out["text"] = "在%s静坐半日，心里有些明白了（感悟 +%d）。" % [sp[0], int(out["wu"])]
+			out["text"] = "在%s静坐了些时日，心里有些明白了（感悟 +%d）。" % [sp[0], int(out["wu"])]
 		"news":
 			var lk := locked(W)
 			if not lk.is_empty() and W.rng.randf() < 0.6:
@@ -345,9 +345,9 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 				out["text"] = "在%s听人说起%s：%s" % [sp[0], q, PL[q]["hint"]]
 			else:
 				out["wu"] = 2
-				out["text"] = "在%s听了一日闲话（感悟 +2）。" % sp[0]
+				out["text"] = "这个月常去%s听闲话（感悟 +2）。" % sp[0]
 	if out["text"] == "":
-		out["text"] = "在%s走了一日，%s。" % [sp[0], sp[1]]
+		out["text"] = "这个月在%s走走，%s。" % [sp[0], sp[1]]
 	# 碰上人：她这天没被别的事缠住时
 	if W.pending().is_empty():
 		var day := int(W.w["day"])

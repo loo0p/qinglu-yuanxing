@@ -104,7 +104,7 @@ func pass_xinmo(g) -> void:
 func t_replay() -> void:
 	var trace = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/trace_grey.json"))
 	var g = GS.new()
-	g.new_game("测试", "aunt", 1)
+	g.new_game("测试", "sect", 1)
 	g.s["debug_zhuji"] = "succeed"
 	var got = []
 	g.on_tick = func(sn): got.append(sn)
@@ -134,11 +134,12 @@ func t_replay() -> void:
 	snaps["冲关前 D%d" % g.I("day")] = g.snapshot()
 	ok(g.start_breakthrough(), "可以冲关")
 	pass_xinmo(g)
-	ok(g.s["ending"] == "zhuji", "筑基结局")
+	ok(g.I("plv") == 9 and g.s["ending"] == "", "筑基功成（v0.13 起不再是结局，接着修）")
 	ok(g.I("day") == 37, "筑基日 = D37（引擎 D%d）" % g.I("day"))
 	# 逐日比对
 	ok(got.size() == trace.size(), "日数一致（引擎 %d 日 / sim %d 日）" % [got.size(), trace.size()])
-	var keys = ["day", "mode", "xiuwei", "yuyun", "ganwu", "qingzhi", "ganliang", "lingshi", "lian", "guo"]
+	# v0.13：去掉了旧开局的家书加粮，干粮（辟谷丹）一项不再与 v3.2 的 sim 对照；其余逐日一致
+	var keys = ["day", "mode", "xiuwei", "yuyun", "ganwu", "qingzhi", "lingshi", "lian", "guo"]
 	var bad = 0
 	for i in mini(got.size(), trace.size()):
 		var a: Dictionary = got[i]
@@ -175,16 +176,16 @@ func t_replay() -> void:
 		for x in sn["queue"]:
 			q.append("%s%d" % [x[0], x[1]])
 		var qs = ",".join(q) if q.size() > 0 else "空"
-		var exp = [m.get_string(2), m.get_string(3), m.get_string(4), m.get_string(5), m.get_string(6), m.get_string(7), m.get_string(8)]
-		var act = [str(sn["xiuwei"]), str(sn["yuyun"]), str(sn["ganwu"]), str(sn["qingzhi"]), qs, str(sn["ganliang"]), str(sn["lingshi"])]
-		ok(exp == act, "快照 [%s] 修为/余韵/待炼化/青芝/炉/干粮/灵石 一致 期望 %s 实际 %s" % [tag, exp, act])
+		var exp = [m.get_string(2), m.get_string(3), m.get_string(4), m.get_string(5), m.get_string(6), m.get_string(8)]
+		var act = [str(sn["xiuwei"]), str(sn["yuyun"]), str(sn["ganwu"]), str(sn["qingzhi"]), qs, str(sn["lingshi"])]
+		ok(exp == act, "快照 [%s] 修为/余韵/待炼化/青芝/炉/灵石 一致 期望 %s 实际 %s" % [tag, exp, act])
 	ok(n == 6, "out_grey.txt 快照 6 条（读到 %d）" % n)
 	p("  引擎：D%d 筑基；修为来源 %s；闭关占比 %d%%" % [g.I("day"), g.s["src"], roundi(100.0 * (g.s["src"]["biguan"] + g.s["src"]["ganwu"]) / 600.0)])
 
 # ------------------------------------------------------------ #2
 func fresh():
 	var g = GS.new()
-	g.new_game("测试", "aunt", 7)
+	g.new_game("测试", "sect", 7)
 	return g
 
 func t_settlement() -> void:
@@ -248,17 +249,17 @@ func t_settlement() -> void:
 	g.s["day"] = 23
 	g.tick("home")
 	ok(g.s["flags"].get("xiangyang_expired", false), "④世事倒计时到期生效（D24）")
-	# 干粮溢出留在来源处
+	# v0.13：辟谷丹回家只按租约补到 8；家书不再加粮
 	g = fresh()
 	g.start_trip("hantan")
-	g.s["ration"] = 11
+	g.s["ration"] = 3
 	g.s["flags"]["letter_pending"] = true
 	g.come_home(false)
-	ok(g.I("ration") == 12 and g.I("aunt_ration") == 2, "家书 +3：装到 12，多出 2 留在姑母处")
-	g.s["ration"] = 3
+	ok(g.I("ration") == 8 and not g.s.has("aunt_ration") and not g.s["flags"].has("letter_pending"), "回家辟谷丹补到 8，没有寄存/家书加粮（%d）" % g.I("ration"))
+	g.s["ration"] = 11
 	g.start_trip("houshan")
 	g.come_home(true)
-	ok(g.I("ration") == 10 and g.I("aunt_ration") == 0, "下次回家补到 8 后领回寄存的 2（%d）" % g.I("ration"))
+	ok(g.I("ration") == 11, "多于 8 不扣（%d）" % g.I("ration"))
 	g = fresh()
 	g.s["store"]["crop_linggu"] = 20
 	g.s["ration"] = 8
@@ -381,7 +382,7 @@ func t_xinmo() -> void:
 	var total = 0
 	var good = 0
 	var tags = ["力", "利", "善", "避"]
-	for ch in ["aunt", "town", "book"]:
+	for ch in ["sect", "town", "book"]:
 		for lg in ["A", "B", "C", "D", ""]:
 			for mask in 16:
 				for fl in 4:
@@ -450,7 +451,7 @@ func autoplay(laogui: String, extra: String, strat: String) -> Dictionary:
 	# 收尾循环：缺主药就去补，其余闭关
 	var guard = 0
 	var trips = 0
-	while g.s["ending"] == "" and guard < 400:
+	while g.s["ending"] == "" and g.I("plv") < 9 and guard < 400:
 		guard += 1
 		if g.gelaosan_fruit_available():
 			g.buy_gelaosan_fruit()
@@ -481,7 +482,7 @@ func autoplay(laogui: String, extra: String, strat: String) -> Dictionary:
 	if OS.get_environment("DEBUG_COMBO") == "%s|%s|%s" % [laogui, extra, strat]:
 		for e in g.s["log"]:
 			p("    D%d %s" % [e["day"], e["text"]])
-	return {"day": g.I("day") if g.s["ending"] == "zhuji" else -1, "ending": g.s["ending"], "hunger": g.I("hunger_days")}
+	return {"day": g.I("day") if g.I("plv") == 9 else -1, "ending": g.s["ending"], "hunger": g.I("hunger_days")}
 
 func _force_roll(g, success: bool) -> void:
 	# 让老龟 A 的 60% 判定确定：反复换种子直到下一次 randf 落在想要的一侧（只用于测试）

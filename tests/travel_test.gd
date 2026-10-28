@@ -45,7 +45,7 @@ func _handle(g, k: int, rec: Array = []) -> String:
 ## 一局：在家闭关几日 → 去一处游历几日 → 回家；返回统计
 func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 	var g = GS.new()
-	g.new_game("苏青禾", "aunt", seed, true)
+	g.new_game("苏青禾", "sect", seed, true)
 	var r := {"unl1": TV.places(g.world).size(), "unl30": 0, "unl60": 0, "unl100": 0, "why": {}, "home_d": 0, "home_e": 0, "roam_d": 0, "roam_e": 0,
 		"smax": 0, "meet": 0, "meet_here": 0, "tid_at": {}, "g": g}
 	var st := 0
@@ -265,7 +265,7 @@ func _init() -> void:
 	ok(maxshare <= 0.6, "人不会全挤在一处（%.2f）" % maxshare)
 	# ⑤ 存读档往返
 	var a = GS.new()
-	a.new_game("苏青禾", "aunt", 4242, true)
+	a.new_game("苏青禾", "sect", 4242, true)
 	for i in 6:
 		a.biguan_day()
 	a.start_roam("后山")
@@ -294,7 +294,7 @@ func _init() -> void:
 	ok(b.s["loc"] == "home" and int(b.s["day"]) > 15, "读回后能照常游历、回家（第 %d 日）" % int(b.s["day"]))
 	# 旧档：没有 unl 键
 	var o = GS.new()
-	o.new_game("苏青禾", "aunt", 99, true)
+	o.new_game("苏青禾", "sect", 99, true)
 	o.s["xiuwei"] = 250
 	o.s["flags"]["hantan_visited"] = true
 	var od: Dictionary = JSON.parse_string(JSON.stringify(o.to_dict()))
@@ -309,7 +309,7 @@ func _init() -> void:
 	var opt_bad := []
 	for sd in [5, 6, 7]:
 		var h = GS.new()
-		h.new_game("苏青禾", "aunt", sd, true)
+		h.new_game("苏青禾", "sect", sd, true)
 		h.start_roam("坊市")
 		while not h.world.pending().is_empty():
 			_handle(h, 0)
