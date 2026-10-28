@@ -197,7 +197,8 @@ func _init() -> void:
 	lines.append("节奏：在家 %.2f 件/日（%d 日），游历 %.2f 件/日（%d 日），赶路 %.2f 件/日（%d 日），最长连着有事 %.1f 日" % [he / maxf(1, hd), int(hd), re / maxf(1, rd), int(rd), te / maxf(1, td), int(td), smax])
 	ok(he / hd >= 0.3 and he / hd <= 0.6, "在家仍约 0.5 件/日（%.2f）" % (he / hd))
 	ok(re / rd >= 0.45 and re / rd <= 0.95, "游历日有事可遇，但不天天被缠（0.45–0.95：%.2f）" % (re / rd))
-	ok(smax <= 4.0, "最长连着有事 ≤4 日（%.1f）" % smax)
+	# v0.12：这是 16 局“最长连着有事”的平均，随随机数抖动；origin/main(9c79e68) 换种子段实测 3.8/4.4/4.0/4.3，≤4.0 本身就会偶发失败，放到 ≤4.5
+	ok(smax <= 4.5, "最长连着有事 ≤4.5 日（%.1f）" % smax)
 	ok(meet > 30 and meet_here >= meet * 0.95, "相逢碰上的人当天确实在那里（%d/%d）" % [meet_here, meet])
 	var thin := []
 	for p in TV.ORDER:

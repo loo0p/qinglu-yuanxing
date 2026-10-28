@@ -120,6 +120,9 @@ func se_var(nm: String, inst, e):
 func se_offer(inst, e) -> void:
 	if not inst["cast"].has("B"):
 		return
+	for it in W.w.get("agq", []):
+		if is_tid(String(it[1])):
+			return   # 同一时间只惦记一件引擎交来的事，不挤占她的日子（游历节奏测试：最长连着有事 ≤4 日）
 	AG._queue(W, String(inst["sid"]), inst["cast"].duplicate(), inst["ctx"].duplicate(true))
 
 func _a(inst, e, role) -> Variant:
