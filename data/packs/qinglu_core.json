@@ -36,7 +36,8 @@
   "wu",
   "pinj",
   "pchron",
-  "mark"
+  "mark",
+  "beat"
  ],
  "storylets": [
   {
@@ -414,7 +415,7 @@
       },
       {
        "op": "if",
-       "when": "g.lv(A) - g.lv(B) >= 3 and (g.trt(A, '阴狠') or g.side(A) == '魔') and se.chance(0.5)",
+       "when": "g.lv(A) - g.lv(B) >= 3 and (g.trt(A, '阴狠') or g.side(A) == '魔') and g.may_kill(A, B) and se.chance(0.5)",
        "then": [
         {
          "op": "die",
@@ -497,7 +498,7 @@
       },
       {
        "op": "if",
-       "when": "g.lv(B) - g.lv(A) >= 3 and (g.trt(B, '阴狠') or g.side(B) == '魔') and se.chance(0.5)",
+       "when": "g.lv(B) - g.lv(A) >= 3 and (g.trt(B, '阴狠') or g.side(B) == '魔') and g.may_kill(B, A) and se.chance(0.5)",
        "then": [
         {
          "op": "die",
@@ -880,7 +881,7 @@
     {
      "id": "ok",
      "first": true,
-     "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3)",
+     "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3) and g.may_kill(A, B)",
      "effects": [
       {
        "op": "chron",
@@ -906,6 +907,39 @@
      ]
     },
     {
+     "id": "spare",
+     "first": true,
+     "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3)",
+     "effects": [
+      {
+       "op": "inj",
+       "who": "B",
+       "days": 20
+      },
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#t_lead##v_fuchou_spare#",
+       "vars": {
+        "o": "B"
+       }
+      },
+      {
+       "op": "chron",
+       "who": "B",
+       "text": "#t_lead##v_fuchou_spared#",
+       "vars": {
+        "o": "A"
+       }
+      },
+      {
+       "op": "goal",
+       "who": "A",
+       "value": "g.newgoal()"
+      }
+     ]
+    },
+    {
      "id": "fail",
      "first": true,
      "effects": [
@@ -913,6 +947,11 @@
        "op": "inj",
        "who": "A",
        "days": 25
+      },
+      {
+       "op": "beat",
+       "a": "A",
+       "b": "B"
       },
       {
        "op": "chron",
@@ -932,7 +971,7 @@
     }
    ],
    "doc": "旧版 world_event 的“复仇”",
-   "when": "A.goal == '报仇' and int(A.gt) == int(B.id)"
+   "when": "A.goal == '报仇' and int(A.gt) == int(B.id) and not g.cowed(A, B)"
   },
   {
    "id": "solo_goal",
@@ -2269,6 +2308,13 @@
   "v_fuchou_ok": [
    "在{p}寻到{o}，了结旧仇。",
    "追了{o}三百里，在{p}了结了旧仇。"
+  ],
+  "v_fuchou_spare": [
+   "在{p}寻到{o}，一剑挑落了{o}的兵刃，没有下杀手。",
+   "在{p}截住{o}，赢了，收了剑：“今日饶你。”"
+  ],
+  "v_fuchou_spared": [
+   "在{p}败给了寻仇而来的{o}，{o}没有下杀手。"
   ],
   "v_fuchou_fail": [
    "寻{o}报仇不成，负伤遁走。",

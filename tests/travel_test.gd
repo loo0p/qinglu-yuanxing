@@ -83,6 +83,14 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 				left = 3 + k % 3
 		else:
 			var here := String(g.s["roam"]["pl"])
+			# v0.11.5：风声只耳闻——到坊市时，像玩家一样买一张耳闻过的地方的舆图
+			if here == "坊市":
+				var lk: Array = TV.locked(g.world)
+				lk.reverse()   # 想去远处的先买
+				for hp in lk:
+					if TV.can_buy_map(g.world, hp) == "":
+						TV.buy_map(g.world, hp)
+						break
 			if left > 0:
 				var pre := int(g.world.w["day"])
 				g.roam_spot(k % 3)
@@ -135,6 +143,7 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 		if d <= 60:
 			r["unl60"] = TV.places(g.world).size()
 		r["unl100"] = TV.places(g.world).size()
+
 	for p in g.world.w["uwhy"]:
 		var y := String(g.world.w["uwhy"][p])
 		var kind := "起始" if y.contains("从小走熟") else ("修为" if y.contains("修到") else ("舆图" if y.contains("舆图") else ("引路" if y.contains("指了") else ("插手" if y.contains("管过") else "经历"))))
@@ -190,9 +199,10 @@ func _init() -> void:
 	ok(u100 >= 7.0 and u100 > u60 and u60 > u30, "地点一路展开：100 日 ≥7 处且逐段增多（%.1f > %.1f > %.1f）" % [u100, u60, u30])
 	var miss := []
 	for p in TV.ORDER:
-		if not ever.has(p):
+		if not ever.has(p) and p != "血煞门":
 			miss.append(p)
-	ok(miss.is_empty(), "每一处都在某局里解锁过（没解锁过：%s）" % ", ".join(miss))
+	# v0.11.5：风声不再开路；血煞门要炼气八层，或五层后在坊市买舆图——100 日局里未必走得到，不再要求
+	ok(miss.is_empty(), "除血煞门外每一处都在某局里解锁过（没解锁过：%s）" % ", ".join(miss))
 	ok(whys.size() >= 4, "解锁理由至少 4 种（%s）" % ", ".join(whys.keys()))
 	lines.append("节奏：在家 %.2f 件/日（%d 日），游历 %.2f 件/日（%d 日），赶路 %.2f 件/日（%d 日），最长连着有事 %.1f 日" % [he / maxf(1, hd), int(hd), re / maxf(1, rd), int(rd), te / maxf(1, td), int(td), smax])
 	ok(he / hd >= 0.3 and he / hd <= 0.6, "在家仍约 0.5 件/日（%.2f）" % (he / hd))

@@ -166,7 +166,7 @@ static func heard_only(W, p: String) -> bool:
 
 ## 舆图：坊市里有卖，听过风声、修为也够得上那一带（hl[1]）才买得到；越远越贵
 static func map_cost(p: String) -> int:
-	return 6 * int(PL.get(p, {"d": 2})["d"])
+	return 3 + 3 * int(PL.get(p, {"d": 2})["d"])
 
 static func can_buy_map(W, p: String) -> String:
 	var u: Dictionary = UNL.get(p, {})

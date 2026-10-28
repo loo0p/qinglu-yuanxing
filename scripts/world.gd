@@ -711,7 +711,8 @@ func storyteller(home: bool = true) -> void:
 	# v0.9：连着两天都有事，第三天歇一歇（路上的事也算在内）
 	if int(w.get("last_ev", -9)) >= day - 1 and int(w.get("last_ev2", -9)) >= day - 2:
 		return
-	var p_event := 0.35 + int(w["since_major"]) * 0.012
+	# v0.11.5：排好日子的缘分线拿掉后，在家的事少了一成，底数从 0.35 提到 0.40 补回来
+	var p_event := 0.40 + int(w["since_major"]) * 0.012
 	# 喘口气（v0.7.3）：昨天刚出过事，今天随机事件的机会减半多（故事线、节令不受影响），免得回到青庐天天有人敲门
 	if int(w.get("last_ev", -9)) >= day - 1:
 		p_event *= 0.45
@@ -1163,6 +1164,11 @@ func cast_veto(tid: String, roles: Dictionary, ctx: Dictionary) -> String:
 	if n.is_empty():
 		return ""
 	match tid:
+		"吊唁":
+			# v0.12 引擎交来的丧事：“{D}走前说过你的好”——得真同{D}处过（Gemini v5 P0#2）
+			var dd := C(roles.get("D", -1))
+			if dd.is_empty() or met_ago(dd) < 0 or shared_n(dd) < 2:
+				return "没同亡者处过"
 		"赔罪":
 			if met_ago(n) < pace("apology_gap"):
 				return "没见过 / 刚认识"

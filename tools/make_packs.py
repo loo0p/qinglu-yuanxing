@@ -14,7 +14,7 @@ def g(k, *alts): G[k] = list(alts)
 
 HOST_VARS = ["p", "s", "r", "age", "ta", "y", "pn", "jie"]
 HOST_OPS = ["rel", "meet", "tag", "mem", "inj", "home", "move", "die", "rumor", "goal", "lv", "xp", "sect", "wflag",
-            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark"]
+            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark", "beat"]
 
 def chron(who, text, **vars):
     o = {"op": "chron", "who": who, "text": text}
@@ -74,6 +74,8 @@ g("v_beiqi", "弃了道侣{o}，独自远走。", "与道侣{o}割袍断义，�
 g("v_beiqi_l", "被{o}所负。", "道侣{o}一走了之，只留下一封信。", "被{o}弃了。那夜在山门口站到天亮。")
 g("r_beiqi", "听说{A}负了{B}。", "{A}弃了道侣{B}，一个人走了。")
 g("v_fuchou_ok", "在{p}寻到{o}，了结旧仇。", "追了{o}三百里，在{p}了结了旧仇。")
+g("v_fuchou_spare", "在{p}寻到{o}，一剑挑落了{o}的兵刃，没有下杀手。", "在{p}截住{o}，赢了，收了剑：“今日饶你。”")
+g("v_fuchou_spared", "在{p}败给了寻仇而来的{o}，{o}没有下杀手。")
 g("v_fuchou_fail", "寻{o}报仇不成，负伤遁走。", "在{p}截住{o}，没打过，负伤而逃。")
 SOLO = {
   "求长生": ["在{p}闭了一回死关。", "寻到半部长生诀，读到天亮。", "在{p}的古洞里找到一具坐化的骸骨，拜了三拜。", "数了数自己的寿元，又多坐了一个周天。", "在{p}寻访一位据说活了八百岁的散修，没寻到。"],
@@ -146,7 +148,7 @@ meet("meet_zhengbao", "争宝", "(1.5 + (int(g.trt(A, '贪财')) + int(g.trt(B, 
 def df(W, L):
     return [rel(L, W, gg=30), {"op": "inj", "who": L, "days": 15}, chron(W, "#v_df_w#", o=L), chron(L, "#v_df_l#", o=W), {"op": "home", "who": L},
             chance(0.5, rumor("#r_doufa#", (W, L), "伤", w=W, l=L)),
-            iff("g.lv(%s) - g.lv(%s) >= 3 and (g.trt(%s, '阴狠') or g.side(%s) == '魔') and se.chance(0.5)" % (W, L, W, W),
+            iff("g.lv(%s) - g.lv(%s) >= 3 and (g.trt(%s, '阴狠') or g.side(%s) == '魔') and g.may_kill(%s, %s) and se.chance(0.5)" % (W, L, W, W, W, L),
                 {"op": "die", "who": L, "how": "死于{w}之手", "vars": {"w": W}},
                 els=[mem(L, W, "{o}伤我", -25, "伤", o=W)])]
 meet("meet_doufa", "斗法", "2.0 + max(0.0, -(g.opn(A, B) + g.opn(B, A)) / 15.0) + 1.5 * g.mneg(A, B)", [
@@ -177,10 +179,13 @@ meet("meet_beiqi", "背弃", 3.0, [{"id": "ok", "effects": [
         iff("g.trt(B, '记仇') or g.trt(B, '痴情')", {"op": "goal", "who": "B", "value": "'报仇'", "gt": "A"})]}],
      when="g.is_partner(A, B) and (g.trt(A, '薄情') or g.trt(A, '阴狠')) and se.chance(0.3)")
 meet("meet_fuchou", "复仇", 12.0, [
-    {"id": "ok", "first": True, "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3)", "effects": [
+    # v0.11.5（Gemini v5 P1#6）：侠义之人赢了也不下杀手，除非深仇；输了记下“败给谁”，冷却期内、修为没长不再去
+    {"id": "ok", "first": True, "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3) and g.may_kill(A, B)", "effects": [
         chron("A", "#v_fuchou_ok#", o="B"), {"op": "die", "who": "B", "how": "被{w}寻仇所杀", "vars": {"w": "A"}}, {"op": "goal", "who": "A", "value": "g.newgoal()"}]},
-    {"id": "fail", "first": True, "effects": [{"op": "inj", "who": "A", "days": 25}, chron("A", "#v_fuchou_fail#", o="B"), rel("B", "A", gg=30)]},
-], when="A.goal == '报仇' and int(A.gt) == int(B.id)")
+    {"id": "spare", "first": True, "when": "g.lv(A) + se.roll(0, 4) > g.lv(B) + se.roll(0, 3)", "effects": [
+        {"op": "inj", "who": "B", "days": 20}, chron("A", "#v_fuchou_spare#", o="B"), chron("B", "#v_fuchou_spared#", o="A"), {"op": "goal", "who": "A", "value": "g.newgoal()"}]},
+    {"id": "fail", "first": True, "effects": [{"op": "inj", "who": "A", "days": 25}, {"op": "beat", "a": "A", "b": "B"}, chron("A", "#v_fuchou_fail#", o="B"), rel("B", "A", gg=30)]},
+], when="A.goal == '报仇' and int(A.gt) == int(B.id) and not g.cowed(A, B)")
 
 CORE = list(MEET)
 # 独处（旧版 solo）：现在是人物“一拍”里的一种；九转丹要先炼过三回才可能成（组合事件）

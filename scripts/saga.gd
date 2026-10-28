@@ -192,6 +192,11 @@ func se_op(op: Dictionary, inst, e) -> void:
 		"move":
 			if a != null:
 				a["place"] = String(e.ev(op["to"], inst))
+		"beat":
+			var ba = _a(inst, e, op.get("a", "A"))
+			var bb = _a(inst, e, op.get("b", "B"))
+			if ba != null and bb != null:
+				W.note_defeat(ba, bb)
 		"die":
 			if a != null and a["alive"]:
 				W.die(a, e.say(op.get("how", "身死道消"), inst, "how", e._op_vars(op, inst)))
@@ -370,6 +375,12 @@ func inj(a) -> bool:
 	return int(a["inj"]) > 0
 func prot(a) -> bool:
 	return W._protected(a)
+func may_kill(a, b) -> bool:
+	return W.may_kill(a, b)
+func cowed(a, b) -> bool:
+	return W.cowed(a, b)
+func xia(a) -> bool:
+	return W.xia(a)
 func kids(a) -> int:
 	return a.get("kids", []).size()
 func kid(a) -> String:
