@@ -482,8 +482,12 @@ func remember(c: Dictionary, o, text: String, wt: int, kind: String = "", aid: i
 const PLOG_CAP := 300   # v0.14：她自己的履历留得长些（几十年闭关也写进去）；别人仍是 120
 ## v0.13.1（Gemini v6 评审 P0-3 / P1-7）：履历里的大事（破境、拜师收徒、结侣、救命、夺宝、生子、坐化…）
 ## 不再被 120 条滚动挤掉——满了先挤最早的一条“日常”；同一句日常一辈子最多记两回（闲话、切磋不再刷屏）
-const MILESTONE_WORDS := ["入了", "筑基", "结丹", "金丹", "元婴", "化神", "冲关", "拜", "为徒", "收徒", "道侣", "结为", "决裂", "救", "夺", "截", "斩", "添了", "生了", "坐化", "身故", "陨", "掌门", "继位", "出生", "仇", "心魔"]
+const MILESTONE_WORDS := ["入了", "筑基", "结丹", "金丹", "元婴", "化神", "冲关", "拜", "为徒", "收徒", "道侣", "结为", "决裂", "救", "夺", "截", "斩", "添了", "生了", "坐化", "身故", "陨", "掌门", "继位", "出生", "仇", "心魔", "落选"]
 static func is_milestone(text: String) -> bool:
+	# v0.14.1：出关后补记的传闻、故人近况是“听来的”，里面有“夺/截/救”也不算她的大事——
+	# 不然百年后 300 条全是传闻，最早的入境、拜师反倒被挤掉（sim100 种子 31 履历从二十三年开始）
+	if text.begins_with("（出关后才听说）") or text.begins_with("故人这些年") or text.begins_with("闭关第"):
+		return false
 	for k in MILESTONE_WORDS:
 		if text.contains(k):
 			return true
@@ -507,12 +511,24 @@ func chron(c: Dictionary, text: String) -> void:
 		if same >= 2:
 			return
 	lg.append([int(w["day"]), text])
-	if lg.size() > (PLOG_CAP if c.get("player", false) else 120):
-		var drop := 0
+	trim_log(lg, PLOG_CAP if c.get("player", false) else 120)
+
+## 履历满了：先挤最早一条“听来的”（出关后补记的传闻、故人近况），再挤最早一条日常；大事不动
+## v0.14.1：她的闭关履历走 pchron（按日期插入），原来直接 pop_front，把入境、拜师也挤掉了——两条路都用这一个
+static func trim_log(lg: Array, cap: int) -> void:
+	while lg.size() > cap:
+		var drop := -1
 		for i in lg.size() - 1:
-			if not is_milestone(String(lg[i][1])):
+			var t0 := String(lg[i][1])
+			if t0.begins_with("（出关后才听说）") or t0.begins_with("故人这些年"):
 				drop = i
 				break
+		if drop < 0:
+			drop = 0
+			for i in lg.size() - 1:
+				if not is_milestone(String(lg[i][1])):
+					drop = i
+					break
 		lg.remove_at(drop)
 
 func rumor(text: String, who: Array = [], kind: String = "") -> void:

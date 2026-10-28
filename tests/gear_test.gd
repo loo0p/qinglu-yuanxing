@@ -24,6 +24,7 @@ func _init() -> void:
 	t_seclude()
 	t_stalled()
 	t_unlock_merge()
+	t_trim()
 	t_proto()
 	t_gen()
 	t_identity()
@@ -97,6 +98,19 @@ func t_unlock_merge() -> void:
 		if not String(news[0]["text"]).contains(p) or not String(ch[0][1]).contains(p):
 			all_in = false
 	ok(all_in, "并起来的那条里每处地名都在")
+
+## v0.14.1：她的履历满 300 条时，先挤传闻、再挤日常；闭关补记（pchron）也不再直接挤掉最早的大事
+func t_trim() -> void:
+	var g = GS.new()
+	g.new_game("苏青禾", "sect", 3, true)
+	var lg: Array = g.world.P()["log"]
+	var first := String(lg[0][1])
+	for i in 400:
+		g.pchron("（出关后才听说）有人在后山夺了一件宝物（%d）。" % i)
+	ok(lg.size() == 300 and String(lg[0][1]) == first, "满 300 条：开局那条还在（%s）" % String(lg[0][1]).left(12))
+	for i in 400:
+		g.pchron("在静室里坐了一个月（%d）。" % i)
+	ok(String(lg[0][1]) == first and lg.filter(func(e): return String(e[1]).begins_with("（出关后才听说）")).is_empty(), "传闻先被挤光，大事仍在")
 
 func t_proto() -> void:
 	ok(Gear.prop("飞剑", "slot") == "fabao" and is_equal_approx(float(Gear.prop("飞剑", "weight")), 2.0), "prototree：飞剑继承法宝的槽、覆盖重量")

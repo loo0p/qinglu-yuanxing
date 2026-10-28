@@ -293,8 +293,7 @@ func pchron(t: String, day: int = -1) -> void:
 	while at > 0 and int(lg[at - 1][0]) > d:
 		at -= 1
 	lg.insert(at, [d, t])
-	while lg.size() > World.PLOG_CAP:
-		lg.pop_front()
+	World.trim_log(lg, World.PLOG_CAP)
 
 ## v0.13.1（Gemini v6 P0-6）：一样的话只留一条（长闭关不再五遍“赤阳果要熟了”）；
 ## 一次解锁好几处新去处，并成一条
