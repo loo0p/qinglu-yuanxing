@@ -222,9 +222,9 @@ const TV = preload("res://scripts/travel.gd")
 const SG = preload("res://scripts/saga.gd")   # v0.12：可插拔事件引擎的胶水层（内容在 data/packs）
 ## 路上也能出的旧模板（其余在家才说得通的：访客、仇人上门、节令……到了路上先压着，回家再说，不丢）
 ## v0.12.1（Gemini v5 评审）：所有“要处多久 / 隔多久 / 见过几回”的门槛都在这一张表里，
-## 时间一格是一“步”（眼下 1 步 = 1 日；改成按月推进时把 UNIT 换成 "month"，取第二列）。
+## 时间一格是一“步”（v0.13 起 1 步 = 1 个月，取第二列；原来 1 步 = 1 日时取第一列）。
 ## 次数类（见过几回、好感多少）两列相同，与时间单位无关。
-const UNIT := "day"
+const UNIT := "month"   # v0.13：回合=月
 const PACE := {
 	"apology_gap": [10, 12],      # 赔罪：那件事过去多少步，才说得出“当年”
 	"friend_n": [3, 5],           # 旧友：一同经历过几件事
@@ -3101,7 +3101,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_inj(2)
 					R(n, p)["g"] = int(_rel(n, p)["g"]) + 25
-					out = "她拔了剑。%s伤成那样，还是硬接了一招，翻出篱笆不见了。\n（受了点伤：闭关炼化减半 2 日）" % nm
+					out = "她拔了剑。%s伤成那样，还是硬接了一招，翻出篱笆不见了。\n（受了点伤：闭关炼化减半两个月）" % nm
 					chron(p, "%s来借庐，她想了结旧账，被对方逃了。" % nm)
 			elif oid == "path":
 				fav(n, 8, "%s指了一条路" % pn(), 8)
