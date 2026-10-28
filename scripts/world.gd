@@ -413,7 +413,7 @@ func _new_char(sex: String = "", sect: String = "", lv: int = -1, player: bool =
 	var c := {"id": id, "player": player, "sex": sex, "name": nm, "sect": sect, "lv": lv, "xp": 0.0,
 		"age": float(rng.randi_range(16, 30) + lv * 6), "traits": traits, "likes": likes, "dislikes": [_ch(rest)],
 		"goal": _ch(GOALS), "gt": 0, "place": SECT_HOME[sect] if rng.randf() < 0.6 else _ch(PLACES.slice(1)),
-		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "pv": 9, "born": int(w["day"])}
+		"alive": true, "asc": false, "inj": 0, "rel": {}, "mem": [], "log": [], "pseed": rng.randi() % 1000000000, "pv": 10, "born": int(w["day"])}
 	w["C"][str(id)] = c
 	return c
 
@@ -433,6 +433,9 @@ func portrait_opts(c: Dictionary) -> Dictionary:
 		o["demon_mix"] = true   # v0.7.4 起的新人物：魔门中人不再一律穿同一件黑袍（旧人物不变）
 	if int(c.get("pv", 0)) >= 8 and int(c.get("young", 0)) == 1:
 		o["no_beard"] = true   # v0.7.7：现生的小师弟/小师妹（14–24 岁）不长胡子；旧人物没有 young 键，脸不变
+	if int(c.get("pv", 0)) >= 10:
+		o["robe_v"] = 10   # v0.9.3 新人物：可穿新绘的宗门服（剑修/药师/僧衣/蓑衣/甲胄…），按宗门加权；旧人物不变
+		o["sect"] = c["sect"]
 	if SECT_TINT.has(c["sect"]):
 		o["robe_tint"] = SECT_TINT[c["sect"]]
 	return o

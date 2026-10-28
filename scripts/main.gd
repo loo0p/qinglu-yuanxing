@@ -1561,7 +1561,7 @@ func _create() -> void:
 ## 主角立绘：整张重摇，或只换一处（发髻 / 衣袍 / 袍色），其余不动
 func _reroll_portrait(part: String = "all") -> void:
 	create_pseed += 1
-	var fresh = PLib.roll("c%d_%d" % [randi(), create_pseed], {"sex": "f", "elder": false, "demonic": false})
+	var fresh = PLib.roll("c%d_%d" % [randi(), create_pseed], {"sex": "f", "elder": false, "demonic": false, "robe_v": 10})
 	# 主角不带魔纹
 	fresh["marks"] = fresh["marks"].filter(func(m): return not String(m).begins_with("demon"))
 	if part == "all" or create_portrait.is_empty():
@@ -1594,7 +1594,7 @@ func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = 
 
 ## 主角立绘：女、非老者、无魔纹
 func _hero_roll(seed_v) -> Dictionary:
-	var sp = PLib.roll(seed_v, {"sex": "f", "elder": false, "demonic": false})
+	var sp = PLib.roll(seed_v, {"sex": "f", "elder": false, "demonic": false, "robe_v": 10})
 	sp["marks"] = sp["marks"].filter(func(m): return not String(m).begins_with("demon"))
 	return sp
 
@@ -2763,7 +2763,7 @@ func _dev(cmd: String) -> String:
 			var specs2 := []
 			for k in 12:
 				var sect: String = g.world.SECT_LIST[(base + k) % g.world.SECT_LIST.size()] if g.world != null else "散修"
-				var o := {"sex": "m" if k % 3 == 2 else "f", "elder": k == 11, "demonic": sect in ["血煞门", "阴骨教"], "demon_mix": true}
+				var o := {"sex": "m" if k % 3 == 2 else "f", "elder": k == 11, "demonic": sect in ["血煞门", "阴骨教"], "demon_mix": true, "robe_v": 10, "sect": sect}
 				if g.world != null and g.world.SECT_TINT.has(sect):
 					o["robe_tint"] = g.world.SECT_TINT[sect]
 				specs2.append(PLib.roll((base * 7919 + k * 104729) % 1000000000, o))

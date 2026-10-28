@@ -88,6 +88,7 @@ lib['pools'] = dict(F_BASES=c.F_BASES, M_BASES=c.M_BASES, ELDER=c.ELDER,
     feats={sx: {r: [e['id'] for e in c.LIB[sx][r] if e['id'] not in c.CLOSED_IDS] for r in ('nose', 'mouth', 'eyes', 'brows')} for sx in 'fm'},
     elder_feats={b: {r: [e['id'] for e in v.get(r, [])] for r in ('brows', 'mouth')} for b, v in c.LIB.get('elder', {}).items()},
     closed=c.CLOSED, hair=c.HAIR, robes=c.ROBES, elder_robes=c.ELDER_ROBES, fixed=sorted(c.FIXED), outers=c.OUTERS,
-    beards=c.BEARDS, acc=c.ACC, native_white=sorted(c.NATIVE_WHITE), pal_f=c.PAL_F, pal_m=c.PAL_M)
+    beards=c.BEARDS, acc=c.ACC, native_white=sorted(c.NATIVE_WHITE), pal_f=c.PAL_F, pal_m=c.PAL_M,
+    robes_new=c.ROBES_NEW, elder_robes_new=c.ELDER_ROBES_NEW, sect_robes=c.SECT_ROBES, no_outer=c.NO_OUTER)
 json.dump(lib, open(f'{OUT}/lib5.json', 'w'), ensure_ascii=False)
 print('done', len(lib['feats']), 'feats', len(lib['parts']), 'parts', len(lib['marks']), 'marks')

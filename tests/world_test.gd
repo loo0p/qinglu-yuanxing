@@ -190,6 +190,24 @@ func _init() -> void:
 		robes_new[Portrait5Lib.roll(sd, o8)["robe"]] = true
 		same_old = same_old and Portrait5Lib.roll(sd, o7)["robe"] == "robe_f3@base_f"
 	ok(robes_new.size() >= 3 and same_old, "魔门新人物袍子不止一种（%d 种），旧人物不变" % robes_new.size())
+	# v0.9.3：pv10 新人物带 robe_v/sect，能穿新绘宗门服且按宗门加权；pv9 旧人物整份立绘一模一样
+	var c9 := n0.duplicate(true); c9["pv"] = 9
+	var c10 := n0.duplicate(true); c10["pv"] = 10
+	ok(int(a.portrait_opts(c10).get("robe_v", 0)) == 10 and not a.portrait_opts(c9).has("robe_v"), "pv10 人物带 robe_v，pv9 不带")
+	var same9 := true
+	var new_kinds := {}
+	var pref_hit := 0
+	for sd in 80:
+		var o9 := {"sex": "f" if sd % 2 == 0 else "m", "elder": false, "demonic": false, "demon_mix": true, "robe_tint": [104, 140, 104]}
+		var o10 := o9.duplicate(); o10["robe_v"] = 10; o10["sect"] = "药王谷"
+		var s9 := Portrait5Lib.roll(sd, o9)
+		var s10 := Portrait5Lib.roll(sd, o10)
+		var a9 := s9.duplicate(); a9.erase("robe"); a9.erase("outer")
+		var a10 := s10.duplicate(); a10.erase("robe"); a10.erase("outer")
+		same9 = same9 and JSON.stringify(a9) == JSON.stringify(a10) and JSON.stringify(Portrait5Lib.roll(sd, o9)) == JSON.stringify(s9)
+		if int(String(s10["robe"]).get_slice("@", 0).substr(6)) >= 10: new_kinds[s10["robe"]] = true
+		if String(s10["robe"]).begins_with("robe_f11") or String(s10["robe"]).begins_with("robe_m11"): pref_hit += 1
+	ok(same9 and new_kinds.size() >= 5 and pref_hit >= 12, "robe_v 只换袍子、不动脸和别的签；新袍 %d 种，药王谷穿药师服 %d/80" % [new_kinds.size(), pref_hit])
 	# 文字重复度：玩家 100 日里读到的事件文字、结果、自己的生平，按句切开（人名换成“某”、数字换成 N、去掉括号里的数值提示），不同句子占比
 	var ur := 0.0
 	var worst := ""

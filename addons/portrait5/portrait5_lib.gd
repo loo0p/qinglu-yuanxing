@@ -114,4 +114,32 @@ static func roll(seed_v, opts: Dictionary = {}) -> Dictionary:
 			sp.beard = _pick(r, bp)
 	# no_beard（v0.7.7 现生的 14–24 岁后辈）：签照抽（顺序不变），只是不长胡子；旧人物没有这个键
 	if opts.get("no_beard", false): sp.beard = null
+	# robe_v 10（v0.9.3 新人物）：另起一个随机数重抽袍子，加入新绘的宗门服并按宗门加权；
+	# 原签顺序不动，旧人物没有这个键，长相不变
+	if int(opts.get("robe_v", 0)) >= 10 and P.has("robes_new"):
+		_robe10(sp, str(seed_v), sex, elder, use_demon, demon_robe, nx, str(opts.get("sect", "")), P)
 	return sp
+
+static func _robe10(sp: Dictionary, seed_s: String, sex: String, elder: bool, use_demon: bool, demon_robe: String, nx: Array, sect: String, P: Dictionary) -> void:
+	var r := RandomNumberGenerator.new(); r.seed = hash(seed_s + ":robe10")
+	var pref: Array = P.sect_robes.get(sect, [])
+	var w := {}
+	if use_demon:
+		w[demon_robe] = 2
+		w["robe_f15@base_f" if sex == "f" else "robe_m14@base_m"] = 2
+		if sex == "f": w["robe_f17@base_f"] = 1
+		else: w["robe_m16@base_m"] = 1
+	else:
+		for k in (P.elder_robes[sex] if elder else P.robes[sex]):
+			if k != demon_robe and not (k in nx): w[k] = 1
+		for k in (P.elder_robes_new[sex] if elder else P.robes_new[sex]):
+			w[k] = 4 if k.get_slice("@", 0) in pref else 1
+	var tot := 0
+	for k in w: tot += w[k]
+	var x := r.randi() % tot
+	for k in w:
+		x -= w[k]
+		if x < 0:
+			sp.robe = k
+			break
+	if sp.robe in P.no_outer or sp.robe in P.fixed: sp.outer = null

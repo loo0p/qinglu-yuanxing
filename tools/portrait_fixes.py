@@ -61,7 +61,57 @@ def fix(rel, im):
         return Image.fromarray(a.clip(0, 255).astype(np.uint8), "RGBA")
     if rel.startswith("feat/") and LIB is not None:
         return fix_feat(rel, im)
+    if LIB is not None and rel.startswith(("parts/hair_", "parts/acc_")) and rel.count(".") == 1:
+        return fix_hair_ghost(rel, im)
     return im
+
+
+# ---------------------------------------------------------------- v0.9.3：发髻里夹带的“底模衣袍幽灵线”
+def _body_fill(base):
+    """底头（烘焙原图，未抹纸色）下巴以下的白衣身子：连成片后填实，返回 0/1 掩码。"""
+    import cv2, os
+    rgb = np.array(Image.open(os.path.join(SRC, "heads", base + ".jpg")).convert("RGB")).astype(np.float32)
+    y0 = int(LIB["heads"][base]["anchors"]["mouth"][1] + 28)
+    bg = np.concatenate([rgb[:150, :50].reshape(-1, 3), rgb[:150, -50:].reshape(-1, 3)]).mean(0)
+    body = (np.abs(rgb - bg).max(-1) > 14).astype(np.uint8)
+    body[:y0] = 0
+    body = cv2.morphologyEx(body, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(body, 8)
+    big = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] > 3000]).astype(np.uint8)
+    ff = big.copy(); h, w = ff.shape; m = np.zeros((h + 2, w + 2), np.uint8)
+    for p in [(0, 0), (w - 1, 0), (0, min(h - 1, y0 + 40)), (w - 1, min(h - 1, y0 + 40))]:
+        if ff[p[1], p[0]] == 0:
+            cv2.floodFill(ff, m, p, 2)
+    filled = (ff != 2).astype(np.uint8)
+    filled[:y0] = 0
+    return filled
+
+
+def fix_hair_ghost(rel, im):
+    """发髻/发饰是在穿白衣的底模上改画、再与底图做差抠出来的；AI 改画时把整件白衣的墨线也轻轻重描了一遍，
+    抠出来就成了一层淡淡的黑线（领口、肩线、衣褶）压在任何衣袍上面——新画的窄肩衣袍外面能看到一道“第二条肩线”。
+    这里把底模衣身范围内、不属于成缕头发的淡线去掉（成片的发丝和单缕实心发丝都保留，边缘羽化）。"""
+    import cv2, os
+    stem = os.path.basename(rel)[:-4]
+    key = stem.replace("-base_", "@base_")
+    e = LIB["parts"].get(key)
+    if e is None:
+        return im
+    base = key.split("@")[1]
+    a = np.array(im.convert("RGBA"))
+    h, w = a.shape[:2]; x0, y0 = e["pos"]
+    F = _body_fill(base)[y0:y0 + h, x0:x0 + w]
+    F = np.pad(F, ((0, h - F.shape[0]), (0, w - F.shape[1])))
+    region = cv2.dilate(F, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))) > 0
+    al = a[..., 3]
+    mass = cv2.morphologyEx((al > 120).astype(np.uint8), cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    n, lab, st, _ = cv2.connectedComponentsWithStats((al > 150).astype(np.uint8), 8)
+    strands = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= 60])
+    keep = cv2.dilate(((mass > 0) | strands).astype(np.uint8), np.ones((5, 5), np.uint8)).astype(np.float32)
+    keep = cv2.GaussianBlur(keep, (0, 0), 1.2)
+    k = np.where(region, np.clip(keep * 1.4, 0, 1), 1.0)
+    a[..., 3] = (al.astype(np.float32) * k).astype(np.uint8)
+    return Image.fromarray(a, "RGBA")
 
 
 # ---------------------------------------------------------------- v0.7.9：脸不“变形”、衣袍不露底

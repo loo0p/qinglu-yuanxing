@@ -165,6 +165,20 @@ PAL_M=[(70,92,120),(96,130,112),(120,120,124),(150,110,80),(60,62,70),(110,90,12
 ROBES={'f':[f'robe_f{i}@base_f' for i in range(1,10)],'m':[f'robe_m{i}@base_m' for i in range(1,10)]}
 ELDER_ROBES={'f':['robe_f5@base_f','robe_f2@base_f','robe_f8@base_f','robe_f1@base_f','robe_f7@base_f'],'m':['robe_m5@base_m','robe_m1@base_m','robe_m8@base_m','robe_m7@base_m','robe_m4@base_m']}
 FIXED={'robe_f3@base_f','robe_m3@base_m'}
+# v0.9.3 新衣袍：不进 ROBES（旧人物的抽签不变），只给 pv>=10 的新人物按宗门加权另抽（Portrait5Lib.roll 的 robe_v）
+ROBES_NEW={'f':[f'robe_f{i}@base_f' for i in range(10,18)],'m':[f'robe_m{i}@base_m' for i in range(10,18)]}
+ELDER_ROBES_NEW={'f':['robe_f11@base_f','robe_f12@base_f','robe_f13@base_f','robe_f14@base_f'],'m':['robe_m11@base_m','robe_m12@base_m','robe_m13@base_m','robe_m14@base_m','robe_m17@base_m']}
+# 宗门偏好的款式（权重 x4）；f10 剑修披肩 f11 药师围裙 f12 尼袍袈裟 f13 世家叠领 f14 纱衣 f15 魔门高领束腰 f16 蓑衣 f17 轻甲
+# m10 剑修背带 m11 药师 m12 僧袍 m13 圆领袍 m14 魔门毛领 m15 蓑衣 m16 兽面轻甲 m17 鹤氅
+SECT_ROBES={'青云宗':['robe_f10','robe_f13','robe_f14','robe_m10','robe_m13','robe_m17'],
+ '玄霜谷':['robe_f14','robe_f10','robe_f13','robe_m17','robe_m10','robe_m14'],
+ '落霞宫':['robe_f13','robe_f14','robe_m13','robe_m17'],
+ '万剑门':['robe_f10','robe_f17','robe_m10','robe_m16'],
+ '药王谷':['robe_f11','robe_m11'],
+ '散修':['robe_f16','robe_f11','robe_f12','robe_m15','robe_m11','robe_m12'],
+ '血煞门':['robe_f15','robe_f17','robe_m14','robe_m16'],
+ '阴骨教':['robe_f15','robe_f12','robe_m14','robe_m12']}
+NO_OUTER=['robe_f10@base_f','robe_f16@base_f','robe_f17@base_f','robe_m14@base_m','robe_m15@base_m','robe_m16@base_m']
 OUTERS={'f':['outer_f2@base_f','outer_f1@base_f','outer_f3@base_f','outer_f4@base_f','outer_f5@base_f'],'m':['outer_m1@base_m','outer_m2@base_m','outer_m3@base_m','outer_m4@base_m']}
 HAIR={'f':[f'hair_f{i}@base_f' for i in range(1,13)],'m':[f'hair_m{i}@base_m' for i in range(1,12)],
       'fe':['hair_fe1@base_fe','hair_fe2@base_fe','hair_fe3@base_fe'],'me':['hair_me1@base_me','hair_me2@base_me','hair_me3@base_me']}

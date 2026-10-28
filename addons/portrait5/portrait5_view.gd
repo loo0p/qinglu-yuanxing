@@ -77,7 +77,21 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 		if v == null: continue
 		if FEAT_SWAP.has(v): feats[reg] = FEAT_SWAP[v]
 		if feats[reg] == "eyes:fx_f2@base_f" and out.base == "base_f3": feats[reg] = "eyes:fx_f4@base_f"
+	# v0.9.3：外披与袍色撞色（色相差太大且两者都偏艳，如紫披配绿袍）时，外披改用袍色的深/浅/素灰一档（只改画法）
+	if out.get("outer") != null and out.has("outer_tint") and out.has("robe_tint"):
+		out.outer_tint = _harmonize(out.robe_tint, out.outer_tint, str(out.outer) + str(out.get("hair", "")))
 	return out
+
+static func _harmonize(rt: Array, ot: Array, key: String) -> Array:
+	var a := Color8(int(rt[0]), int(rt[1]), int(rt[2])); var b := Color8(int(ot[0]), int(ot[1]), int(ot[2]))
+	var dh := absf(a.h - b.h); dh = minf(dh, 1.0 - dh)
+	if dh * 360.0 <= 60.0 or a.s < 0.15 or b.s < 0.15: return ot
+	var c: Color
+	match absi(hash(key)) % 3:
+		0: c = a.lerp(Color(0.93, 0.92, 0.89), 0.55)       # 同色浅一档
+		1: c = a.lerp(Color(0.16, 0.16, 0.18), 0.40)       # 同色深一档
+		_: c = Color(0.80, 0.79, 0.76).lerp(a, 0.18)       # 近素灰，略带袍色
+	return [int(c.r8), int(c.g8), int(c.b8)]
 
 func setup(sp_in: Dictionary) -> void:
 	Portrait5Lib.ensure()
