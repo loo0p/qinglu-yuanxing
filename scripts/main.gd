@@ -5,7 +5,7 @@ extends Control
 
 const GS = preload("res://scripts/game_state.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.10 试玩版"
+const VERSION = "v0.10.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
