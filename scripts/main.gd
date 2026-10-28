@@ -6,7 +6,7 @@ extends Control
 const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.11.2 试玩版"
+const VERSION = "v0.11.3 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1944,20 +1944,20 @@ func _log_tab() -> void:
 
 # ------------------------------------------------------------ v0.11.2 地点画风：每处一套底图 / 题头 / 纸色 / 边饰 / 世界图小景
 ## k 资源名（web_portrait/bg/pl_k.webp 底图，assets/img/vig_k.webp 世界图小景）；paper 卡片纸色；edge 边饰与描边；ink 地名与强调字；
-## wash/wa 底图上罩的一层（颜色/浓淡）；hy 题头取底图哪一段（中心，按图高比例）；motto 题头小字（这地方的气味；只用 fonts/glyphs.txt 里有的字）
+## wash/wa 底图上罩的一层（颜色/浓淡）；hy 题头取底图哪一段（中心，按图高比例）；motto 题头小字（这地方的气味；改了要重跑 tools/make_font.py）
 const PLACE_LOOK = {
-	"后山": {"k": "houshan", "paper": Color("#EDF3E6"), "edge": Color("#4E7D45"), "ink": Color("#2C5530"), "wash": Color("#E3EDD8"), "wa": 0.26, "hy": 0.17, "motto": "松风 · 山涧 · 古藤"},
-	"坊市": {"k": "fangshi", "paper": Color("#FBF0E0"), "edge": Color("#B9582A"), "ink": Color("#86361A"), "wash": Color("#F6E3C6"), "wa": 0.28, "hy": 0.15, "motto": "灯火 · 檐角 · 人声"},
+	"后山": {"k": "houshan", "paper": Color("#EDF3E6"), "edge": Color("#4E7D45"), "ink": Color("#2C5530"), "wash": Color("#E3EDD8"), "wa": 0.26, "hy": 0.17, "motto": "松风 · 山涧 · 青苔"},
+	"坊市": {"k": "fangshi", "paper": Color("#FBF0E0"), "edge": Color("#B9582A"), "ink": Color("#86361A"), "wash": Color("#F6E3C6"), "wa": 0.28, "hy": 0.15, "motto": "灯笼 · 檐角 · 人声"},
 	"寒潭": {"k": "hantan", "paper": Color("#EAEFF4"), "edge": Color("#56718A"), "ink": Color("#2B4760"), "wash": Color("#DDE6EE"), "wa": 0.24, "hy": 0.17, "motto": "寒雾 · 薄冰 · 瀑声"},
 	"药王谷": {"k": "yaowang", "paper": Color("#F5F2DC"), "edge": Color("#7E8A2E"), "ink": Color("#4F5A1A"), "wash": Color("#EEEACB"), "wa": 0.26, "hy": 0.22, "motto": "药圃 · 丹烟 · 日暖"},
 	"青云宗": {"k": "qingyun", "paper": Color("#ECF3F9"), "edge": Color("#3A78A8"), "ink": Color("#1D4B74"), "wash": Color("#E4EEF6"), "wa": 0.20, "hy": 0.15, "motto": "云海 · 石阶 · 鹤影"},
 	"云梦泽": {"k": "yunmeng", "paper": Color("#F2F0E4"), "edge": Color("#7E907A"), "ink": Color("#3F5A48"), "wash": Color("#ECE8DA"), "wa": 0.20, "hy": 0.20, "motto": "芦花 · 渔火 · 烟水"},
-	"玄霜谷": {"k": "xuanshuang", "paper": Color("#F2F0F8"), "edge": Color("#7E77B0"), "ink": Color("#433E78"), "wash": Color("#EAE8F4"), "wa": 0.18, "hy": 0.22, "motto": "落雪 · 冰瀑 · 无声"},
+	"玄霜谷": {"k": "xuanshuang", "paper": Color("#F2F0F8"), "edge": Color("#7E77B0"), "ink": Color("#433E78"), "wash": Color("#EAE8F4"), "wa": 0.18, "hy": 0.22, "motto": "落雪 · 冰瀑 · 寂静"},
 	"落霞宫": {"k": "luoxia", "paper": Color("#FCEDEA"), "edge": Color("#C2626E"), "ink": Color("#8A3344"), "wash": Color("#F8E0DE"), "wa": 0.22, "hy": 0.20, "motto": "晚霞 · 琴台 · 桃花"},
-	"万剑门": {"k": "wanjian", "paper": Color("#EEEFF0"), "edge": Color("#5E6774"), "ink": Color("#2A313C"), "wash": Color("#E4E6E8"), "wa": 0.22, "hy": 0.24, "motto": "剑痕 · 山风 · 铁色"},
+	"万剑门": {"k": "wanjian", "paper": Color("#EEEFF0"), "edge": Color("#5E6774"), "ink": Color("#2A313C"), "wash": Color("#E4E6E8"), "wa": 0.22, "hy": 0.24, "motto": "剑痕 · 罡风 · 铁色"},
 	"古战场": {"k": "guzhan", "paper": Color("#F4EAD6"), "edge": Color("#94622F"), "ink": Color("#663F1C"), "wash": Color("#EADCC0"), "wa": 0.24, "hy": 0.15, "motto": "黄沙 · 断戟 · 残碑"},
-	"秘境": {"k": "mijing", "paper": Color("#E8F3F0"), "edge": Color("#2A8178"), "ink": Color("#1B5550"), "wash": Color("#CFE6E1"), "wa": 0.12, "hy": 0.15, "motto": "石门 · 灵光 · 深潭"},
-	"血煞门": {"k": "xuesha", "paper": Color("#F6E8E5"), "edge": Color("#8A2626"), "ink": Color("#6A1616"), "wash": Color("#E9C9C3"), "wa": 0.12, "hy": 0.14, "motto": "赤山 · 血池 · 黑鸟"},
+	"秘境": {"k": "mijing", "paper": Color("#E8F3F0"), "edge": Color("#2A8178"), "ink": Color("#1B5550"), "wash": Color("#CFE6E1"), "wa": 0.12, "hy": 0.15, "motto": "石门 · 灵光 · 幽深"},
+	"血煞门": {"k": "xuesha", "paper": Color("#F6E8E5"), "edge": Color("#8A2626"), "ink": Color("#6A1616"), "wash": Color("#E9C9C3"), "wa": 0.12, "hy": 0.14, "motto": "赤山 · 血池 · 鸦声"},
 }
 ## 当前这一屏用哪处的纸色（_refresh 清空；游历页设上）——card() 照着它换底色和边饰
 var place_look: Dictionary = {}
@@ -1973,8 +1973,10 @@ func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
 
 ## 游历页题头：取这地方底图最有辨识度的一段 + 地名、小景、气味小字
 func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
-	var vw: float = get_viewport_rect().size.x
-	var h := 118.0 if vw >= 380 else 104.0
+	# v0.11.2b：图要看得清——题头更高，底下只一层渐隐的本处纸色，地名直接压在画上（纸色晕边 + 柔影）
+	var vs: Vector2 = get_viewport_rect().size
+	var h := 146.0 if vs.y >= 760 else (112.0 if vs.y >= 700 else 88.0)   # 360×640 这类矮屏：题头比 v0.11.2 还矮 16px，给下面的人和“上前”腾地方
+	var pc: Color = lk["paper"]
 	var box = PanelContainer.new()
 	var fr = _sb(Color(0, 0, 0, 0), lk["edge"], 8, 2, 0)
 	fr.draw_center = false
@@ -1986,7 +1988,7 @@ func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	var t: Texture2D = tex("pl_" + String(lk["k"]))
 	if t != null:
 		var ts := t.get_size()
-		var bw := vw - 24.0
+		var bw := vs.x - 24.0
 		var rh := ts.x * h / bw
 		var at = AtlasTexture.new()
 		at.atlas = t
@@ -1997,30 +1999,57 @@ func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(tr)
+	# 下沿渐隐：上面全透明，最底下也只到七成纸色——画一直透到底
+	var gv = VBoxContainer.new()
+	gv.add_theme_constant_override("separation", 0)
+	gv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(gv)
+	var gsp = Control.new()
+	gsp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	gsp.size_flags_stretch_ratio = 1.4
+	gsp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gv.add_child(gsp)
+	var gt = GradientTexture2D.new()
+	gt.fill_from = Vector2(0.5, 0.0)
+	gt.fill_to = Vector2(0.5, 1.0)
+	var gr = Gradient.new()
+	gr.set_color(0, Color(pc.r, pc.g, pc.b, 0.0))
+	gr.set_color(1, Color(pc.r, pc.g, pc.b, 0.72))
+	gt.gradient = gr
+	gt.width = 8
+	gt.height = 64
+	var gtr = TextureRect.new()
+	gtr.texture = gt
+	gtr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	gtr.stretch_mode = TextureRect.STRETCH_SCALE
+	gtr.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	gtr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gv.add_child(gtr)
 	var ov = VBoxContainer.new()
 	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(ov)
-	# 右上角一枚小签：这地方的气味（松风 · 山涧 · 古藤 …）
+	# 右上角一枚小签：这地方的气味（松风 · 山涧 · 青苔 …）
 	var tg = HBoxContainer.new()
 	tg.alignment = BoxContainer.ALIGNMENT_END
 	tg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.add_child(tg)
-	var pc0: Color = lk["paper"]
 	var ml = L(String(lk["motto"]), 12, lk["ink"], tg)
-	ml.add_theme_stylebox_override("normal", _sb(Color(pc0.r, pc0.g, pc0.b, 0.8), Color(0, 0, 0, 0), 0, 0, 3))
+	ml.add_theme_stylebox_override("normal", _sb(Color(pc.r, pc.g, pc.b, 0.72), Color(0, 0, 0, 0), 0, 0, 3))
 	var sp = Control.new()
 	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.add_child(sp)
-	var rb = PanelContainer.new()
-	var pc: Color = lk["paper"]
-	rb.add_theme_stylebox_override("panel", _sb(Color(pc.r, pc.g, pc.b, 0.86), Color(0, 0, 0, 0), 0, 0, 6))
-	rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ov.add_child(rb)
-	var r = row(rb, 8)
-	IC("vig_" + String(lk["k"]), 34, r)
-	H(p, 24, lk["ink"], r)
-	var sl = L(sub, 13, C_DIM, r)
+	var mg = MarginContainer.new()
+	for side in ["left", "right", "bottom"]:
+		mg.add_theme_constant_override("margin_" + side, 8)
+	mg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ov.add_child(mg)
+	var r = row(mg, 8)
+	IC("vig_" + String(lk["k"]), 30, r)
+	var nm = H(p, 24, lk["ink"], r)
+	_halo(nm, pc, 7)
+	var sl = L(sub, 13, C_INK, r)
+	_halo(sl, pc, 5)
 	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sl.clip_text = true
@@ -2029,6 +2058,15 @@ func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(frame)
 	return sl
+
+## 压在画上的字：一圈纸色晕边 + 一层更宽更淡的柔影，任何底色上都读得出
+func _halo(l: Label, pc: Color, w: int) -> void:
+	l.add_theme_color_override("font_outline_color", Color(pc.r, pc.g, pc.b, 0.88))
+	l.add_theme_constant_override("outline_size", w)
+	l.add_theme_color_override("font_shadow_color", Color(pc.r, pc.g, pc.b, 0.55))
+	l.add_theme_constant_override("shadow_outline_size", w * 2 + 4)
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", 1)
 
 # ------------------------------------------------------------ 出发（路线图预览 + 行囊）
 func _trip_bg() -> String:

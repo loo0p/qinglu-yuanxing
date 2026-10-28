@@ -90,11 +90,16 @@ PL_VIG = {  # 名: (中心 x, 中心 y, 直径占图宽) —— 圆形小景从�
     "xuanshuang": (0.62, 0.26, 0.48), "luoxia": (0.55, 0.20, 0.44), "wanjian": (0.58, 0.24, 0.52),
     "guzhan": (0.30, 0.83, 0.52), "mijing": (0.50, 0.15, 0.48), "xuesha": (0.50, 0.17, 0.46),
 }
+PL_Q = {"yaowang": (52, 0.6)}
 VS = 112
 yy, xx = np.mgrid[0:VS, 0:VS]; rr = np.sqrt((xx - (VS - 1) / 2) ** 2 + (yy - (VS - 1) / 2) ** 2) / (VS / 2)
 for n, (cx, cy, dw) in PL_VIG.items():
     im = Image.open(os.path.join(S, "pl_" + n + ".jpg")).convert("RGB")
-    im.resize((540, 960), Image.LANCZOS).save(os.path.join(R, "web_portrait/bg", "pl_" + n + ".webp"), "WEBP", quality=60, method=6)
+    q, bl = PL_Q.get(n, (60, 0))   # 药王谷细节多（梯田药圃），略柔一点、q52：86KB → 54KB
+    bi = im.resize((540, 960), Image.LANCZOS)
+    if bl:
+        bi = bi.filter(ImageFilter.GaussianBlur(bl))
+    bi.save(os.path.join(R, "web_portrait/bg", "pl_" + n + ".webp"), "WEBP", quality=q, method=6)
     W, H = im.size; d = dw * W
     c = im.crop((int(cx * W - d / 2), int(cy * H - d / 2), int(cx * W + d / 2), int(cy * H + d / 2))).resize((VS, VS), Image.LANCZOS)
     a = np.asarray(c).astype(np.float32)
