@@ -5,7 +5,7 @@ extends RefCounted
 ## 引擎状态整块存在 world.w["se"]（JSON 安全，随存档走）；旧档没有这一块，读档时按种子新建，不动已有的人和事。
 const SE = preload("res://addons/storylet_engine/storylet_engine.gd")
 const AG = preload("res://scripts/agency.gd")
-const PACKS := ["qinglu_core", "qinglu_life", "qinglu_bio", "qinglu_offer", "qinglu_gear"]
+const PACKS := ["qinglu_core", "qinglu_life", "qinglu_bio", "qinglu_offer", "qinglu_gear", "qinglu_chron"]
 const CN := ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"]
 static var _cache := {}
 
@@ -47,7 +47,28 @@ func daily() -> void:
 ## 前尘：入局之前的经历。old=true 用于旧档补写：只成文，不新建任何关系
 func bio(c: Dictionary, old: bool = false) -> Array:
 	var seed_v := (int(c.get("pseed", 0)) * 31 + int(c["id"]) * 977 + 5) % 2147483647
-	return eng.biography(c, seed_v, {"age0": 5, "old": 1 if old else 0})
+	return sanxiu_fix(c, eng.biography(c, seed_v, {"age0": 5, "old": 1 if old else 0}), seed_v)
+
+## v0.15（Gemini v7 P1）：散修的前尘里拜过宗门，就补一句怎么离的山门（不然身份与生平对不上）
+const SANXIU_WHY := ["因私吞了一株灵草，被逐出山门", "师父坐化后受同门排挤，自请下山", "与执事起了争执，一怒之下离了宗门", "嫌门规太严，留书出走",
+	"宗门遭了劫，师门散了", "替人顶了罪，被除了名"]
+func sanxiu_fix(c: Dictionary, lst: Array, seed_v: int) -> Array:
+	if String(c.get("sect", "")) != "散修" or lst.is_empty():
+		return lst
+	var joined := false
+	for e in lst:
+		var t := String(e[1])
+		if t.contains("离了") or t.contains("逐出") or t.contains("下山") or t.contains("散修"):
+			return lst
+		if t.contains("拜入") or t.contains("外门") or t.contains("山门") or t.contains("宗门"):
+			joined = true
+	if not joined:
+		return lst
+	var age := int(lst[-1][0]) + 1 + seed_v % 3
+	if age > int(float(c["age"])):
+		age = int(float(c["age"]))
+	lst.append([age, "%s岁，%s，自此做了散修。" % [cn(age), SANXIU_WHY[seed_v % SANXIU_WHY.size()]]])
+	return lst
 
 func is_tid(tid: String) -> bool:
 	return eng.defs.has(tid) and String(eng.defs[tid].get("trigger", "")) == "offer"
@@ -90,6 +111,12 @@ func se_name(a) -> String:
 
 func se_alive(a) -> bool:
 	return bool(a["alive"])
+
+func se_begin() -> void:
+	W.fx_begin()
+
+func se_end() -> void:
+	W.fx_end()
 
 func se_chronicle(a, text: String, inst, e) -> void:
 	if text != "":
@@ -150,11 +177,7 @@ func se_op(op: Dictionary, inst, e) -> void:
 			if a == null or b == null:
 				return
 			for pr in ([[a, b], [b, a]] if op.get("both", false) else [[a, b]]):
-				var r: Dictionary = W.R(pr[0], pr[1])
-				if op.has("f"):
-					r["f"] = int(r["f"]) + int(_n(op["f"], inst, e))
-				if op.has("g"):
-					r["g"] = maxi(0, int(r["g"]) + int(_n(op["g"], inst, e)))
+				W.radd(pr[0], pr[1], int(_n(op["f"], inst, e)) if op.has("f") else 0, int(_n(op["g"], inst, e)) if op.has("g") else 0)
 		"meet":
 			var b2 = _a(inst, e, op.get("b", "B"))
 			if a == null or b2 == null:
@@ -177,8 +200,10 @@ func se_op(op: Dictionary, inst, e) -> void:
 			else:
 				if not t in ra:
 					ra.append(t)
+					W.fx(a, "%s成了%s" % [se_name(b3), t], "")
 				if op.get("both", true) and not t2 in rb:
 					rb.append(t2)
+					W.fx(b3, "%s成了%s" % [se_name(a), t2], "", false)
 		"mem":
 			var o = _a(inst, e, op.get("about", "B"))
 			if a == null:
@@ -186,7 +211,10 @@ func se_op(op: Dictionary, inst, e) -> void:
 			W.remember(a, o if o != null else {}, e.say(op.get("text", ""), inst, "mem", e._op_vars(op, inst)), int(_n(op.get("wt", 0), inst, e)), String(op.get("kind", "")))
 		"inj":
 			if a != null:
-				a["inj"] = maxi(int(a["inj"]), int(_n(op.get("days", 10), inst, e)))
+				var dd := int(_n(op.get("days", 10), inst, e))
+				if dd > int(a["inj"]):
+					W.fx(a, "伤|月", dd - int(a["inj"]))
+				a["inj"] = maxi(int(a["inj"]), dd)
 		"home":
 			if a != null:
 				a["place"] = W.SECT_HOME.get(a["sect"], "坊市")
@@ -211,20 +239,33 @@ func se_op(op: Dictionary, inst, e) -> void:
 		"goal":
 			if a != null:
 				a["goal"] = String(e.ev(op["value"], inst))
+				W.fx(a, "心愿：", String(a["goal"]))
 				if op.has("gt"):
 					var t3 = _a(inst, e, op["gt"])
 					if t3 != null:
 						a["gt"] = int(t3["id"])
 		"lv":
 			if a != null:
+				var lv0 := int(a["lv"])
 				a["lv"] = clampi(int(a["lv"]) + int(_n(op.get("add", 1), inst, e)), 0, int(op.get("max", 17)))
 				a["xp"] = 0.0
+				if int(a["lv"]) != lv0:
+					W.fx(a, "入", W.realm(a))
 		"xp":
 			if a != null:
-				a["xp"] = W.qz(float(a["xp"]) + _n(op.get("frac", 0.3), inst, e) * 8.0 * pow(1.35, int(a["lv"])), 10000.0)
+				var fr := _n(op.get("frac", 0.3), inst, e)
+				if a.get("player", false):
+					if W.g != null:
+						W.pxw(int(round(fr * 40.0)))
+				else:
+					a["xp"] = W.qz(float(a["xp"]) + fr * 8.0 * pow(1.35, int(a["lv"])), 10000.0)
+					W.fx(a, "修为", "精进" if fr >= 0 else "折损")
 		"sect":
 			if a != null:
+				var s0 := String(a["sect"])
 				a["sect"] = String(e.ev(op["value"], inst))
+				if s0 != String(a["sect"]):
+					W.fx(a, "改投", String(a["sect"]))
 		"wflag":
 			W._flag_add(e.say(String(op["key"]), inst), int(op.get("add", 1)))
 		"kid":
@@ -237,6 +278,7 @@ func se_op(op: Dictionary, inst, e) -> void:
 					if not x2.has("kids"):
 						x2["kids"] = []
 					x2["kids"].append(nm)
+					W.fx(x2, "添一子嗣", "")
 			inst["ctx"]["k"] = nm
 		"spawn":
 			# 新收的弟子：一个真正的人（以后也有自己的日子过）
@@ -248,13 +290,18 @@ func se_op(op: Dictionary, inst, e) -> void:
 			c["place"] = a["place"]
 			c["pre"] = bio(c, false)
 			inst["cast"][String(op.get("as", "D"))] = int(c["id"])
+			W.fx(a, "收徒%s" % String(c["name"]), "")
 			inst["act"].erase(String(op.get("as", "D")))
 		"seclude":
 			if a != null:
 				a["sbg"] = int(W.w["day"]) + int(_n(op.get("days", 10), inst, e))
+				W.fx(a, "闭关", "")
 		"xm":
 			if a != null:
+				var m0 := int(a.get("smx", 0))
 				a["smx"] = int(_n(op.get("set", 1), inst, e))
+				if int(a["smx"]) != m0:
+					W.fx(a, "心魔" if int(a["smx"]) > 0 else "心魔消", "")
 		"fav":
 			if a != null:
 				W.fav(a, int(_n(op.get("d", 0), inst, e)), e.say(op.get("mem", ""), inst, "fav", e._op_vars(op, inst)), int(_n(op.get("wt", 0), inst, e)))
@@ -266,6 +313,46 @@ func se_op(op: Dictionary, inst, e) -> void:
 			W._inj(int(_n(op.get("days", 2), inst, e)))
 		"pchron":
 			W.chron(W.P(), e.say(op.get("text", ""), inst, "pc", e._op_vars(op, inst)))
+		# v0.15：资质 / 寿元 / 她的修为 / 给她一件新东西
+		"attr":
+			if a != null:
+				var ks := String(e.ev(op["k"], inst)) if String(op["k"]).begins_with("$") else String(op["k"])
+				W.attr_add(a, ks, int(_n(op.get("d", 1), inst, e)))
+		"life":
+			if a != null:
+				W.life_add(a, int(_n(op.get("y", 1), inst, e)))
+		"pxw":
+			W.pxw(int(_n(op.get("n", 10), inst, e)))
+		"pitem":
+			if W.g == null:
+				return
+			var r3 := RandomNumberGenerator.new()
+			r3.seed = e.rng.randi()
+			var sl3 := String(op.get("slot", ["fabao", "yi", "shi"][r3.randi() % 3]))
+			var arr3: Array = W.Gear.BASES[sl3]
+			var it3: Dictionary = W.Gear.make(W.g, W, r3, String(arr3[r3.randi() % arr3.size()]), int(_n(op.get("grade", 0), inst, e)), e.say(op.get("origin", "{pn}所得。"), inst, "origin", e._op_vars(op, inst)), int(W.w["day"]))
+			W.Gear.give_her(W.g, it3, e.say(op.get("origin", "{pn}所得。"), inst, "origin", e._op_vars(op, inst)))
+			inst["ctx"]["it"] = String(it3["n"])
+			W.fx(W.P(), "得「%s」" % String(it3["n"]), "")
+		"ptag":
+			# 她的性子：善 / 利 / 力 / 避（显示成 仁心 / 计较 / 刚勇 / 避事）
+			if W.g != null:
+				var tk := String(op["k"])
+				var tg: Dictionary = W.g.s["tags"]
+				var dv := int(_n(op.get("d", 1), inst, e))
+				tg[tk] = maxi(0, int(tg.get(tk, 0)) + dv)
+				W.fx(W.P(), String(TAG_CN.get(tk, tk)), dv)
+		"pmeet":
+			# 她与 b 初识（不另写“初识”一条：本条履历就是相识的经过）
+			var bm = _a(inst, e, op.get("b", "B"))
+			if bm == null:
+				return
+			var rr: Dictionary = W.R(W.P(), bm)
+			if int(rr["m"]) == 0:
+				rr["m"] = 1
+				rr["m0"] = int(W.w["day"])
+				rr["lv0"] = [int(bm["lv"]), W.plv()]
+			W.R(bm, W.P())["m"] = 1
 		"mark":
 			eng.st["vars"][e.say(String(op["key"]), inst)] = int(W.w["day"])
 		# v0.14 物品：造一件 / 送一件 / 夺一件。名字放进 ctx.it（品阶 ctx.itg），文本里写 {it}
@@ -280,6 +367,7 @@ func se_op(op: Dictionary, inst, e) -> void:
 			var arr: Array = W.Gear.BASES[sl]
 			var it: Dictionary = W.Gear.make(null, W, r, String(arr[r.randi() % arr.size()]), gd, e.say(op.get("origin", "{A}炼成。"), inst, "origin", e._op_vars(op, inst)), int(W.w["day"]))
 			W.Gear.npc_gear(W, a).append(it)
+			W.fx(a, "得「%s」" % String(it["n"]), "")
 			inst["ctx"]["it"] = String(it["n"])
 			inst["ctx"]["itg"] = W.Gear.grade_name(it)
 		"give_item", "take_item":
@@ -299,6 +387,9 @@ func se_op(op: Dictionary, inst, e) -> void:
 				return
 			var moved: Dictionary = W.Gear.transfer(W, src, dst, it2, e.say(op.get("h", "{A}给了{B}。"), inst, "h", e._op_vars(op, inst)))
 			inst["ctx"]["it"] = String(moved.get("n", ""))
+			if not moved.is_empty():
+				W.fx(src, "失「%s」" % String(moved["n"]), "", not src.get("player", false))
+				W.fx(dst, "得「%s」" % String(moved["n"]), "", not dst.get("player", false))
 			inst["ctx"]["itg"] = W.Gear.grade_name(moved) if not moved.is_empty() else ""
 			if dst.get("player", false) and W.g != null and not moved.is_empty():
 				W.g.notice("%s送来一件%s（%s），放在%s。" % [src["name"], moved["n"], W.Gear.grade_name(moved), "青庐" if W.g.at_home() else "行囊里"])
@@ -311,6 +402,7 @@ func se_op(op: Dictionary, inst, e) -> void:
 				return
 			lost["h"].append([int(W.w["day"]), "%s在%s捡到。" % [a["name"], a["place"]]])
 			W.Gear.npc_gear(W, a).append(lost)
+			W.fx(a, "得「%s」" % String(lost["n"]), "")
 			inst["ctx"]["it"] = String(lost["n"])
 			inst["ctx"]["own"] = String(lost.get("owner", "前人"))
 		_:
@@ -345,6 +437,47 @@ static func cn(n: int) -> String:
 			return t + "零" + CN[r]
 		return t + (CN[r / 10] + "十" + ("" if r % 10 == 0 else CN[r % 10]))
 	return str(n)
+
+const TAG_CN := {"善": "仁心", "利": "计较", "力": "刚勇", "避": "避事"}
+func realm(a) -> String:
+	return W.realm(a)
+func here() -> String:
+	return String(W.P()["place"])
+## 救人 / 争药的地方：路上就是她所在的地方；在家时不是“青庐”屋里，是附近的山
+func near() -> String:
+	var h := here()
+	return "青庐后山" if h == "青庐" else h
+func met_m(a) -> int:
+	return int(W.R(W.P(), a).get("m0", 0))
+func sy_left() -> String:
+	if W.g == null:
+		return "数十"
+	return cn(maxi(1, int(int(W.g.s.get("shouyuan", 0)) / 12)))
+func maj(a) -> int:
+	return W.major(int(a["lv"]))
+func pt(k: String) -> int:
+	return int(W.g.s["tags"].get(k, 0)) if W.g != null else 0
+func ling() -> int:
+	return int(W.g.s.get("lingshi", 0)) if W.g != null else 0
+func pinjd() -> bool:
+	return W.g != null and int(W.g.s.get("injured", 0)) > 0
+func gate() -> bool:
+	return W.g != null and W.g.has_method("at_gate") and W.g.at_gate()
+func home_p() -> bool:
+	return W.g == null or String(W.g.s.get("loc", "home")) == "home"
+func eqn(slot: String) -> String:
+	if W.g == null:
+		return ""
+	var it = W.Gear.eq(W.g, slot)
+	return String(it["n"]) if it != null else ""
+func cy() -> String:
+	return W.cal_text(int(W.w["day"])).get_slice("年", 0) + "年"
+func yago(m: int) -> String:
+	return "%s年" % cn(maxi(1, int((int(W.w["day"]) - m) / 12)))
+func now_m() -> int:
+	return int(W.w["day"])
+func at(a, k: String) -> int:
+	return W.at(a, k)
 
 func day() -> int:
 	return int(W.w["day"])
@@ -402,9 +535,9 @@ func foes(a, b) -> bool:
 func age(a) -> float:
 	return float(a["age"])
 func life(a) -> int:
-	return W.lifespan(int(a["lv"]))
+	return W.lifespan_of(a)
 func lf(a) -> float:
-	return float(a["age"]) / float(W.lifespan(int(a["lv"])))
+	return float(a["age"]) / float(W.lifespan_of(a))
 func player():
 	return W.P()
 func known(a) -> bool:
