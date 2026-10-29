@@ -492,6 +492,11 @@ func eqn(slot: String) -> String:
 		return ""
 	var it = W.Gear.eq(W.g, slot)
 	return String(it["n"]) if it != null else ""
+## v0.15.7：她门下正式的徒弟（v0.15.6 青庐营建 s["econ"]["tu"]，-1 没有；没有 econ 字段也是 -1）。履历里“有人跪求点拨”在她已有徒弟时不再出
+func tu_id() -> int:
+	if W.g == null:
+		return -1
+	return int((W.g.s.get("econ", {}) as Dictionary).get("tu", -1))
 func cy() -> String:
 	return W.cal_text(int(W.w["day"])).get_slice("年", 0) + "年"
 func yago(m: int) -> String:

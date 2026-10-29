@@ -82,6 +82,15 @@ func _init() -> void:
 		var n := int(tot.get("12:" + k, 0)) + int(tot.get("15:" + k, 0))
 		ok(n >= 1, "金丹 / 元婴：%s 出现 %d 次" % [k, n])
 	print("（续命 xuming：%d 次；要有寿元将尽、好感 ≥10 的熟人，不作断言）" % int(tot.get("15:xuming", 0)))
+	# 已有正式徒弟（v0.15.6 青庐营建 s["econ"]["tu"]）：“有人跪求点拨”不再出
+	var gt = fresh(3)
+	gt._raise_to(15)
+	if not gt.s.has("econ"):
+		gt.s["econ"] = {}
+	gt.s["econ"]["tu"] = 2
+	var t0 := int(gt.world.saga().eng.fired("shoutu"))
+	live(gt, 60)
+	ok(int(gt.world.saga().eng.fired("shoutu")) == t0, "门下已有徒弟：六十年里收徒事件 %d 次（应为 0）" % (int(gt.world.saga().eng.fired("shoutu")) - t0))
 	ok(all_empty * 10 < all_new, "金丹 / 元婴六十年里没有效果小字的 %d / %d（<10%%）" % [all_empty, all_new])
 	for l in lines:
 		print(l)

@@ -294,7 +294,7 @@ CHRON += [
            sched("echo_gf", 72, 240, keep=["y0", "m0", "sect"])),
         oc("no", "0.4 + 0.15 * g.pt('避')", chron("A", "#q_gf#她把拜帖原样退了回去。"), attr("A", "xin", 1))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")] + [setv("sect", "'#q_sect#'")], doc="金丹后：宗门请她做供奉（应下的，十到三十年后宗门有难来请）"),
-    pm("shoutu", OUT + " and ctx.maj >= 2", 0.9, 180, [
+    pm("shoutu", OUT + " and ctx.maj >= 2 and g.tu_id() < 0", 0.9, 180, [
         oc("yes", "0.5 + 0.2 * g.pt('善')", chron("A", "#q_tu##q_tu_yes#"), rel("B", "P", f=20), mem("B", "P", "{pn}收留点拨之恩", 18, "教"), {"op": "xp", "who": "B", "frac": 0.3},
            attr("A", "mei", 1), {"op": "mark", "key": "tu"}, sched("echo_tu", 72, 200, keep=["y0", "m0"], cast={"B": "B"})),
         oc("no", 0.5, chron("A", "#q_tu##q_tu_no#"), rel("B", "P", f=-4), attr("A", "xin", 1))],
