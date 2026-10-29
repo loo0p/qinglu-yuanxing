@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 $G --headless --path . --import >/dev/null 2>&1 || true
 # 玩家版 Web 模板裁掉了 regex 等模块（tools/build_web_template.sh），编辑器里跑测试发现不了：运行期脚本里不许用 RegEx（lint 工具、测试除外）
 if rg -n "RegEx\.(new|create)|: *RegEx\b" scripts addons -g '*.gd' -g '!addons/storylet_engine/se_lint.gd' -g '!addons/storylet_engine/tools/**'; then echo "FAIL 运行期脚本用了 RegEx（玩家版 Web 模板没有 regex 模块）"; exit 1; fi
+python3 tools/audit_fx.py --strict   # v0.15：写履历的内容分支必须改动点什么（纯文字的要进白名单）
 timeout 300 $G --headless --path . -s res://tests/run_tests.gd
 timeout 300 $G --headless --path . -s res://tests/world_test.gd
 timeout 300 $G --headless --path . -s res://tests/ui_smoke.gd

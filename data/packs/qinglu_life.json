@@ -41,7 +41,13 @@
   "gen_item",
   "give_item",
   "take_item",
-  "pick_lost"
+  "pick_lost",
+  "attr",
+  "life",
+  "pxw",
+  "pitem",
+  "ptag",
+  "pmeet"
  ],
  "storylets": [
   {
@@ -58,6 +64,38 @@
        "op": "chron",
        "who": "A",
        "text": "#t_lead##d_youli#"
+      },
+      {
+       "op": "chance",
+       "p": 0.5,
+       "then": [
+        {
+         "op": "xp",
+         "who": "A",
+         "frac": 0.05
+        }
+       ],
+       "else": [
+        {
+         "op": "chance",
+         "p": "0.04 * g.at(A, 'yun')",
+         "then": [
+          {
+           "op": "attr",
+           "who": "A",
+           "k": "yun",
+           "d": 1
+          }
+         ],
+         "else": [
+          {
+           "op": "xp",
+           "who": "A",
+           "frac": 0.03
+          }
+         ]
+        }
+       ]
       }
      ]
     },
@@ -94,6 +132,25 @@
      "op": "chron",
      "who": "A",
      "text": "#t_lead##d_like_{like}#"
+    },
+    {
+     "op": "chance",
+     "p": 0.25,
+     "then": [
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "else": [
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.03
+      }
+     ]
     }
    ]
   },
@@ -112,6 +169,11 @@
      "op": "chron",
      "who": "A",
      "text": "#t_lead##d_sect_{sct}#"
+    },
+    {
+     "op": "xp",
+     "who": "A",
+     "frac": 0.04
     }
    ]
   },
@@ -482,6 +544,11 @@
        "op": "chron",
        "who": "A",
        "text": "#t_lead##d_close_meh#"
+      },
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.15
       }
      ]
     }
@@ -723,6 +790,25 @@
        ]
       }
      ]
+    },
+    {
+     "op": "chance",
+     "p": 0.3,
+     "then": [
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "mei",
+       "d": 1
+      }
+     ],
+     "else": [
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.03
+      }
+     ]
     }
    ]
   },
@@ -736,6 +822,25 @@
      "op": "chron",
      "who": "A",
      "text": "#t_lead##d_bad#"
+    },
+    {
+     "op": "chance",
+     "p": 0.4,
+     "then": [
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": -1
+      }
+     ],
+     "else": [
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.04
+      }
+     ]
     }
    ]
   },
@@ -1062,6 +1167,12 @@
        ]
       }
      ]
+    },
+    {
+     "op": "attr",
+     "who": "A",
+     "k": "xin",
+     "d": 1
     }
    ]
   },
@@ -1080,6 +1191,25 @@
      "op": "chron",
      "who": "A",
      "text": "#t_lead##d_kid_day#"
+    },
+    {
+     "op": "chance",
+     "p": 0.3,
+     "then": [
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "else": [
+      {
+       "op": "xp",
+       "who": "A",
+       "frac": 0.02
+      }
+     ]
     }
    ]
   },
@@ -1240,6 +1370,12 @@
      "op": "chron",
      "who": "A",
      "text": "#t_lead##d_old#"
+    },
+    {
+     "op": "attr",
+     "who": "A",
+     "k": "gen",
+     "d": -1
     }
    ]
   },
@@ -1596,6 +1732,11 @@
          }
         }
        ]
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.1
       }
      ]
     },
@@ -1627,6 +1768,11 @@
       {
        "op": "drop",
        "name": "O"
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.05
       }
      ]
     },
@@ -1727,13 +1873,7 @@
      "limit": 6
     }
    ],
-   "effects": [
-    {
-     "op": "chron",
-     "who": "X",
-     "text": "#t_lead##d_mj_in#"
-    }
-   ],
+   "effects": [],
    "outcomes": [
     {
      "id": "treasure",
@@ -1742,7 +1882,7 @@
       {
        "op": "chron",
        "who": "X",
-       "text": "#t_lead##d_mj_treasure#"
+       "text": "#t_lead##d_mj_in##d_mj_treasure#"
       },
       {
        "op": "xp",
@@ -1774,7 +1914,7 @@
       {
        "op": "chron",
        "who": "X",
-       "text": "#t_lead##d_mj_hurt#"
+       "text": "#t_lead##d_mj_in##d_mj_hurt#"
       },
       {
        "op": "inj",
@@ -1806,7 +1946,17 @@
       {
        "op": "chron",
        "who": "X",
-       "text": "#t_lead##d_mj_none#"
+       "text": "#t_lead##d_mj_in##d_mj_none#"
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.05
+      },
+      {
+       "op": "xp",
+       "who": "X",
+       "frac": 0.05
       }
      ]
     },
@@ -1823,7 +1973,7 @@
         {
          "op": "chron",
          "who": "X",
-         "text": "#t_lead##d_mj_none#"
+         "text": "#t_lead##d_mj_in##d_mj_none#"
         }
        ]
       },
@@ -1834,7 +1984,7 @@
         {
          "op": "chron",
          "who": "X",
-         "text": "#t_lead##d_mj_save#",
+         "text": "#t_lead##d_mj_in##d_mj_save#",
          "vars": {
           "o": "Y"
          }
@@ -1901,7 +2051,7 @@
         {
          "op": "chron",
          "who": "X",
-         "text": "#t_lead##d_mj_none#"
+         "text": "#t_lead##d_mj_in##d_mj_none#"
         }
        ]
       },
@@ -1912,7 +2062,7 @@
         {
          "op": "chron",
          "who": "X",
-         "text": "#t_lead##d_mj_rob#",
+         "text": "#t_lead##d_mj_in##d_mj_rob#",
          "vars": {
           "o": "Y"
          }

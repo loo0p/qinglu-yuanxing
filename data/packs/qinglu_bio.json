@@ -41,7 +41,13 @@
   "gen_item",
   "give_item",
   "take_item",
-  "pick_lost"
+  "pick_lost",
+  "attr",
+  "life",
+  "pxw",
+  "pitem",
+  "ptag",
+  "pmeet"
  ],
  "storylets": [
   {
