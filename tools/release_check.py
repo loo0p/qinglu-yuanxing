@@ -31,6 +31,8 @@ with sync_playwright() as p:
         d = json.loads(pg.evaluate('(window.qinglu_btns(), window.qinglu_btns_out)'))
         sx = pg.evaluate('window.innerWidth') / d['w']; sy = pg.evaluate('window.innerHeight') / d['h']
         return [(t.replace('● ', ''), x * sx, y * sy) for t, x, y in d['b']]
+    def labels():
+        return json.loads(pg.evaluate('(window.qinglu_btns(), window.qinglu_btns_out)')).get('l', [])
     def state():
         return json.loads(pg.evaluate('window.qinglu_state'))
     def tap(prefix, wait=900):
@@ -125,6 +127,14 @@ with sync_playwright() as p:
     gear['at_fangshi'] = state().get('loc') == 'roam'
     gear['shop_open'] = tap('器物铺', 1200)
     step('v14_shop', gear['shop_open'])
+    # v0.15.2：托售一栏总在（没有货也写“眼下没有”）
+    gear['consign_hdr'] = [t for t in labels() if t.startswith('托售')][:1]
+    if not gear['consign_hdr']:
+        for _ in range(4):
+            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 300); pg.wait_for_timeout(400)
+            gear['consign_hdr'] = [t for t in labels() if t.startswith('托售')][:1]
+            if gear['consign_hdr']: break
+    step('v152_consign', bool(gear['consign_hdr']))
     goods = [t for t, _, _ in btns() if t.endswith(' 灵石') and ' · ' in t]
     goods.sort(key=lambda t: ('×' in t, int(t.split(' · ')[-1].split()[0]) if t.split(' · ')[-1].split()[0].isdigit() else 999))   # 先买能装上的、便宜的
     gear['goods'] = goods[:6]
@@ -140,6 +150,20 @@ with sync_playwright() as p:
             tap('回铺子', 800)
     gear['bought'] = bought
     step('v14_bought', bought is not None)
+    tap('收起', 800)
+    # v0.15.2：药铺抽屉（卖青芝 / 卖丹 / 主药保底）和差事榜（代炼、客卿、悬赏）
+    clear_dialogs(3)
+    gear['yao_open'] = tap('药铺', 1200) or tap_scroll('药铺', 1200, 4)
+    yb = [t for t, _, _ in btns()] + labels()
+    gear['yao_qz'] = any('青芝' in t for t in yb)
+    gear['yao_sell'] = any(t.startswith('卖') for t, _, _ in btns()) or any('卖' in t for t in labels())
+    step('v152_yao', gear['yao_open'] and state().get('sheet') == 'yao' and gear['yao_qz'])
+    tap('收起', 800)
+    clear_dialogs(3)
+    gear['jobs_open'] = tap('差事榜', 1200) or tap_scroll('差事榜', 1200, 4)
+    jb = [t for t, _, _ in btns()] + labels()
+    gear['jobs_cards'] = [k for k in ('代炼', '客卿', '悬赏') if any(k in t for t in jb)]
+    step('v152_jobs', gear['jobs_open'] and state().get('sheet') == 'jobs' and len(gear['jobs_cards']) == 3)
     tap('收起', 800)
     for _ in range(8):
         clear_dialogs(20)
@@ -167,7 +191,20 @@ with sync_playwright() as p:
     res['gear'] = gear
     clear_dialogs()
     tap('青庐', 1200)
-    ok = tap('静室', 1200) and tap('十年', 6000)   # 长闭关（十年；修为满会提前出关）
+    # v0.15.2：静室里有聚灵阵一行、服丹闭关开关（有丹就点开再点回）
+    room = {'open': tap('静室', 1200)}
+    room['arr'] = [t for t in labels() if '聚灵阵' in t][:1] + [t for t, _, _ in btns() if '聚灵阵' in t][:1]
+    fd = [t for t, _, _ in btns() if t.startswith('服丹闭关：')]
+    room['fudan'] = fd[:1]
+    if fd:
+        tap(fd[0], 900)
+        room['fudan_flip'] = [t for t, _, _ in btns() if t.startswith('服丹闭关：')][:1]
+        if room['fudan_flip']: tap(room['fudan_flip'][0], 900)
+    else:
+        room['fudan_label'] = [t for t in labels() if t.startswith('服丹')][:1]
+    res['room'] = room
+    step('v152_room', room['open'] and bool(room['arr']))
+    ok = tap('十年', 6000)   # 长闭关（十年；修为满会提前出关）
     step('seclude', ok)
     clear_dialogs()
     step('after', True)
