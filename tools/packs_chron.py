@@ -149,8 +149,8 @@ CHRON = [
         oc("bad", "1.2 - 0.08 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_zc_a#。#q_zc_bad#"), pinj(3), pxw(-15))],
        doc="经脉走岔：心性高的稳住（心性+1、感悟+2），低的受伤折修为"),
     pm("sec_dunwu", SEC, "0.6 + 0.1 * g.at(A, 'wu')", 24, [
-        oc("wu", 1.0, chron("A", "#q_sec_head##q_dw_{maj}#"), wu(4), pxw(12)),
-        oc("attr", "0.08 * g.at(A, 'wu')", chron("A", "#q_sec_head##q_dw_{maj}#"), attr("A", "wu", 1), pxw(8))],
+        oc("wu", 1.0, chron("A", "#q_sec_head##q_dw_{maj}#"), wu(4), pxw("5 + 10 * ctx.maj")),
+        oc("attr", "0.08 * g.at(A, 'wu')", chron("A", "#q_sec_head##q_dw_{maj}#"), attr("A", "wu", 1), pxw("3 + 7 * ctx.maj"))],
        effects=[setv("maj", "min(3, ctx.maj)")], doc="顿悟：悟性越高越常有；按大境界悟的东西不同"),
     pm("sec_xinmo", SEC + " and ctx.maj >= 1", 0.7, 48, [
         oc("win", "0.4 + 0.12 * g.at(A, 'xin')", iff("B != null", chron("A", "#q_xm_in##q_xm_who##q_xm_win#"), els=[chron("A", "#q_xm_in##q_xm_noone##q_xm_win#")]), attr("A", "xin", 1)),
@@ -158,7 +158,7 @@ CHRON = [
            pinj(4), pxw(-20), attr("A", "xin", -1))],
        roles=[{"name": "B", "optional": True, "where": "g.known(SELF) and (g.gr(g.player(), SELF) >= 10 or g.gr(SELF, g.player()) >= 15 or g.pf(SELF) >= 40)"}],
        doc="心魔：化作结怨或挂念的人；心性定胜负"),
-    pm("sec_tide", SEC, 0.8, 30, [oc("ok", 1.0, chron("A", "#q_tide##q_tide_t#"), pxw("15 + 5 * ctx.maj"))], doc="灵脉涨潮，修为+"),
+    pm("sec_tide", SEC, 0.8, 30, [oc("ok", 1.0, chron("A", "#q_tide##q_tide_t#"), pxw("6 + 12 * ctx.maj"))], doc="灵脉涨潮，修为+"),
     pm("sec_knock", SEC, 0.9, 40, [
         oc("open", "0.4 + 0.15 * g.pt('善') + 0.05 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_knock##q_knock_open#"), rel("B", "P", f=12), pxw(-10),
            mem("B", "P", "{pn}为我破了关", 12, "恩"), chance(0.4, pitem("{B}为谢她破关相助所赠。"), els=[ling(8)])),

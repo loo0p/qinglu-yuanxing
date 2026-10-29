@@ -538,7 +538,7 @@ func attr_add(c: Dictionary, k: String, d: int) -> void:
 	elif d > 0:
 		# 到顶了：多出来的那点化进修为（不让这一笔落空）
 		if c.get("player", false):
-			pxw(6)
+			pxw(3)
 		else:
 			c["xp"] = qz(float(c["xp"]) + 0.1 * 8.0 * pow(1.35, int(c["lv"])), 10000.0)
 			fx(c, "修为", "精进")
