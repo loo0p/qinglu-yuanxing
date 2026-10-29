@@ -717,8 +717,17 @@ static func repair(gs, u: int) -> String:
 ## v0.14.2：一场三件，按她的境界和身家配——前两件是够得着的小件（炼气时多是旧法器，起拍二三十灵石，跟价的也是境界相近的人），
 ## 压轴一件高她一两个大境界（炼气时是灵器，偶有宝器），给她看看、攒个念想。一件落槌再拍下一件
 const AUC_LOTS := 3
+## v0.15（Gemini v7 专项 1）：春三月小拍、秋九月大拍。按她的大境界（炼气 / 筑基 / 金丹 / 元婴 / 化神）配品阶与起拍价带；
+## 秋拍压轴一件再高一品，起拍按值六成（给人看、攒念想）
+const AUC_G_SPRING := [1, 1, 2, 3, 4]
+const AUC_G_AUTUMN := [2, 2, 3, 4, 4]
+const AUC_BAND_SPRING := [[55, 90], [55, 90], [220, 360], [800, 1300], [3000, 5000]]
+const AUC_BAND_AUTUMN := [[180, 320], [180, 320], [700, 1200], [2600, 4400], [9000, 15000]]
 static func auction_month(day: int) -> bool:
 	return (maxi(day, 1) - 1) % 12 + 1 in [3, 9]
+
+static func auction_spring(day: int) -> bool:
+	return (maxi(day, 1) - 1) % 12 + 1 == 3
 
 static func _her_major(gs) -> int:
 	return int(gs.major()) if gs.has_method("major") else 0
@@ -730,36 +739,43 @@ static func _round5(x: float) -> int:
 static func _auc_lot(gs, r: RandomNumberGenerator, small: bool, day: int) -> Dictionary:
 	var W = gs.world
 	var mj := _her_major(gs)
-	var ls := int(gs.s.get("lingshi", 0))
 	var her_lv: int = int(gs.plv_now()) if gs.has_method("plv_now") else 0
 	var sl: String = ["fabao", "fabao", "yi", "shi", "dai"][r.randi() % 5]
 	var arr: Array = BASES[sl]
 	var pid: String = arr[r.randi() % arr.size()]
 	var g := 0
 	var origin := ""
+	var spring := auction_spring(day)
+	# v0.15（Gemini v7 专项 1）：春拍小拍、秋拍大拍，按她的大境界配品阶；起拍落在固定价带里（见 AUC_BAND）
 	if small:
-		g = clampi(mj + 1, 1, 3)
-		while g > 1 and GBASE[g] * 0.4 > maxf(float(ls), 10.0):   # 身家够不着就降一品
-			g -= 1
-		origin = ["哪位散修手头紧，拿出来押的。", "旧洞府里清出来的，有些磨损。", "坊市老铺子压箱底的。"][r.randi() % 3]
+		g = int((AUC_G_SPRING if spring else AUC_G_AUTUMN)[clampi(mj, 0, 4)])
+		origin = (["哪位散修手头紧，拿出来押的。", "旧洞府里清出来的，有些磨损。", "坊市老铺子压箱底的。"] if spring else ["出自古战场。", "某位前辈坐化后，洞府里清出来的。", "海外商船带来的。"])[r.randi() % 3]
 	else:
-		g = clampi(mj + 2, 2, 4)
-		if r.randf() < 0.2:
-			g = mini(4, g + 1)
+		g = mini(4, int((AUC_G_SPRING if spring else AUC_G_AUTUMN)[clampi(mj, 0, 4)]) + (0 if spring else 1))
 		origin = ["出自古战场。", "某位前辈坐化后，洞府里清出来的。", "海外商船带来的。"][r.randi() % 3]
+	if int(prop(pid, "min_g", 0)) > g:   # 芥子镯这类有最低品阶的，换一件同部位够得上的
+		var ok_ids: Array = arr.filter(func(x): return int(prop(x, "min_g", 0)) <= g)
+		if ok_ids.is_empty():
+			ok_ids = BASES["fabao"].filter(func(x): return int(prop(x, "min_g", 0)) <= g)
+		if not ok_ids.is_empty():
+			pid = ok_ids[r.randi() % ok_ids.size()]
 	var lot := make(gs, W, r, pid, g, origin, day)
-	if small:
+	if small and spring:
 		lot["dur"] = 60 + r.randi() % 31   # 旧东西，成色六到九成
 	var v := value(lot, day)
+	var st := _round5(v * 0.6)
+	var finale := not small and not spring
+	if not finale:
+		var band: Array = (AUC_BAND_SPRING if spring else AUC_BAND_AUTUMN)[clampi(mj, 0, 4)]
+		st = clampi(_round5(lerpf(float(band[0]), float(band[1]), r.randf())), int(band[0]), int(band[1]))
 	var bid := {}
 	if W != null:
-		var cands: Array = W.npcs().filter(func(c): return (absi(int(c["lv"]) - her_lv) <= 3) if small else int(c["lv"]) >= 6)
+		var cands: Array = W.npcs().filter(func(c): return (absi(int(c["lv"]) - her_lv) <= 3) if spring else int(c["lv"]) >= 6)
 		cands.sort_custom(func(a, b): return int(a["id"]) < int(b["id"]))
-		for i in mini(3 if not small else 2, cands.size()):
+		for i in mini(3 if not spring else 2, cands.size()):
 			var c: Dictionary = cands[r.randi() % cands.size()]
-			var k: float = (0.5 + 0.5 * r.randf()) if small else (0.7 + 0.6 * r.randf())
-			bid[str(int(c["id"]))] = roundi(v * k * (1.0 + int(c["lv"]) / 30.0))
-	var st := _round5(v * (0.4 if small else 0.6))
+			var k: float = (0.8 + 0.6 * r.randf()) if not finale else (0.9 + 0.6 * r.randf())
+			bid[str(int(c["id"]))] = roundi(st * k * (1.0 + int(c["lv"]) / 30.0))
 	return {"lot": lot, "max": bid, "price": st}
 
 static func auction(gs) -> Dictionary:
@@ -833,6 +849,7 @@ static func auction_bid(gs) -> String:
 		return "手里灵石不够举这一牌（要 %d）。" % nxt
 	A["price"] = nxt
 	A["lead"] = -1
+	A["her_bids"] = int(A.get("her_bids", 0)) + 1
 	A["log"].append("她举牌：%d。" % nxt)
 	_npc_raise(gs, A)
 	if int(A["lead"]) == -1:
@@ -867,8 +884,25 @@ static func _auction_close(gs, A: Dictionary) -> void:
 			npc_gear(W, c).append(it)
 			W.chron(c, "在坊市拍卖会上拍下一件%s。" % it["n"])
 			A["log"].append("落槌。%s归了%s，%d 灵石。" % [lot["n"], c["name"], pr])
+			_auc_echo(gs, A, c, it, pr)
 	else:
 		A["log"].append("流拍。")
+
+## v0.15 拍卖回响（Gemini v7 专项 1）：她跟了两牌以上收手的，记进履历；拍走的人境界压不住这件（或运气差），
+## 一两个月后传出被人截了道的消息，东西也真丢了（Econ 每月结）
+static func _auc_echo(gs, A: Dictionary, c: Dictionary, it: Dictionary, pr: int) -> void:
+	var W = gs.world
+	var day := int(gs.s.get("day", 0))
+	if int(A.get("her_bids", 0)) >= 2:
+		gs.pchron("在坊市拍卖会上与%s争一件%s，跟到 %d 灵石，囊中羞涩，收了手。" % [c["name"], lot_name(it), pr])
+	var r := _rng_for(gs, 7000 + day * 7 + int(A.get("i", 0)))
+	var weak := int(c["lv"]) < int(GMIN[clampi(int(it.get("g", 0)), 0, 4)]) + 3
+	if r.randf() < (0.6 if weak else 0.15):
+		var Econ = load("res://scripts/econ.gd")
+		Econ.echo_add(gs, day + 1 + r.randi() % 3, "听说%s在坊市拍得一件%s，出了坊市没多远就被人截了道。" % [c["name"], it["n"]], [int(c["id"])], int(it["u"]), int(c["id"]))
+
+static func lot_name(it: Dictionary) -> String:
+	return "%s（%s）" % [it["n"], grade_name(it)]
 
 # ================================================================ 给界面的短字
 static func stat_text(it: Dictionary) -> String:
