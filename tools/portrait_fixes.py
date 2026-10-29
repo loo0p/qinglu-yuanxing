@@ -393,7 +393,10 @@ def post_fix(rel, im):
         ko, kr = OUTER_LEAKS[k]
         return fix_outer_leaks(rel, im, ko=ko, kr=kr)
     if k in HAIR_FRAGS:
-        return fix_hair_frags(rel, im)
+        im = fix_hair_frags(rel, im)
+        if k == "hair_me1":
+            im = fix_me1_collar(im)
+        return im
     if k.startswith(("hair_f", "hair_m")) and not k.startswith(("hair_fe", "hair_me")):
         return fix_hair_paper(rel, im)
     if k in BEARD_FRAGS:
@@ -446,6 +449,7 @@ def _part_pos(rel):
 # 头部遮罩以内（刘海、鬓角、额发）一律不动。
 PAPER = (235.0, 231.0, 224.0)
 HAIR_PAPER_ALL = ("hair_f9", "hair_m8")
+HAIR_PAPER_NECK = {"hair_f9": 150}   # 画布 y 以下头部遮罩不护（脸颊以下没有刘海鬓角）
 
 
 def fix_hair_paper(rel, im, y0=110, lift=12):
@@ -480,7 +484,10 @@ def fix_hair_paper(rel, im, y0=110, lift=12):
         H = np.zeros((h, w), np.uint8)
         sub = head[pos[1]:pos[1] + h, pos[0]:pos[0] + w]
         H[:sub.shape[0], :sub.shape[1]] = sub
-        tgt &= ~(cv2.dilate(H, np.ones((5, 5), np.uint8)) > 0)
+        prot = cv2.dilate(H, np.ones((5, 5), np.uint8)) > 0
+        if k in HAIR_PAPER_NECK:   # v0.16：f9 颈侧两块白半圆在遮罩里，颈部以下遮罩也不护
+            prot &= yy < HAIR_PAPER_NECK[k]
+        tgt &= ~prot
     if not every:
         solid = cv2.morphologyEx(((L > inkL + 100) & (al > 0.6)).astype(np.uint8), cv2.MORPH_OPEN,
                                  cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
@@ -589,4 +596,44 @@ def fix_outer_leaks(rel, im, dbg=None, lift=18, ko=7, kr=3, sm=5):
     if dbg is not None:
         dbg.update(med=round(med, 1), removed=int(((al > 40) & (newal < 40)).sum()), filled=int(fillm.sum()))
     a[..., 3] = newal.clip(0, 255).astype(np.uint8)
+    return Image.fromarray(a, "RGBA")
+
+
+# ---------------------------------------------------------------- v0.16：me1 贴着胡子的领口线
+# fix_hair_frags 只去掉离发团 7 px 以外的线；me1 的交领两道线贴着胡子两侧一路下来，在胡尖下交叉，
+# 右边胡子和领线之间还夹着一块粉色中衣。做法（部件坐标）：y ≥ 236（两侧垂发下沿）每行最外侧 6 px 去掉
+# （领线就是最外沿），y ≥ 190 偏粉（R − G > 10，白胡子是 4 左右）的像素去掉，y ≥ 322（胡尖）以下只留胡子实心
+# 部分；去完后掉下来的小块清掉，切口柔一下。
+def fix_me1_collar(im, y0=236, w=6, tip=322, pk0=190):
+    import cv2
+    a = np.array(im.convert("RGBA"))
+    al = a[..., 3].copy()
+    c = a[..., :3].astype(np.float32)
+    L = c @ np.array([0.299, 0.587, 0.114], np.float32)
+    rm = np.zeros(al.shape, bool)
+    for y in range(pk0, min(y0, al.shape[0])):
+        rm[y] |= (c[y, :, 0] - c[y, :, 1] > 10) & (al[y] > 0)
+    for y in range(y0, al.shape[0]):
+        xs = np.nonzero(al[y] > 60)[0]
+        if len(xs) == 0:
+            continue
+        xl, xr = xs[0], xs[-1]
+        rm[y, max(0, xl - 2):xl + w] = True
+        rm[y, xr - w + 1:xr + 3] = True
+        rm[y] |= (c[y, :, 0] - c[y, :, 1] > 10) & (al[y] > 0)
+    beard = ((al > 160) & (L > 200)).astype(np.uint8)
+    beard = cv2.morphologyEx(beard, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+    yy = np.arange(al.shape[0])[:, None]
+    rm |= (yy >= tip) & ~(cv2.dilate(beard, np.ones((3, 3), np.uint8)) > 0)
+    out = al.copy()
+    out[rm] = 0
+    k, lab, st, _ = cv2.connectedComponentsWithStats((out > 24).astype(np.uint8), 8)
+    if k > 1:
+        main = 1 + int(np.argmax(st[1:, 4]))
+        for i in range(1, k):
+            if i != main and st[i, 4] < 80 and st[i, 1] >= y0 - 4:
+                out[lab == i] = 0
+    hard = (cv2.dilate(rm.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & (out > 0)
+    soft = cv2.GaussianBlur(out.astype(np.float32), (3, 3), 0.8)
+    a[..., 3] = np.where(hard, np.minimum(out, soft), out).astype(np.uint8)
     return Image.fromarray(a, "RGBA")
