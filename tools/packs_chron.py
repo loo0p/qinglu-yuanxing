@@ -150,6 +150,25 @@ g("q_danhuo_ok", "她守住灵台，一寸一寸把火压回丹田，金丹上�
 g("q_danhuo_bad", "没压住，烧伤了心脉，折了些寿元。", "丹火烧穿了一处经脉，吐了一口黑血。")
 g("q_shenyou", "元神出窍，神游到东海，看了一回日出。", "元婴离体，沿着青庐那条灵脉走了一遍，看清了它从哪座山来。", "神游万里，在一处古战场停了一夜，悟到些杀伐的道理。", "元神出窍，回到她出生的那个镇子，镇子已经没了。")
 g("q_yy_old", "翻看旧年的名册，当年一同在坊市摆摊的人，十停里已去了九停。", "坊市换了三回主人，她认识的掌柜，一个也不在了。", "山下的村子又换了一茬人，没人记得青庐住的是谁。")
+# v0.15.5 伏笔与境界事
+g("q_map", "在{bp}的旧货摊上淘到半张残图，图上的山形她没见过。", "替人收殓时，从死者怀里摸出半张兽皮残图。", "在一处塌了的洞府里捡到半张残图，另一半被人撕走了。")
+g("q_echo_map", "{y0}收着的那半张残图，", "压在箱底{yago}的那半张残图，")
+g("q_echo_map_ok", "今年在坊市见到了另一半。她凭着这些年的眼力，把两半拼上，找到了图上那处地方。", "她忽然认出了图上的山形——就是{bp}后头那座。去了一趟，没有白去。")
+g("q_echo_map_no", "她又拿出来看了一夜，还是看不懂，收了回去。", "她拿去问了几个人，都说是假的。她不信，又收了起来。")
+g("q_dan_en", "她伤还没好，{B}路过，二话没说塞了一颗丹药给她。", "{B}听说她受了伤，托人送来一瓶疗伤的丹。")
+g("q_echo_en", "{yago}前{B}给过她一颗丹。", "她一直记着{y0}{B}那颗丹。")
+g("q_echo_en_t", "今年听说{B}伤重，她带着自己炼的丹赶去，守了半月。", "{B}寿元将尽，她把手里最好的一株灵草送了过去。")
+g("q_home", "回了一趟凡间故里。村口那棵老槐还在，认得她的人已经不多了。", "路过出生的那个镇子，在一户人家门口站了一会儿。那家的孩子冲她笑。")
+g("q_echo_home", "{y0}回故里时冲她笑的那个孩子，", "{yago}前故里那户人家的孩子，")
+g("q_echo_home_t", "今年托人寻来，已是满头白发，带着孙子给她磕了个头。她给那孩子测了灵根。", "前些年已经过世了。她去坟前站了站，留下一包灵米给那家的后人。")
+g("q_xm_echo", "{y0}闭关时，心魔化作{B}的样子来过。", "{yago}前那场心魔里的{B}，")
+g("q_benming", "开炉温炼{it}，打算把它炼成本命法宝。", "以金丹之火日夜温养{it}，要与它神魂相连。")
+g("q_benming_ok", "七七四十九日后，{it}与她心意相通了。", "炼成了。{it}在她丹田里转了一圈，又回到手上。")
+g("q_benming_bad", "炼到一半，{it}承不住丹火，裂了一道缝。", "火候差了一分，前功尽弃，还伤了心神。")
+g("q_guanjie", "听说{B}要渡劫，她赶去{bp}，在山外看了一夜雷。", "{B}在{bp}渡劫，她远远看着，天雷落了九道。")
+g("q_guanjie_t", "看完回来，她闭门三日，把自己的道又理了一遍。", "她记下了每一道雷落下的方位。")
+g("q_xuming", "{B}寿元将尽，她以元婴之力替{B}续了一口气。", "她把自己的一缕元气渡给了{B}，{B}的脸色红润了。")
+g("q_xuming_t", "她自己也折了几年寿。", "代价是她鬓边多了几根白发。")
 def pm(sid, when, weight, cd, outcomes, effects=(), roles=None, doc=""):
     s = {"id": sid, "trigger": "on:pmonth", "family": "pm", "when": when, "weight": weight, "cooldown": cd,
          "effects": list(effects), "outcomes": outcomes}
@@ -169,7 +188,7 @@ CHRON = [
     pm("sec_zouchai", SEC, 1.0, 30, [
         oc("ok", "0.5 + 0.12 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_zc_a#。#q_zc_ok#"), attr("A", "xin", 1), wu(2)),
         oc("bad", "1.2 - 0.08 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_zc_a#。#q_zc_bad#"), pinj(3), pxw(-15),
-           chance(0.35, sched("echo_wound", 120, 360, keep=["y0", "m0"])))],
+           chance(0.5, sched("echo_wound", 72, 240, keep=["y0", "m0"])))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], doc="经脉走岔：心性高的稳住（心性+1、感悟+2），低的受伤折修为（三成留下暗伤，十到三十年后再犯 / 化开）"),
     pm("sec_dunwu", SEC, "0.6 + 0.1 * g.at(A, 'wu')", 24, [
         oc("wu", 1.0, chron("A", "#q_sec_head##q_dw_{maj}#"), wu(4), pxw("5 + 10 * ctx.maj")),
@@ -177,8 +196,10 @@ CHRON = [
        effects=[setv("maj", "min(3, ctx.maj)")], doc="顿悟：悟性越高越常有；按大境界悟的东西不同"),
     pm("sec_xinmo", SEC + " and ctx.maj >= 1", 0.7, 48, [
         oc("win", "0.4 + 0.12 * g.at(A, 'xin')", iff("B != null", chron("A", "#q_xm_in##q_xm_who##q_xm_win#"), els=[chron("A", "#q_xm_in##q_xm_noone##q_xm_win#")]), attr("A", "xin", 1)),
-        oc("lose", "1.0 - 0.06 * g.at(A, 'xin')", iff("B != null", chron("A", "#q_xm_in##q_xm_who##q_xm_lose#"), els=[chron("A", "#q_xm_in##q_xm_noone##q_xm_lose#")]),
+        oc("lose", "1.0 - 0.06 * g.at(A, 'xin')", iff("B != null", chron("A", "#q_xm_in##q_xm_who##q_xm_lose#"), chance(0.5, sched("echo_xm", 120, 360, keep=["y0", "m0"], cast={"B": "B"})),
+           els=[chron("A", "#q_xm_in##q_xm_noone##q_xm_lose#")]),
            pinj(4), pxw(-20), attr("A", "xin", -1))],
+       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")],
        roles=[{"name": "B", "optional": True, "where": "g.known(SELF) and (g.gr(g.player(), SELF) >= 10 or g.gr(SELF, g.player()) >= 15 or g.pf(SELF) >= 40)"}],
        doc="心魔：化作结怨或挂念的人；心性定胜负"),
     pm("sec_tide", SEC, 0.8, 36, [oc("ok", 1.0, chron("A", "#q_tide##q_tide_t#"), pxw("6 + 12 * ctx.maj"))], doc="灵脉涨潮，修为+"),
@@ -212,11 +233,11 @@ CHRON = [
         oc("fight", "0.2 + 0.1 * int(g.trt(B, '多疑'))", chron("A", "#q_dao_bad#"), rel("B", "P", f=-4), rel("P", "B", f=-3))],
        roles=[{"name": "B", "fixed": "g.partner(A)"}], doc="道侣长线"),
     pm("qi", OUT + " and g.eqn('fabao') != ''", 0.6, 30, [oc("ok", 1.0, chron("A", "#q_qi##q_qi_t#"), pxw("6 + 4 * ctx.maj"), wu(1),
-           chance(0.3, sched("echo_qi", 120, 300, keep=["y0", "m0", "it"])))],
+           chance(0.5, sched("echo_qi", 72, 200, keep=["y0", "m0", "it"])))],
        effects=[setv("it", "g.eqn('fabao')"), setv("y0", "g.cy()"), setv("m0", "g.now_m()")], doc="温养法宝（器物锚点）"),
     pm("jiang", OUT + " and ctx.maj >= 1", "0.3 + 0.3 * ctx.maj", 30, [
         oc("ok", 1.0, chron("A", "#q_jiang_{maj}#", bp="=B.place"), {"op": "xp", "who": "B", "frac": 0.2}, rel("B", "P", f=8), mem("B", "P", "得{pn}指点", 6, "教"), attr("A", "mei", 1),
-           chance(0.5, sched("echo_jiang", 120, 360, keep=["y0", "m0"], cast={"B": "B"})))],
+           chance(0.7, sched("echo_jiang", 96, 240, keep=["y0", "m0"], cast={"B": "B"})))],
        effects=[setv("maj", "min(3, ctx.maj)"), setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": KNOWN + " and g.lv(SELF) + 3 <= g.plv()"}], doc="指点晚辈（金丹后开坛讲道）"),
     pm("lun", OUT, 0.9, 16, [
         oc("good", "0.6 + 0.05 * g.at(A, 'wu') + 0.05 * g.at(A, 'mei')", chron("A", "#q_lun##q_lun_good#", bp="=B.place"), wu(3), rel("B", "P", f=6), rel("P", "B", f=4), {"op": "xp", "who": "B", "frac": 0.1}),
@@ -270,12 +291,12 @@ CHRON += [
        doc="伏笔：与故人约期（十到三十年后赴约，人在不在另说）"),
     pm("gongfeng", OUT + " and ctx.maj >= 2", 0.5, 9999, [
         oc("yes", "0.5 + 0.1 * g.at(A, 'mei')", chron("A", "#q_gf#应下了，领了一块客卿玉牌。"), ling(60), {"op": "ptag", "k": "利", "d": 1},
-           sched("echo_gf", 120, 360, keep=["y0", "m0", "sect"])),
+           sched("echo_gf", 72, 240, keep=["y0", "m0", "sect"])),
         oc("no", "0.4 + 0.15 * g.pt('避')", chron("A", "#q_gf#她把拜帖原样退了回去。"), attr("A", "xin", 1))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")] + [setv("sect", "'#q_sect#'")], doc="金丹后：宗门请她做供奉（应下的，十到三十年后宗门有难来请）"),
     pm("shoutu", OUT + " and ctx.maj >= 2", 0.5, 240, [
         oc("yes", "0.5 + 0.2 * g.pt('善')", chron("A", "#q_tu##q_tu_yes#"), rel("B", "P", f=20), mem("B", "P", "{pn}收留点拨之恩", 18, "教"), {"op": "xp", "who": "B", "frac": 0.3},
-           attr("A", "mei", 1), sched("echo_tu", 120, 300, keep=["y0", "m0"], cast={"B": "B"})),
+           attr("A", "mei", 1), sched("echo_tu", 72, 200, keep=["y0", "m0"], cast={"B": "B"})),
         oc("no", 0.5, chron("A", "#q_tu##q_tu_no#"), rel("B", "P", f=-4), attr("A", "xin", 1))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": KNOWN + " and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 15"}],
        doc="金丹后：有人在青庐外跪求指点（收下的，十到二十五年后回来）"),
@@ -289,6 +310,29 @@ CHRON += [
        doc="元婴：元神出窍神游"),
     pm("yuanying_old", OUT + " and ctx.maj >= 3", 0.6, 120, [
         oc("ok", 1.0, chron("A", "#q_yy_old#"), attr("A", "xin", 1), wu(3))], doc="元婴：故人凋零"),
+]
+# ---------------------------------------------------------------- v0.15.5：更多伏笔（残图、丹恩、故里、心魔旧人）与金丹 / 元婴专属
+CHRON += [
+    pm("map", OUT + " and ctx.maj <= 1", "0.3 + 0.05 * g.at(A, 'yun')", 9999, [
+        oc("ok", 1.0, chron("A", "#q_map#", bp="=g.near()"), {"op": "mark", "key": "map"}, wu(1), sched("echo_map", 120, 360, keep=["y0", "m0", "bp"]))],
+       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()"), setv("bp", "g.near()")], doc="伏笔：半张残图（十到三十年后，悟性够才拼得上）"),
+    pm("dan_en", OUT + " and g.pinjd()", 1.0, 240, [
+        oc("ok", 1.0, chron("A", "#q_dan_en#"), {"op": "pinj", "days": -2}, rel("P", "B", f=12), mem("P", "B", "{B}在我受伤时送过丹", 12, "恩"),
+           sched("echo_en", 96, 300, keep=["y0", "m0"], cast={"B": "B"}))],
+       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": KNOWN + " and g.lv(SELF) > g.plv() and g.pf(SELF) >= 10"}],
+       doc="伏笔：受伤时得人送丹（八到二十五年后她去还）"),
+    pm("home", OUT + " and ctx.maj >= 1", 0.3, 9999, [oc("ok", 1.0, chron("A", "#q_home#"), attr("A", "xin", 1), sched("echo_home", 360, 600, keep=["y0", "m0"]))],
+       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], doc="伏笔：回凡间故里（三五十年后，那孩子已老）"),
+    pm("benming", HOME + " and ctx.maj >= 2 and g.eqn('fabao') != ''", 0.6, 9999, [
+        oc("ok", "0.5 + 0.08 * g.at(A, 'wu')", chron("A", "#q_benming##q_benming_ok#"), pxw(40), wu(4), {"op": "mark", "key": "benming"}),
+        oc("bad", 0.4, chron("A", "#q_benming##q_benming_bad#"), pinj(3), pxw(-20), attr("A", "xin", 1))],
+       effects=[setv("it", "g.eqn('fabao')")], doc="金丹：炼本命法宝（器物锚点；悟性定成败）"),
+    pm("guanjie", OUT + " and ctx.maj >= 2", 0.5, 120, [
+        oc("ok", 1.0, chron("A", "#q_guanjie##q_guanjie_t#", bp="=B.place"), wu(5), pxw(20), rel("P", "B", f=4))],
+       roles=[{"name": "B", "where": "g.known(SELF) and SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"}], doc="金丹：观人渡劫"),
+    pm("xuming", OUT + " and ctx.maj >= 3", 1.0, 240, [
+        oc("ok", 1.0, chron("A", "#q_xuming##q_xuming_t#"), life("B", 10), life("A", -3), rel("B", "P", f=20), mem("B", "P", "{pn}替我续了命", 20, "恩"))],
+       roles=[{"name": "B", "where": KNOWN + " and g.lf(SELF) > 0.9 and g.pf(SELF) >= 30"}], doc="元婴：替将尽的故人续命（她折寿）"),
 ]
 # ---------------------------------------------------------------- 回响（chain）
 CHRON += [
@@ -355,6 +399,24 @@ CHRON += [
      "outcomes": [
         oc("back", 1.0, chron("P", "#q_echo_tu#如今已是{br}，回来给她磕了个头，留下一件东西。"), {"op": "give_item", "a": "B", "b": "P", "h": "{B}回青庐谢师时所赠。"}, rel("P", "B", f=10), when="g.gear_n(B) > 0", first=True),
         oc("visit", 1.0, chron("P", "#q_echo_tu#如今已是{br}，回来替她把药圃翻了一遍土。"), ling(10), rel("P", "B", f=8), attr("P", "xin", 1), first=True)]},
+]
+CHRON += [
+    {"id": "echo_map", "trigger": "chain", "doc": "残图的回响（悟性定）",
+     "effects": [setv("yago", "g.yago(int(ctx.m0))")],
+     "outcomes": [
+        oc("ok", "0.2 + 0.08 * g.at(g.player(), 'wu')", chron("P", "#q_echo_map##q_echo_map_ok#"), pitem("{pn}凭{y0}收的半张残图寻得。"), wu(3)),
+        oc("no", 0.6, chron("P", "#q_echo_map##q_echo_map_no#"), attr("P", "xin", 1))]},
+    {"id": "echo_en", "trigger": "chain", "in": ["B"], "when": "B.alive", "doc": "丹恩的回响：她去还",
+     "effects": [setv("yago", "g.yago(int(ctx.m0))")],
+     "outcomes": [oc("ok", 1.0, chron("P", "#q_echo_en##q_echo_en_t#"), ling(-15), life("B", 3), rel("B", "P", f=15), rel("P", "B", f=5), {"op": "ptag", "k": "善", "d": 1})]},
+    {"id": "echo_home", "trigger": "chain", "doc": "故里的回响",
+     "effects": [setv("yago", "g.yago(int(ctx.m0))")],
+     "outcomes": [oc("ok", 1.0, chron("P", "#q_echo_home##q_echo_home_t#"), attr("P", "xin", 1), ling(-3))]},
+    {"id": "echo_xm", "trigger": "chain", "in": ["B"], "dead_ok": ["B"], "doc": "心魔旧人的回响",
+     "effects": [setv("yago", "g.yago(int(ctx.m0))"), setv("br", "g.realm(B)")],
+     "outcomes": [
+        oc("meet", 1.0, chron("P", "#q_xm_echo#今年真在坊市遇上了，{B}已是{br}。两人站着说了几句，那口气就散了。"), rel("P", "B", f=8, gg=-10), attr("P", "xin", 1), when="B.alive", first=True),
+        oc("gone", 1.0, chron("P", "#q_xm_echo#如今人已不在。她在灯下坐了一夜，心里那块石头放下了。"), attr("P", "xin", 2), first=True)]},
 ]
 # v0.15.3 修：回响（chain）里写 chron("P", …) 的，P 不在 cast 里 → 引擎找不到人，整条没写进履历（效果照扣）。
 # 给每条回响补一个固定角色 P = 她。

@@ -312,7 +312,14 @@ func se_op(op: Dictionary, inst, e) -> void:
 		"wu":
 			W._wu(int(_n(op.get("n", 1), inst, e)))
 		"pinj":
-			W._inj(int(_n(op.get("days", 2), inst, e)))
+			var dd := int(_n(op.get("days", 2), inst, e))
+			if dd < 0:   # v0.15.5：负数＝伤好得快些（别人送的丹）
+				if W.g != null and int(W.g.s.get("injured", 0)) > 0:
+					var cur := int(W.g.s["injured"])
+					W.g.s["injured"] = maxi(0, cur + dd)
+					W.fx(W.P(), "伤|月", int(W.g.s["injured"]) - cur)
+			else:
+				W._inj(dd)
 		"pchron":
 			W.chron(W.P(), e.say(op.get("text", ""), inst, "pc", e._op_vars(op, inst)))
 		# v0.15：资质 / 寿元 / 她的修为 / 给她一件新东西
