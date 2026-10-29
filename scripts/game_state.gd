@@ -9,6 +9,7 @@ const SAVE_VERSION := 5      # v0.14.2 v5：炼气修为 600 → 1800（v4 及�
 const World = preload("res://scripts/world.gd")
 const TV = preload("res://scripts/travel.gd")
 const Gear = preload("res://scripts/gear.gd")
+const Econ = preload("res://scripts/econ.gd")   # v0.15 经济：聚灵阵、服丹闭关、蒙尘、药铺、托售
 const FIELD_DAYS := 6
 const FIELD_YIELD := 2
 const RECIPES := {
@@ -495,12 +496,13 @@ func tick(mode: String) -> void:
 			s["unstable"] = I("unstable") - 1
 		var r := mini(cap, I("ganwu"))
 		s["ganwu"] = I("ganwu") - r
-		gain(Gear.xw_bonus(self, biguan_xw()), "biguan")   # v0.14：玉佩等加成；没佩东西时原样
+		gain(Econ.biguan_xw(self, Gear.xw_bonus(self, biguan_xw())), "biguan")   # v0.14：玉佩等加成；v0.15：聚灵阵、服丹、蒙尘（没开江湖时原样）
 		gain(r, "ganwu")
 	if (mode == "road" or mode == "busy") and I("ration") > 0:
 		s["flags"].erase("hungry")
 	s["shouyuan"] = I("shouyuan") - 1
 	Gear.monthly(self)
+	Econ.monthly(self, mode)
 	# ④ 世事检查
 	# v0.13：不再有“第 23 个月前”的倒计时——向阳坡每年五到八月结果；入夏时还没筑基、手里没赤阳果，就捎个话
 	var cm := World.cal(I("day"))
@@ -867,6 +869,12 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 					break
 		if long and done > 0 and (at_gate() and preset != "gate" or I("shouyuan") < 60):
 			break
+		if long and done > 0:
+			var why := Econ.seclude_break(self)   # v0.15：阵法欠费停了、连着闭关五年蒙尘——出关
+			if why != "":
+				pchron(why)
+				notice(why)
+				break
 		biguan_day()
 		done += 1
 		if long and done < months and done % 12 == (int((done - 1) / 12) * 5 + 3) % 12:
@@ -1208,8 +1216,25 @@ func resolve(opt_id: String) -> Dictionary:
 	s["stats"][st] = int(s["stats"][st]) + 1
 	s["roadbook"][s["trip"]["route"] + ":" + nid] = true
 	s["trip"]["path"].append(nid)
+	_laogui_seed(ev, opt_id, res)
 	_after_node(nid, res)
 	return res
+
+## v0.15（Gemini v7 P0·开局）：江湖里碰上的老龟，抢来的、陪坐换来的那朵莲离了潭水就谢，只剩一粒莲子——
+## 得有水田种二十个月才开；拿聚气丹换、赔罪换的照旧是整朵（丹是自己炼的）。没开江湖的老路书（规则测试）原样
+func _laogui_seed(ev: Dictionary, opt_id: String, res: Dictionary) -> void:
+	if world == null or not in_vignette() or String(ev.get("key", "")) != "laogui" or not (opt_id in ["A", "C"]):
+		return
+	if int(res["items"].get("herb_hantanlian", 0)) <= 0 or total_n("herb_hantanlian") <= 0:
+		return
+	consume("herb_hantanlian", 1)
+	add_item("seed_lianzi", 1)
+	res["items"]["herb_hantanlian"] = int(res["items"]["herb_hantanlian"]) - 1
+	if int(res["items"]["herb_hantanlian"]) == 0:
+		res["items"].erase("herb_hantanlian")
+	res["items"]["seed_lianzi"] = int(res["items"].get("seed_lianzi", 0)) + 1
+	res["lines"].append("回到岸上，那朵莲离了潭水，转眼就谢了，只剩一粒莲子。得有水田才种得活。")
+	_log("寒潭莲离水就谢，只落下一粒莲子。")
 
 func quick_walk() -> Dictionary:
 	if s["loc"] != "trip" or s["trip"]["stage"] != "quick":
@@ -1516,14 +1541,14 @@ func roam_home() -> Dictionary:
 	return sum
 
 ## v0.13：坊市旧货摊偶尔收到寒潭莲子（筑基主药的另一条路：买种子回水田种，二十个月开花），一年一回
-const JUNK_LIANZI_PRICE := 40
+const JUNK_LIANZI_PRICE := 35   # v0.15（Gemini v7 专项 1）：40 → 35
 func junk_lianzi_available() -> bool:
 	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and I("plv") < 9 \
 		and total_n("seed_lianzi") == 0 and total_n("herb_hantanlian") == 0 and total_n("pill_zhuji") == 0 \
 		and int(s["flags"].get("junk_lz_year", -1)) != int(World.cal(I("day"))[0])
 
 ## v0.13.1（Gemini v6 P0-1）：炼气七层以后还缺赤阳果，坊市药铺一年能收到一颗晒干的——比后山贵，但不必干等五到八月
-const DRY_CHIYANG_PRICE := 60
+const DRY_CHIYANG_PRICE := 45   # v0.15：60 → 45
 func dry_chiyang_available() -> bool:
 	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and plv_now() >= 6 and I("plv") < 9 \
 		and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress() \
@@ -1541,7 +1566,7 @@ func buy_dry_chiyang() -> bool:
 
 ## v0.13.1（Gemini v6 P0-5）：吃不完的青芝拿到坊市药铺批售：十株一批，按当月行情（约五株一块灵石）
 func qz_sell_price() -> int:
-	return maxi(1, roundi(2.0 * Gear.price_idx(I("day"))))
+	return maxi(1, roundi(3.0 * Gear.price_idx(I("day"))))   # v0.15：十株约三块灵石（原两块）
 
 func sell_qingzhi() -> bool:
 	if s["loc"] != "roam" or String(s["roam"].get("pl", "")) != "坊市" or store_n("herb_qingzhi") < 10:
