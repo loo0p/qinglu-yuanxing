@@ -66,7 +66,8 @@ func t_seclude() -> void:
 	var with_fx := add.filter(func(e): return e.size() > 2 and not (e[2] as Dictionary).is_empty()).size()
 	ok(with_fx * 10 >= add.size() * 8, "闭关期间写的 %d 条里 %d 条带效果（≥八成）" % [add.size(), with_fx])
 	var sumi := add.filter(func(e): return String(e[1]).begins_with("入静室闭关"))
-	ok(sumi.size() == 1 and String(sumi[0][1]).contains("出关时") and sumi[0].size() > 2, "合并的闭关条：入关几年、出关时境界，带效果")
+	# v0.15.0 起连坐五年蒙尘就出关，二十年计划会分成几段，每段一条合并条
+	ok(sumi.size() >= 1 and sumi.all(func(e): return String(e[1]).contains("出关时") and e.size() > 2 and not (e[2] as Dictionary).is_empty()), "合并的闭关条（%d 段）：入关几年、出关时境界，带效果" % sumi.size())
 	ok(txt.contains("心境蒙尘") and txt.contains("坐不下去了"), "满三年蒙尘、五年蒙尘出关写进履历")
 
 ## v0.14.1：修为满了还闭关——履历里“关口”只记一回，连着几回并成一行，不再“入关/关口/出关”三笔一组地重复
