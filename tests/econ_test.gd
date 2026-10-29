@@ -3,6 +3,7 @@ extends SceneTree
 const GS = preload("res://scripts/game_state.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")
+const Jobs = preload("res://scripts/jobs.gd")
 var fails := 0
 var lines: PackedStringArray = []
 
@@ -28,6 +29,8 @@ func _init() -> void:
 	t_market()
 	t_lifespan()
 	t_rules_untouched()
+	t_jobs()
+	t_noworld_seclude()
 	for l in lines:
 		print(l)
 	print("经济测试：%d 失败" % fails)
@@ -183,3 +186,56 @@ func t_rules_untouched() -> void:
 	for i in 10:
 		h.tick("biguan")
 	ok(h.I("xiuwei") - x1 == 120 or h.at_gate(), "没开江湖：闭关第七十个月以后照样每月 12（不蒙尘，%d）" % (h.I("xiuwei") - x1))
+
+func _to_market(g) -> void:
+	g.s["loc"] = "roam"
+	g.s["roam"] = {"pl": "坊市", "si": -1}
+
+func t_jobs() -> void:
+	var g = fresh(16)
+	_to_market(g)
+	ok(Jobs.can_comm(g) != "" and Jobs.can_bty(g) != "" and Jobs.can_kq(g) != "", "炼气：代炼、悬赏、客卿都接不到")
+	g._raise_to(9)
+	g.s["ration"] = 60
+	g.s["store"]["herb_qingzhi"] = 40
+	g.s["lingshi"] = 0
+	ok(Jobs.can_kq(g) != "", "名声不到 2，坊市不请客卿")
+	ok(Jobs.take_comm(g) and g.store_n("herb_qingzhi") == 30 and Jobs.furnace_busy(g), "筑基接代炼：搭 10 株青芝，丹炉被占")
+	g.s["queue"] = [["juqi", 2]]
+	g.tick("road")
+	ok(int(g.s["queue"][0][1]) == 2, "代炼占炉时自家的丹不走火候")
+	for i in 3:
+		g.tick("road")
+	ok(not Jobs.furnace_busy(g), "四个月后这一单交了")
+	var ls1 := int(g.s["lingshi"])
+	ok(ls1 > 0 or int(Jobs.E(g).get("comm_fail", 0)) == 1, "成了得灵石（%d），炸了赔料钱" % ls1)
+	var lg: Array = g.world.P()["log"]
+	ok(lg[-1].size() == 3 and (lg[-1][2] as Dictionary).has("灵石"), "履历记一条带效果标签：%s %s" % [lg[-1][1], str(lg[-1][2])])
+	var rep0 := int(Jobs.E(g)["rep"])
+	ok(Jobs.take_bty(g), "揭悬赏")
+	var e: Dictionary = Jobs.E(g)
+	var rg: Array = Jobs.bty_range(g)
+	ok(int(e["rep"]) == rep0 + 1 and int(e["jobs_ls"]) - maxi(0, ls1) >= int(rg[0]) / 2 - 3, "悬赏办完：名声 +1、得赏（累计差事 %d 灵石）" % int(e["jobs_ls"]))
+	ok(Jobs.can_bty(g) != "", "榜上半年才有新的（或带着伤）")
+	e["rep"] = 2
+	g.s["injured"] = 0
+	_to_market(g)
+	var ls2 := int(g.s["lingshi"])
+	ok(Jobs.sit_kq(g) and int(e["kq"]) == 1 and int(g.s["lingshi"]) >= ls2 + Jobs.KQ_PAY[1] / 2, "应下客卿：坐镇一个月，先领半年俸")
+	for i in 30:
+		g.tick("road")
+	g.s["injured"] = 0
+	_to_market(g)
+	ok(Jobs.kq_due(g) == 2, "隔了两年半回来，攒了两年的俸")
+	var ls3 := int(g.s["lingshi"])
+	Jobs.sit_kq(g)
+	ok(int(g.s["lingshi"]) >= ls3 + 2 * Jobs.KQ_PAY[1], "坐镇一个月，领两年 %d 灵石" % (2 * Jobs.KQ_PAY[1]))
+	for i in 38:
+		g.tick("road")
+	ok(int(Jobs.E(g)["kq"]) == -1, "三年多没回来坐镇：客卿之位另请了人")
+
+func t_noworld_seclude() -> void:
+	var h = GS.new()
+	h.new_game("测试", "sect", 24)
+	h.s["ration"] = 200
+	ok(h.biguan("years", 3) == 36, "没开江湖闭关三年：不崩（_seclude_year_note 没有江湖时不写）")

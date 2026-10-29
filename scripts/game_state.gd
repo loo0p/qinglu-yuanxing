@@ -10,6 +10,7 @@ const World = preload("res://scripts/world.gd")
 const TV = preload("res://scripts/travel.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")   # v0.15 经济：聚灵阵、服丹闭关、蒙尘、药铺、托售
+const Jobs = preload("res://scripts/jobs.gd")   # v0.15.2 坊市差事：代炼、客卿、悬赏
 const FIELD_DAYS := 6
 const FIELD_YIELD := 2
 const RECIPES := {
@@ -482,7 +483,7 @@ func tick(mode: String) -> void:
 				_store_add("herb_hantanlian", 1)
 				_log("水田里的寒潭莲开了，一池清冷。")
 				notice("水田的寒潭莲开了：寒潭莲 +1")
-	if not s["queue"].is_empty():
+	if not s["queue"].is_empty() and not Jobs.furnace_busy(self):   # v0.15.2：炉上是替药铺代炼的单子，自家的丹停着
 		var q = s["queue"][0]
 		q[1] = int(q[1]) - 1
 		if int(q[1]) <= 0:
