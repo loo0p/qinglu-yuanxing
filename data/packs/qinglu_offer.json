@@ -41,7 +41,13 @@
   "gen_item",
   "give_item",
   "take_item",
-  "pick_lost"
+  "pick_lost",
+  "attr",
+  "life",
+  "pxw",
+  "pitem",
+  "ptag",
+  "pmeet"
  ],
  "storylets": [
   {
@@ -283,6 +289,13 @@
         {
          "op": "pchron",
          "text": "听说{D}走了，在门外拜了三拜。"
+        },
+        {
+         "op": "fav",
+         "who": "B",
+         "d": -2,
+         "mem": "她来了，却没进门",
+         "wt": -2
         }
        ]
       }

@@ -14,7 +14,8 @@ def g(k, *alts): G[k] = list(alts)
 
 HOST_VARS = ["p", "s", "r", "age", "ta", "y", "pn", "jie"]
 HOST_OPS = ["rel", "meet", "tag", "mem", "inj", "home", "move", "die", "rumor", "goal", "lv", "xp", "sect", "wflag",
-            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark", "beat", "gen_item", "give_item", "take_item", "pick_lost"]
+            "kid", "spawn", "seclude", "xm", "fav", "ling", "wu", "pinj", "pchron", "mark", "beat", "gen_item", "give_item", "take_item", "pick_lost",
+            "attr", "life", "pxw", "pitem", "ptag", "pmeet"]
 
 def chron(who, text, **vars):
     o = {"op": "chron", "who": who, "text": text}
@@ -194,7 +195,7 @@ CORE.append({"id": "solo_goal", "trigger": "actor", "weight": "0.9 * int(not g.b
     "outcomes": [
         {"id": "dan", "when": "A.goal == '炼一炉九转丹' and se.flag('dan:' + str(int(A.id))) >= 3", "weight": 0.06, "effects": [
             chron("A", "#d_dan_done#"), {"op": "lv", "who": "A", "add": 2, "max": 18}, rumor("#r_dan#"), {"op": "goal", "who": "A", "value": "'求长生'"}]},
-        {"id": "plain", "weight": 1.0, "effects": [iff("A.goal == '寻道侣' and not g.single(A)", {"op": "goal", "who": "A", "value": "'求长生'"})]},
+        {"id": "plain", "weight": 1.0, "effects": [iff("A.goal == '寻道侣' and not g.single(A)", {"op": "goal", "who": "A", "value": "'求长生'"}), {"op": "xp", "who": "A", "frac": 0.06}]},
     ]})
 CORE += [
     {"id": "break_big", "trigger": "on:break", "family": "break", "when": "ctx.big", "effects": [chron("A", "#d_break_big#"), rumor("#r_break#", kind="破")],
@@ -350,21 +351,21 @@ LIFE = [
     {"id": "mijing", "trigger": "daily", "p": 0.018, "cooldown": 40, "when": "g.mj_ok()",
      "effects": [setv("party", "g.mj_ids(se.ri(3, 5))"), setv("p", "'秘境'"), rumor("#r_mijing#", (), n0="=g.nm(ctx.party[0])"), {"op": "run", "id": "mijing_x", "keep": ["party", "p"]}]},
     {"id": "mijing_x", "trigger": "chain", "roles": [{"name": "X", "from": "g.ids(ctx.party)", "each": True, "limit": 6}],
-     "effects": [chron("X", "#d_mj_in#")],
+     "effects": [],
      "outcomes": [
-        {"id": "treasure", "weight": "1.0 + 0.5 * int(g.trt(X, '好奇'))", "effects": [chron("X", "#d_mj_treasure#"), {"op": "xp", "who": "X", "frac": 0.2},
+        {"id": "treasure", "weight": "1.0 + 0.5 * int(g.trt(X, '好奇'))", "effects": [chron("X", "#d_mj_in##d_mj_treasure#"), {"op": "xp", "who": "X", "frac": 0.2},
             iff("g.known(X)", {"op": "offer", "id": "秘境归来", "cast": {"B": "X"}, "ctx": {"res": "'treasure'"}})]},
-        {"id": "hurt", "weight": "0.7 + 0.5 * int(g.trt(X, '嗜战'))", "effects": [chron("X", "#d_mj_hurt#"), {"op": "inj", "who": "X", "days": 15},
+        {"id": "hurt", "weight": "0.7 + 0.5 * int(g.trt(X, '嗜战'))", "effects": [chron("X", "#d_mj_in##d_mj_hurt#"), {"op": "inj", "who": "X", "days": 15},
             iff("g.known(X)", {"op": "offer", "id": "秘境归来", "cast": {"B": "X"}, "ctx": {"res": "'hurt'"}})]},
-        {"id": "none", "weight": 1.0, "effects": [chron("X", "#d_mj_none#")]},
+        {"id": "none", "weight": 1.0, "effects": [chron("X", "#d_mj_in##d_mj_none#"), {"op": "xp", "who": "X", "frac": 0.05}]},
         {"id": "save", "weight": "0.4 + 0.4 * int(g.trt(X, '侠义'))", "effects": [
-            {"op": "cast", "name": "Y", "from": "g.ids(ctx.party)", "where": "int(SELF.id) != int(X.id)", "else": [chron("X", "#d_mj_none#")]},
-            iff("Y != null", chron("X", "#d_mj_save#", o="Y"), chron("Y", "#d_mj_saved#", o="X"), rel("Y", "X", f=15), mem("Y", "X", "{o}在秘境里救过我", 20, "救", o="X"),
+            {"op": "cast", "name": "Y", "from": "g.ids(ctx.party)", "where": "int(SELF.id) != int(X.id)", "else": [chron("X", "#d_mj_in##d_mj_none#")]},
+            iff("Y != null", chron("X", "#d_mj_in##d_mj_save#", o="Y"), chron("Y", "#d_mj_saved#", o="X"), rel("Y", "X", f=15), mem("Y", "X", "{o}在秘境里救过我", 20, "救", o="X"),
                 iff("g.known(X)", {"op": "offer", "id": "秘境归来", "cast": {"B": "X"}, "ctx": {"res": "'save'"}})),
             {"op": "drop", "name": "Y"}]},
         {"id": "rob", "weight": "0.15 + 0.6 * int(g.trt(X, '贪财')) + 0.6 * int(g.trt(X, '阴狠'))", "effects": [
-            {"op": "cast", "name": "Y", "from": "g.ids(ctx.party)", "where": "int(SELF.id) != int(X.id)", "else": [chron("X", "#d_mj_none#")]},
-            iff("Y != null", chron("X", "#d_mj_rob#", o="Y"), chron("Y", "#d_mj_robbed#", o="X"), rel("Y", "X", gg=20), mem("Y", "X", "{o}在秘境里夺我的东西", -20, "夺", o="X")),
+            {"op": "cast", "name": "Y", "from": "g.ids(ctx.party)", "where": "int(SELF.id) != int(X.id)", "else": [chron("X", "#d_mj_in##d_mj_none#")]},
+            iff("Y != null", chron("X", "#d_mj_in##d_mj_rob#", o="Y"), chron("Y", "#d_mj_robbed#", o="X"), rel("Y", "X", gg=20), mem("Y", "X", "{o}在秘境里夺我的东西", -20, "夺", o="X")),
             {"op": "drop", "name": "Y"}]},
         {"id": "die", "weight": "0.06 * int(not g.prot(X))", "effects": [{"op": "die", "who": "X", "how": "#d_mj_die#"}]}]},
 ]
@@ -583,11 +584,19 @@ for s in GEAR:
     _lead(s)
     s["effects"] = [setv("it", "''"), setv("itg", "''"), setv("own", "''")] + s.get("effects", [])   # 物品 op 往 ctx 里写名字；先声明（lint 认得）
 
+# v0.15：她按月的日子 + 回响 + NPC 资质；旧包纯文字结果补机制（tools/packs_chron.py）
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "packs_chron.py"), encoding="utf-8").read())
+_patch([CORE, LIFE, OFFER, GEAR])
+for s in CHRON:
+    if s["trigger"] in ("actor", "chain"):
+        _lead(s)
+
 PK = [pack("qinglu_core", "青庐·江湖自转（迁移自 v0.11 world_event / solo）", CORE, G, "两人相遇八种事、独处、破境走火坐化飞升、新人、丧事"),
       pack("qinglu_life", "青庐·人生阶段（v0.12 新增）", LIFE, None, "日常、闭关、同门之争、情愫表白、道侣、麟儿、收徒、心魔、大比、秘境"),
       pack("qinglu_bio", "青庐·前尘", BIO, None, "入青庐之前的经历"),
       pack("qinglu_offer", "青庐·交给她选的事", OFFER, None, "满月酒、吊唁、观大比、秘境归来、心魔劫、求拜师、情劫"),
-      pack("qinglu_gear", "青庐·法宝与人（v0.14）", GEAR, None, "炼器、寻宝、赠物、夺宝结仇、捡到遗物、送她东西")]
+      pack("qinglu_gear", "青庐·法宝与人（v0.14）", GEAR, None, "炼器、寻宝、赠物、夺宝结仇、捡到遗物、送她东西"),
+      pack("qinglu_chron", "青庐·她的岁月（v0.15）", CHRON, None, "按月的日子（闭关走岔/顿悟/心魔/叩门、种药炼丹画符、坊市、妖兽、论道、指点晚辈、故人寿尽、道侣）、伏笔与回响、叩关、NPC 资质")]
 for p in PK:
     p.setdefault("unit", "month")   # v0.13：包里的冷却/连锁/min_t 都按“月”读（回合=月）；换算交给 saga.gd 的 se_ticks
     json.dump(p, open(R + "/data/packs/%s.json" % p["id"], "w", encoding="utf-8"), ensure_ascii=False, indent=1)
