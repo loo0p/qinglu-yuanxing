@@ -9,9 +9,9 @@ const Gear = preload("res://scripts/gear.gd")
 ## 聚灵阵（洞府升级）：布阵一次性灵石、每年正月的年费、闭关修为加成、要到的境界（plv）
 const ARR := [
 	{},
-	{"n": "一阶聚灵阵", "build": 30, "fee": 6, "pct": 20, "plv": 0},
-	{"n": "二阶聚灵阵", "build": 150, "fee": 24, "pct": 45, "plv": 9},
-	{"n": "三阶聚灵阵", "build": 500, "fee": 80, "pct": 75, "plv": 12},
+	{"n": "一阶聚灵阵", "build": 30, "fee": 4, "pct": 20, "plv": 0},
+	{"n": "二阶聚灵阵", "build": 150, "fee": 12, "pct": 45, "plv": 9},
+	{"n": "三阶聚灵阵", "build": 500, "fee": 40, "pct": 75, "plv": 12},
 ]
 ## 服丹闭关：每六个月服一轮聚气丹（炼气一颗、筑基两颗、金丹以上三颗），这六个月闭关修为 +50%
 const FUDAN_PCT := 50
@@ -20,9 +20,9 @@ const FUDAN_SPAN := 6
 const DUST_MONTHS := 36
 const DUST_BREAK := 60
 const DUST_WASH := 18
-## 坊市药铺收丹（每年前六颗按价，再多减半）；灵谷十斗一批
-const PILL_PRICE := {"pill_juqi": 10, "pill_quzhang": 4}
-const PILL_FULL := 6
+## 坊市药铺收丹（每年前四颗按价，再多减半）；灵谷十斗一批
+const PILL_PRICE := {"pill_juqi": 6, "pill_quzhang": 3}
+const PILL_FULL := 4
 const LINGGU_BATCH := 10
 const LINGGU_PRICE := 5
 ## 仓里青芝 / 灵谷过了 200，多出来的每年正月陈掉一成（“陈草失灵”）

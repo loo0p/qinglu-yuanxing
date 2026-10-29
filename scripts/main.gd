@@ -1848,7 +1848,7 @@ func _sheet_yao(v: Node) -> void:
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_theme_font_size_override("font_size", 12)
-	L("聚气丹一年收六颗按价，再多减半。仓里青芝、灵谷过了两百，多出来的每年陈掉一成。", 11, C_DIM, v)
+	L("丹药一年收四颗按价，再多减半。仓里青芝、灵谷过了两百，多出来的每年陈掉一成。", 11, C_DIM, v)
 	var buys := []
 	if g.dry_chiyang_available():
 		buys.append(["晒干的赤阳果（%d 灵石）" % g.DRY_CHIYANG_PRICE, "ico_guo", func(): g.buy_dry_chiyang(), int(g.s["lingshi"]) >= g.DRY_CHIYANG_PRICE])
