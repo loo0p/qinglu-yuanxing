@@ -949,6 +949,8 @@ const SECLUDE_NOTES := [
 	"闭关第%s年，%s。周天运转比去年快了半刻，她没有欢喜，只记下了。",
 ]
 func _seclude_year_note(y: int) -> void:
+	if world == null:   # 没开江湖（规则测试 / 旧流程）：没有履历可写
+		return
 	var season := World.season(int(world.w["day"]))
 	var k := (y * 5 + int(world.w["day"]) / 120) % SECLUDE_NOTES.size()   # 5 与 12 互质：一轮不重样   # 5 与 12 互质：一轮不重样
 	pchron(SECLUDE_NOTES[k] % [World.cn_num(y), "%s，%s" % [season, realm_text()]])
