@@ -959,6 +959,7 @@ func _hook_web() -> void:
 
 func _btn_table() -> String:
 	var out := []
+	var labs := []
 	var vs: Vector2 = get_viewport().get_visible_rect().size
 	var st := [self as Node]
 	while not st.is_empty():
@@ -969,7 +970,9 @@ func _btn_table() -> String:
 			var r: Rect2 = (n as Control).get_global_rect()
 			var tx := String((n as Button).text) if n is Button else ""
 			out.append([tx, r.position.x + r.size.x / 2.0, r.position.y + r.size.y / 2.0])
-	return JSON.stringify({"w": vs.x, "h": vs.y, "b": out})
+		elif n is Label and (n as Label).is_visible_in_tree() and labs.size() < 200:
+			labs.append(String((n as Label).text).left(24))   # v0.15.2：只读，给 release_check 认小标题（托售、聚灵阵……）
+	return JSON.stringify({"w": vs.x, "h": vs.y, "b": out, "l": labs})
 
 func _continue(from_legacy: bool = false) -> void:
 	var d = (legacy if from_legacy else store).load_data()
@@ -1793,8 +1796,8 @@ func _sheet_shop(v: Node) -> void:
 		b.add_theme_color_override("font_color", Color(Gear.GCOL[int(it["g"])]))
 		_stat_line(it, v)
 	var cs: Array = Econ.consign_list(g)
+	L("托售（熟人用不上的，五折）" + ("" if not cs.is_empty() else "（眼下没有）"), 13, C_ACCENT, v)
 	if not cs.is_empty():
-		L("托售（熟人用不上的，五折）", 13, C_ACCENT, v)
 		for x in cs:
 			var it2: Dictionary = x["it"]
 			var u2 := int(it2["u"])
@@ -1874,7 +1877,7 @@ func _sheet_jobs(v: Node) -> void:
 	L("坊市名声 %d · 手里 %d 灵石" % [int(e["rep"]), int(g.s["lingshi"])], 12, C_DIM, v)
 	var c1 = card(v)
 	L("代炼", 14, C_ACCENT, c1)
-	LW("药铺出主料，她搭 %d 株青芝；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
+	LW("药铺出主料，她搭 %d 株青芝、先付 %d 灵石地火钱；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, int(Jobs.COMM_FUEL[clampi(g.major(), 0, 4)]), Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
 	if Jobs.furnace_busy(g):
 		LW(Jobs.comm_text(g), 11, C_WARN, c1)
 	var w1: String = Jobs.can_comm(g)
@@ -1888,7 +1891,7 @@ func _sheet_jobs(v: Node) -> void:
 	var c3 = card(v)
 	L("悬赏", 14, C_ACCENT, c3)
 	var rg: Array = Jobs.bty_range(g)
-	LW("离家两个月：除妖、护镖、拿贼。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(rg[0]), int(rg[1])], 11, C_DIM, c3)
+	LW("离家两个月：除妖、护镖、拿贼，先花 %d 灵石备符箓干粮。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(Jobs.BTY_KIT[clampi(g.major(), 0, 4)]), int(rg[0]), int(rg[1])], 11, C_DIM, c3)
 	var w3: String = Jobs.can_bty(g)
 	B("揭一张悬赏（离开两个月）" if w3 == "" else "悬赏：%s" % w3, func(): sheet = ""; Jobs.take_bty(g), w3 == "", c3, 40)
 
