@@ -31,6 +31,7 @@ func _init() -> void:
 	t_rules_untouched()
 	t_jobs()
 	t_noworld_seclude()
+	t_newplace_merge()
 	for l in lines:
 		print(l)
 	print("经济测试：%d 失败" % fails)
@@ -239,3 +240,21 @@ func t_noworld_seclude() -> void:
 	h.new_game("测试", "sect", 24)
 	h.s["ration"] = 200
 	ok(h.biguan("years", 3) == 36, "没开江湖闭关三年：不崩（_seclude_year_note 没有江湖时不写）")
+
+func t_newplace_merge() -> void:
+	var h = GS.new()
+	h.new_game("测试", "sect", 25)
+	var n0: int = h.s["log"].size()
+	h._log("新去处：后山。")
+	h._log("采了些青芝。")
+	h._log("新去处：坊市。")
+	ok(h.s["log"].size() == n0 + 2 and String(h.s["log"][n0]["text"]).begins_with("新去处：后山、坊市"), "同一个月隔了别的行记，新去处也并成一条")
+	h.s["seclude"] = true
+	h.s["sec_m0"] = int(h.s["day"])
+	h.s["day"] = int(h.s["day"]) + 7
+	h._log("新去处：寒潭。")
+	h.s.erase("seclude")
+	h.s.erase("sec_m0")
+	ok(h.s["log"].size() == n0 + 2 and String(h.s["log"][n0]["text"]).contains("寒潭"), "一次长闭关里陆续认得的路，并进同一条")
+	h._log("新去处：药谷。")
+	ok(h.s["log"].size() == n0 + 3, "出关以后另起一条")
