@@ -3876,7 +3876,8 @@ func _dev(cmd: String) -> String:
 			return _dev("psheet:" + JSON.stringify(specs2))
 		_ when cmd.begins_with("artsheet"):
 			# 调试（v0.14.3）：16 个随机人物大图（纸底画框，同生平页），半数强制带外披，看衣袍/头发抠边
-			var b0 := int(cmd.substr(9)) if cmd.length() > 9 else 1
+			var omode := cmd == "artsheet:o"   # 每种外披都上一遍：粉披配紫袍（玩家截图那套）
+			var b0 := 1 if omode else (int(cmd.substr(9)) if cmd.length() > 9 else 1)
 			var old_a = get_node_or_null("DevSheet")
 			if old_a != null:
 				old_a.free()
@@ -3892,7 +3893,16 @@ func _dev(cmd: String) -> String:
 			for k in 16:
 				var sexa := "m" if k % 4 == 3 else "f"
 				var spa: Dictionary = PLib.roll((b0 * 7919 + k * 104729) % 1000000000, {"sex": sexa, "elder": false, "demonic": false, "robe_v": 10})
-				if k % 2 == 0 and spa.get("outer") == null and not (spa.robe in PLib.lib.pools.fixed):
+				if omode:
+					sexa = "f" if k < 10 else "m"
+					spa = PLib.roll(k * 104729 + 17, {"sex": sexa, "elder": false, "demonic": false, "robe_v": 10})
+					if spa.robe in PLib.lib.pools.fixed:
+						spa.robe = PLib.lib.pools.robes[sexa][0]
+					var pz: Array = PLib.lib.pools.outers[sexa]
+					spa.outer = pz[k % pz.size()]
+					spa.robe_tint = [118, 84, 150]
+					spa.outer_tint = [206, 158, 176] if k % 2 == 0 else [196, 150, 168]
+				elif k % 2 == 0 and spa.get("outer") == null and not (spa.robe in PLib.lib.pools.fixed):
 					var po: Array = PLib.lib.pools.outers[sexa]
 					spa.outer = po[(b0 + k) % po.size()]
 				var pfa = PanelContainer.new()
