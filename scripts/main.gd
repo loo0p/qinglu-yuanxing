@@ -1822,7 +1822,7 @@ func _stat_line(it: Dictionary, v: Node) -> void:
 		stx += ("（" if stx != "" else "") + "境界不够，祭不动" + ("）" if stx != "" else "")
 	if stx == "":
 		return
-	var sl = L("　　" + stx, 11, C_DIM, v)
+	var sl = L("      " + stx, 11, C_DIM, v)
 	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	sl.custom_minimum_size.x = 1
