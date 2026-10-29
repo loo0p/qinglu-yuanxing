@@ -22,8 +22,16 @@ const C_GOLD := Color("#C9973B")
 const NAMES_PRESET = ["苏青禾", "林晚照", "沈知微", "温小满"]
 const SPEAKER = {"turtle": "老龟", "gelaosan": "葛老三", "heroine": ""}
 const ICON = {"herb_qingzhi": "ico_qingzhi", "herb_hantanlian": "ico_lian", "seed_lianzi": "ico_lian", "herb_chiyangguo": "ico_guo",
-	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_juqi", "fu_bishui": "ico_fu", "fu_jingshui": "ico_fu",
-	"fu_dingfeng_can": "ico_fu", "herb_xugucao": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
+	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_g_hulu", "fu_bishui": "ico_fu", "fu_jingshui": "ico_g_fu_jiu",
+	"fu_dingfeng_can": "ico_g_fu_can", "herb_xugucao": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
+# v0.14.3 器物图标（按原型；没有的按 items.json 里的 icon 键）
+const GICON = {"剑": "ico_g_jian", "飞剑": "ico_g_feijian", "伞": "ico_g_san", "铃": "ico_g_ling", "印": "ico_g_yin",
+	"道袍": "ico_g_pao", "软甲": "ico_g_jia", "玉佩": "ico_g_pei", "簪": "ico_g_zan", "戒": "ico_g_jie",
+	"护身符": "ico_g_fu_huang", "静心符": "ico_g_fu_lan", "布囊": "ico_g_nang", "储物袋": "ico_g_dai", "储物戒": "ico_g_lingjie",
+	"芥子镯": "ico_g_zhuo", "天外陨铁": "ico_g_tie", "雷击木": "ico_g_leimu", "妖丹": "ico_g_yaodan"}
+const GICON_KEY = {"剑": "ico_g_jian", "伞": "ico_g_san", "铃": "ico_g_ling", "印": "ico_g_yin", "袍": "ico_g_pao", "甲": "ico_g_jia",
+	"佩": "ico_g_pei", "簪": "ico_g_zan", "戒": "ico_g_jie", "符": "ico_g_fu_huang", "囊": "ico_g_nang", "袋": "ico_g_dai",
+	"镯": "ico_g_zhuo", "材": "ico_g_tie", "丹": "ico_juqi"}
 # 路线图上的路标位置（相对插画 0..1）
 const MAP_POS = {
 	"houshan": {"_start": Vector2(0.47, 0.88), "H1": Vector2(0.42, 0.63), "H2a": Vector2(0.17, 0.52), "H2b": Vector2(0.80, 0.72),
@@ -693,6 +701,15 @@ func H(text: String, size: int = 22, color: Color = C_ACCENT, parent: Node = nul
 	if ok:
 		l.add_theme_font_override("font", font_brush)
 	return l
+
+## 器物的图标名（GICON → 消耗品 ICON → items.json 的 icon 键）
+func gear_icon(it: Dictionary) -> String:
+	var pid := String(it.get("p", ""))
+	if GICON.has(pid):
+		return GICON[pid]
+	if ICON.has(pid):
+		return ICON[pid]
+	return GICON_KEY.get(String(Gear.prop(pid, "icon", "")), "ico_fu")
 
 func IC(name: String, size: int, parent: Node) -> TextureRect:
 	var tr = TextureRect.new()
@@ -1530,6 +1547,7 @@ func _pack_tab() -> void:
 
 const SLOT_LEFT := ["fabao", "yi", "dai"]
 const SLOT_RIGHT := ["shi", "shi2", "fu"]
+const SLOT_ICON = {"fabao": "ico_g_jian", "yi": "ico_g_pao", "dai": "ico_g_nang", "shi": "ico_g_pei", "shi2": "ico_g_zan", "fu": "ico_g_fu_huang"}
 ## v0.14 装备：中间她的半身像，左右各三个槽
 func _equip_panel(v: Node) -> void:
 	var r = row(v, 6)
@@ -1550,7 +1568,9 @@ func _equip_panel(v: Node) -> void:
 			var it = Gear.eq(g, sl)
 			var t := "%s\n%s" % [Gear.SLOT_NAME[sl], "—" if it == null else Gear.full_name(it)]
 			var uu := -1 if it == null else int(it["u"])
-			var b = B(t, func(): item_u = uu; item_shop = false; sheet = "item", it != null, col, 56)
+			var b = BI(t, SLOT_ICON[sl] if it == null else gear_icon(it), func(): item_u = uu; item_shop = false; sheet = "item", it != null, col, 56)
+			b.add_theme_constant_override("icon_max_width", 30)
+			b.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.22))
 			b.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b.add_theme_font_size_override("font_size", 12)
@@ -1573,7 +1593,7 @@ func _gear_lists(v: Node) -> void:
 		v.add_child(grid)
 		for it in lst:
 			var uu := int(it["u"])
-			var b = B("%s · %s" % [Gear.full_name(it), Gear.grade_name(it)], func(): item_u = uu; item_shop = false; sheet = "item", true, grid, 40)
+			var b = BI("%s · %s" % [Gear.full_name(it), Gear.grade_name(it)], gear_icon(it), func(): item_u = uu; item_shop = false; sheet = "item", true, grid, 40)
 			b.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b.add_theme_font_size_override("font_size", 13)
@@ -1649,10 +1669,23 @@ func _sheet_item(v: Node) -> void:
 		L("（这件已经不在了）", 13, C_DIM, v)
 		return
 	var day := int(g.s["day"])
-	var hl = L(Gear.full_name(it), 22, Color(Gear.GCOL[int(it["g"])]), v)
+	var hr = row(v, 10)
+	var gc := Color(Gear.GCOL[int(it["g"])])
+	var fr = PanelContainer.new()
+	fr.add_theme_stylebox_override("panel", _sb(Color(gc, 0.10), Color(gc, 0.75), 8, 2, 4))
+	fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hr.add_child(fr)
+	IC(gear_icon(it), 64, fr)
+	var hv = VBoxContainer.new()
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.alignment = BoxContainer.ALIGNMENT_CENTER
+	hv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hr.add_child(hv)
+	var hl = L(Gear.full_name(it), 22, gc, hv)
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var meta := "%s · %s %s" % [Gear.grade_name(it), Gear.SLOT_NAME.get(Gear.slot_of(it), "灵材"), Gear.suffix_text(it)]
-	L(meta, 13, C_DIM, v)
+	LW(meta, 13, C_DIM, hv)
 	var stx: String = Gear.stat_text(it)
 	if stx != "":
 		LW(stx, 14, C_TEXT, v)
@@ -1697,7 +1730,7 @@ func _sheet_shop(v: Node) -> void:
 		L("货架空了，开春再来。", 13, C_DIM, v)
 	for it in st:
 		var uu := int(it["u"])
-		var b = B("%s · %s · %d 灵石" % [Gear.full_name(it), Gear.grade_name(it), Gear.buy_price(it, day)], func(): item_u = uu; item_shop = true; sheet = "item", true, v, 40)
+		var b = BI("%s · %s · %d 灵石" % [Gear.full_name(it), Gear.grade_name(it), Gear.buy_price(it, day)], gear_icon(it), func(): item_u = uu; item_shop = true; sheet = "item", true, v, 40)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_theme_font_size_override("font_size", 13)
@@ -1711,7 +1744,7 @@ func _sheet_shop(v: Node) -> void:
 		v.add_child(grid)
 		for it in mine:
 			var uu := int(it["u"])
-			var b2 = B("%s · 收 %d" % [Gear.full_name(it), Gear.sell_price(g, it, day)], func(): item_u = uu; item_shop = false; sheet = "item", true, grid, 38)
+			var b2 = BI("%s · 收 %d" % [Gear.full_name(it), Gear.sell_price(g, it, day)], gear_icon(it), func(): item_u = uu; item_shop = false; sheet = "item", true, grid, 38)
 			b2.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b2.add_theme_font_size_override("font_size", 12)
