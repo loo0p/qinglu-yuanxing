@@ -21,10 +21,12 @@ const DUST_MONTHS := 36
 const DUST_BREAK := 60
 const DUST_WASH := 18
 ## 坊市药铺收丹（每年前六颗按价，再多减半）；灵谷十斗一批
-const PILL_PRICE := {"pill_juqi": 8, "pill_quzhang": 3}
+const PILL_PRICE := {"pill_juqi": 10, "pill_quzhang": 4}
 const PILL_FULL := 6
 const LINGGU_BATCH := 10
 const LINGGU_PRICE := 5
+## 仓里青芝 / 灵谷过了 200，多出来的每年正月陈掉一成（“陈草失灵”）
+const STALE_CAP := 200
 ## 药铺冰鉴里的成品寒潭莲（炼气七层以后，一年一朵；没有水田的人的保底）
 const ICE_LIAN_PRICE := 110
 ## 游历“搭把手”按境界给灵石（炼气 → 筑基 → 金丹 → 元婴 → 化神，约 1 : 4 : 15）
@@ -132,6 +134,15 @@ static func monthly(gs, mode: String) -> void:
 			e["fee_paid"] = int(e.get("fee_paid", 0)) + fee
 			e["arr_off"] = false
 			gs.notice("补上了%s的年费，阵法又转起来了。" % ARR[a]["n"])
+	if _month(gs) == 1 and int(e.get("stale_y", -1)) != _year(gs):
+		e["stale_y"] = _year(gs)
+		for id in ["herb_qingzhi", "crop_linggu"]:
+			var have: int = gs.store_n(id)
+			if have > STALE_CAP:
+				var lose := maxi(1, (have - STALE_CAP) / 10)
+				gs._store_add(id, -lose)
+				e["stale"] = int(e.get("stale", 0)) + lose
+				gs.notice("仓里%s堆了 %d，陈了 %d。去坊市药铺兑成灵石，或炼成丹。" % [gs.NAMES.get(id, id), have, lose])
 	_echo_due(gs)
 	var day := int(gs.s.get("day", 0))
 	var cs: Array = e["consign"]
@@ -218,6 +229,7 @@ static func sell_pill(gs, id: String) -> bool:
 	e["pill_n"] = int(e["pill_n"]) + 1
 	gs._store_add(id, -1)
 	gs.s["lingshi"] = int(gs.s["lingshi"]) + got
+	e["sold_pill"] = int(e.get("sold_pill", 0)) + 1
 	gs.roam_note("一颗%s卖给了药铺（+%d 灵石）。" % [gs.NAMES.get(id, id), got])
 	return true
 
@@ -229,6 +241,7 @@ static func sell_linggu(gs) -> bool:
 		return false
 	var got := linggu_price(gs)
 	gs._store_add("crop_linggu", -LINGGU_BATCH)
+	E(gs)["sold_gu"] = int(E(gs).get("sold_gu", 0)) + 1
 	gs.s["lingshi"] = int(gs.s["lingshi"]) + got
 	gs.roam_note("十斗灵谷批给了粮铺（+%d 灵石）。" % got)
 	return true
@@ -243,6 +256,7 @@ static func buy_ice_lian(gs) -> bool:
 		return false
 	gs.s["lingshi"] = int(gs.s["lingshi"]) - ICE_LIAN_PRICE
 	gs.s["flags"]["ice_lian_year"] = _year(gs)
+	E(gs)["ice_bought"] = int(E(gs).get("ice_bought", 0)) + 1
 	gs.add_item("herb_hantanlian", 1)
 	gs.roam_note("药铺冰鉴里取出一朵寒潭莲，她倾了囊（−%d 灵石）。" % ICE_LIAN_PRICE)
 	gs._log("在坊市药铺买下一朵冰鉴里的寒潭莲。")
@@ -286,6 +300,7 @@ static func consign(W, src: Dictionary, it: Dictionary) -> int:
 	x["h"].append([int(W.w["day"]), "%s用不上，托坊市器物铺五折转给她。" % src["name"]])
 	var pr := maxi(1, roundi(Gear.value(x, day) * 0.5))
 	var e := E(gs)
+	e["consigned"] = int(e.get("consigned", 0)) + 1
 	e["consign"].append({"it": x, "from": String(src["name"]), "fid": int(src["id"]), "price": pr, "until": day + 24})
 	if e["consign"].size() > 4:
 		e["consign"].pop_front()
@@ -313,6 +328,7 @@ static func consign_buy(gs, u: int) -> String:
 		return "灵石不够（要 %d，手里 %d）。" % [pr, int(gs.s["lingshi"])]
 	gs.s["lingshi"] = int(gs.s["lingshi"]) - pr
 	E(gs)["consign"].erase(x)
+	E(gs)["consign_bought"] = int(E(gs).get("consign_bought", 0)) + 1
 	var it: Dictionary = x["it"]
 	it["ext"] = true
 	Gear.give_her(gs, it, "她以 %d 灵石从%s手里接下。" % [pr, x["from"]])
@@ -363,4 +379,4 @@ static func summary(gs) -> Dictionary:
 	if gs == null or not gs.s.has("econ"):
 		return {}
 	var e := E(gs)
-	return {"arr": int(e["arr"]), "fee_paid": int(e.get("fee_paid", 0)), "built_ls": int(e.get("built_ls", 0)), "fd_used": int(e.get("fd_used", 0)), "consign": e["consign"].size(), "gave": e["gave"].size()}
+	return {"arr": int(e["arr"]), "fee_paid": int(e.get("fee_paid", 0)), "built_ls": int(e.get("built_ls", 0)), "fd_used": int(e.get("fd_used", 0)), "consign": e["consign"].size(), "gave": e["gave"].size(), "sold_pill": int(e.get("sold_pill", 0)), "sold_gu": int(e.get("sold_gu", 0)), "ice": int(e.get("ice_bought", 0)), "stale": int(e.get("stale", 0)), "consigned": int(e.get("consigned", 0)), "consign_bought": int(e.get("consign_bought", 0))}

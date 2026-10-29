@@ -233,6 +233,14 @@ func _stage_up() -> void:
 func shou_years() -> int:
 	return int(ceil(I("shouyuan") / 12.0))
 
+## v0.15：寿元上限（岁）＝（现在的月龄 + 剩余寿元月）整除 12；每月一减一增，不会 99/100 来回跳
+func shou_limit_y() -> int:
+	return int((age_m() + I("shouyuan")) / 12)
+
+## v0.15：sim / 测试看经济账
+func econ_summary() -> Dictionary:
+	return Econ.summary(self)
+
 # ---------------------------------------------------------------- 基础量
 func I(k: String) -> int:
 	return int(s.get(k, 0))
