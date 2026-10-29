@@ -167,7 +167,9 @@ func play(seed: int, days: int) -> Dictionary:
 		if d <= 60:
 			r["ken60"] = ken
 		r["ken100"] = ken
-		if w.plv() < 4:
+		# v0.15：v0.14.2 起五处去处在炼气四层一起开（脚力够了），这里量“四层之前”认得几处；
+		# 原先量 plv < 4（含四层）只是因为 110 个月里没人修到四层，v0.15 关中小事多给一点修为后有人到了
+		if w.plv() < 3:
 			r["ken_lt5"] = ken
 	r["ear100"] = TV.locked(w).filter(func(pl): return TV.heard_n(w, pl) > 0).size()
 	# 侠义之人害命：看每个死于他人之手的人
@@ -352,7 +354,7 @@ func _init() -> void:
 	for kk in ex:
 		lines.append("  例：%s —— %s" % [kk, ex[kk]])
 	lines.append("结道侣的局 %d/%d；结侣日 %s；结侣时同历 %s" % [bonds.size(), N, str(bonds), str(bond_ns)])
-	lines.append("认得几处（均值）：D30 %.1f / D60 %.1f / D100 %.1f；炼气五层前 %.1f；第 110 日只耳闻 %.1f；寻仇最长连败 %d；冷却内又去撞 %d" % [agg["ken30"], agg["ken60"], agg["ken100"], agg["ken_lt5"], agg["ear100"], fz, rash])
+	lines.append("认得几处（均值）：D30 %.1f / D60 %.1f / D100 %.1f；炼气四层前 %.1f；第 110 日只耳闻 %.1f；寻仇最长连败 %d；冷却内又去撞 %d" % [agg["ken30"], agg["ken60"], agg["ken100"], agg["ken_lt5"], agg["ear100"], fz, rash])
 	if strict:
 		ok(int(bad.get("赔罪·生人或刚认识", 0)) == 0, "赔罪的人都早就认识她（≥ 赔罪间隔）")
 		ok(int(bad.get("旧友死讯·一面之缘", 0)) == 0, "旧友死讯只给真处过的人（同历 ≥ %d、好感 ≥ %d）" % [W.pace("friend_n"), W.pace("friend_f")])
@@ -370,8 +372,7 @@ func _init() -> void:
 		var fz_max: int = 1 + 110 / int(W.pace("defeat_cd"))
 		ok(fz <= fz_max, "寻仇最长连败 ≤ %d 回（隔了冷却期或破了境才能再去）：%d" % [fz_max, fz])
 		ok(int(bad.get("寻凶·同一句又来", 0)) == 0 and int(bad.get("寻凶·没追上还催", 0)) == 0, "寻凶不重复、按住剑后不空催")
-		# v0.15：16 局里 15 局与 v0.14.3 完全相同；种子 114 第 110 月修为 613 跨过炼气四层，按修为一次认得四处（设计如此），均值 4.9 → 5.4
-		ok(agg["ken_lt5"] <= 5.5, "炼气五层前认得的地方 ≤ 5.5 处（均 %.1f）" % agg["ken_lt5"])
+		ok(agg["ken_lt5"] <= 5.5, "炼气四层前认得的地方 ≤ 5.5 处（均 %.1f；v0.14.3 为 4.9，多出的是“经过那回秘境 / 宗门招徒”认得的）" % agg["ken_lt5"])
 		ok(int(bad.get("标题·陌生人", 0)) == 0, "事件标题不写“陌生人”")
 	print("\n".join(lines))
 	print("review_test: %d fail(s)" % fails)
