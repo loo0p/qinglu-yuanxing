@@ -369,3 +369,224 @@ def needs_defringe(rel):
         return False
     # 胡须、花钿/痣/疤画在脸上（底下是皮肤不是纸），不做
     return rel.startswith(("parts/robe_", "parts/outer_", "parts/hair_", "parts/acc_"))
+
+
+# ---------------------------------------------------------------- v0.15.4：外披里烘进去的亮痕 / 白袍碎片
+# 外披是在人台（穿白中衣）上原位重绘后差分抠出来的。开襟处、披帛下面，人台的白中衣、衣结和袖褶
+# 跟着一起进了部件：深色底上显成白色滴挂（outer_f5 披帛下）、开襟内侧一道白边（outer_f2 / m1 / m2 / m3 / m4）、
+# 开襟里一个白衣结（outer_f2、m1、m4）、布面上的深色针孔（alpha 掉下去，f2 / f3）。
+# 做法（在部件原位置上清理，不变形、不挪动）：
+#   ① 布料“实心核”= 不透明且不比这件布的中位亮度亮出 lift 的像素，开运算去掉细于 ko 的滴挂/碎条，只留大块，补内部小洞；
+#   ② 核外只放回 kr 像素宽的一圈（墨线轮廓与抗锯齿），这一圈里偏白的像素（白中衣）不放回；再用小开运算去掉 1-2 px 毛刺；
+#   ③ 核内 alpha 掉下去的针孔、偏白的斑用周围布色修补（cv2.inpaint），alpha 补满。
+# 纱披 outer_f1 半透明、毛领 outer_f4 本身是白的（另有 _clean_specks），不走这一步。
+OUTER_LEAKS = {"outer_f2": (11, 2), "outer_f3": (7, 3), "outer_f5": (11, 2), "outer_m1": (7, 3),
+               "outer_m2": (7, 3), "outer_m3": (7, 3), "outer_m4": (7, 3)}
+
+
+def post_fix(rel, im):
+    """defringe 之后的修补（此时半透明边缘的颜色已还原成布色，不会被当成白痕）。"""
+    if LIB is None or not rel.startswith("parts/") or rel.count(".") != 1:
+        return im
+    k = rel[len("parts/"):].split("-")[0]
+    if k in OUTER_LEAKS:
+        ko, kr = OUTER_LEAKS[k]
+        return fix_outer_leaks(rel, im, ko=ko, kr=kr)
+    if k in HAIR_FRAGS:
+        return fix_hair_frags(rel, im)
+    if k.startswith(("hair_f", "hair_m")) and not k.startswith(("hair_fe", "hair_me")):
+        return fix_hair_paper(rel, im)
+    if k in BEARD_FRAGS:
+        return fix_beard_frags(rel, im)
+    return im
+
+
+# ---------------------------------------------------------------- v0.15.4：胡须部件里的颈线、耳廓线
+# 胡须也是在人台上画的，抠的时候把人台脖子/领口、耳廓、下颌的淡灰线带了进来。脸上这些线和头部本身的线重合看不出，
+# 但脖子那几道会叠在领口上。只留胡须本体：墨色实心部分（不透明、L < p25 + 50，3×3 开运算）的凸包外扩 2 px，
+# 凸包外的一律清掉。m5 是胡茬（没有实心部分），不在名单里。
+BEARD_FRAGS = ("beard_m1", "beard_m2", "beard_m3", "beard_m4")
+
+
+def fix_beard_frags(rel, im):
+    import cv2
+    a = np.array(im.convert("RGBA"))
+    al = a[..., 3]
+    L = a[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
+    op = al > 200 if (al > 200).sum() >= 50 else al > 60
+    if op.sum() < 20:
+        return im
+    ink = float(np.percentile(L[op], 25))
+    dense = ((al > 100) & (L < ink + 50)).astype(np.uint8)
+    dense = cv2.morphologyEx(dense, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    pts = cv2.findNonZero(dense)
+    if pts is None:
+        return im
+    hull = np.zeros(al.shape, np.uint8)
+    cv2.fillConvexPoly(hull, cv2.convexHull(pts), 1)
+    hull = cv2.dilate(hull, np.ones((5, 5), np.uint8))
+    a[..., 3] = np.where(hull > 0, al, 0)
+    return Image.fromarray(a, "RGBA")
+
+
+def _part_pos(rel):
+    key = rel[len("parts/"):-len(".png")].replace("-", "@", 1)
+    return LIB["parts"][key]["pos"]
+
+
+# ---------------------------------------------------------------- v0.15.4：深色头发里的纸色
+# 头发也是差分抠的：发丝之间的纸色、鬓边垂发外缘的一道白、人台白中衣的肩线（垂发根部的白色半圆）
+# 都以接近不透明的浅色进了部件。衬在纸色底上看不出来，叠到深色衣袍上就是一圈白网 / 白边；
+# 垂发在 neck 线（抠图时“颈部以下只留深色”的分界）上下还一明一暗，成了一道横缝。
+# 做法：头部（heads/<底>.mask：颅顶 + 脸颈）往外 2 px 以外、y0 以下、不饱和（红发带、金冠不动）、
+#       比这件头发的墨色亮出 lift 的像素，按“墨色 + 纸色”重新解混：
+#       新 alpha =（纸亮度 − 原图叠纸后的亮度）/（纸亮度 − 墨亮度），颜色取能还原叠纸效果的值。
+#       衬纸色看起来一模一样，衬深色时浅色部分变成半透明的墨丝，不再发白。
+#       成块的浅色（≥9 px 宽：发带、玉簪、银冠）不动；狂草披发（f9、m8）没有浅色饰物，全图都做。
+# 头部遮罩以内（刘海、鬓角、额发）一律不动。
+PAPER = (235.0, 231.0, 224.0)
+HAIR_PAPER_ALL = ("hair_f9", "hair_m8")
+
+
+def fix_hair_paper(rel, im, y0=110, lift=12):
+    import cv2, os
+    k = rel[len("parts/"):].split("-")[0]
+    a = np.array(im.convert("RGBA"))
+    al = a[..., 3].astype(np.float32) / 255.0
+    c = a[..., :3].astype(np.float32)
+    lum = np.array([0.299, 0.587, 0.114], np.float32)
+    L = c @ lum
+    sat = c.max(-1) - c.min(-1)
+    op = al > 0.85
+    if op.sum() < 100:
+        return im
+    ink = np.median(c[op & (L < float(np.percentile(L[op], 25)) + 15)], axis=0)
+    inkL = float(ink @ lum)
+    if inkL > 90:
+        return im
+    pos = _part_pos(rel)
+    h, w = al.shape
+    yy = np.arange(h, dtype=np.float32)[:, None] + pos[1] + np.zeros((1, w), np.float32)
+    every = k in HAIR_PAPER_ALL
+    # y0 以上只动贴着外轮廓（6 px 内）的那一圈：头顶外缘抠图留下的纸色白边
+    rim = cv2.distanceTransform((al > 0.1).astype(np.uint8), cv2.DIST_L2, 3) <= 6
+    tgt = (L > inkL + lift) & (sat < 40) & (al > 0.02) & ((yy > (0 if every else y0)) | rim)
+    base = rel.split("-", 1)[1][:-len(".png")]
+    mp = os.path.join(SRC, "heads", base + ".mask.png")
+    if os.path.exists(mp):
+        hm = np.array(Image.open(mp).convert("RGB"))
+        head = ((hm[..., 0] > 0) | (hm[..., 1] > 0)).astype(np.uint8)
+        head = cv2.resize(head, (LIB["canvas"][0], LIB["canvas"][1]), interpolation=cv2.INTER_NEAREST) if head.shape[1] != LIB["canvas"][0] else head
+        H = np.zeros((h, w), np.uint8)
+        sub = head[pos[1]:pos[1] + h, pos[0]:pos[0] + w]
+        H[:sub.shape[0], :sub.shape[1]] = sub
+        tgt &= ~(cv2.dilate(H, np.ones((5, 5), np.uint8)) > 0)
+    if not every:
+        solid = cv2.morphologyEx(((L > inkL + 100) & (al > 0.6)).astype(np.uint8), cv2.MORPH_OPEN,
+                                 cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+        tgt &= ~(cv2.dilate(solid, np.ones((5, 5), np.uint8)) > 0)
+        # 从 y0 以上垂下来的浅色饰物（f7 的白发带）整块保留：纸只在 y0 以下，不会和头顶的饰物连成一大块
+        lt = ((L > inkL + 100) & (al > 0.6)).astype(np.uint8)
+        k, lab, st, _ = cv2.connectedComponentsWithStats(lt, connectivity=8)
+        top = np.zeros(k, bool)
+        for i in range(1, k):
+            y1 = st[i, cv2.CC_STAT_TOP] + pos[1]
+            top[i] = st[i, cv2.CC_STAT_AREA] >= 100 and y1 < y0 < y1 + st[i, cv2.CC_STAT_HEIGHT]
+        if top.any():
+            tgt &= ~(cv2.dilate(top[lab].astype(np.uint8), np.ones((5, 5), np.uint8)) > 0)
+    P = np.array(PAPER, np.float32)
+    Cp = c * al[..., None] + P * (1 - al[..., None])
+    PL = float(P @ lum)
+    a2 = np.clip((PL - Cp @ lum) / max(PL - inkL, 1.0), 0, 1)
+    newa = np.where(tgt, np.minimum(al, a2), al)
+    wv = np.maximum(newa, 1e-3)[..., None]
+    c2 = ((Cp - P * (1 - wv)) / wv).clip(0, 255)
+    a[..., :3] = np.where(tgt[..., None], c2, c).astype(np.uint8)
+    a[..., 3] = (newa * 255.0 + 0.5).astype(np.uint8)
+    return Image.fromarray(a, "RGBA")
+
+
+# ---------------------------------------------------------------- v0.15.4：白发部件里的衣领线和衣结
+# 白发（老年头）抠图时把人台中衣的领口线、胸前的衣结也当成“白色的头发”抠了进来，叠在别的袍子上是几道白线加一个白疙瘩。
+# 只在 neck（画布 y 245）以下处理：① 不和发团相连的碎块；② 离发团（7×7 开运算后的实心部分）7 px 以外的细线，
+# 连同挂在细线上的衣结。发团、垂发、胡须、发梢本身不动。
+# me2 的一截发辫和发团不相连，所以不在名单里。
+HAIR_FRAGS = ("hair_fe1", "hair_fe2", "hair_me1", "hair_me3")
+
+
+def fix_hair_frags(rel, im, neck=245, far=7):
+    import cv2
+    a = np.array(im.convert("RGBA"))
+    pos = _part_pos(rel)
+    al = a[..., 3]
+    m = (al > 24).astype(np.uint8)
+    k, lab, st, _ = cv2.connectedComponentsWithStats(m, 8)
+    if k <= 1:
+        return im
+    main = 1 + int(np.argmax(st[1:, 4]))
+    rm = np.zeros(al.shape, bool)
+    for i in range(1, k):
+        if i != main and st[i, 1] + pos[1] > neck:
+            rm |= lab == i
+    yy = np.arange(al.shape[0])[:, None] + pos[1]
+    body = (lab == main).astype(np.uint8)
+    mass = cv2.morphologyEx(body, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+    k2, lab2, st2, _ = cv2.connectedComponentsWithStats(mass, 8)
+    if k2 > 1:
+        big = st2[1:, 4].max()
+        mass = np.isin(lab2, [i for i in range(1, k2) if st2[i, 4] >= 0.01 * big]).astype(np.uint8)
+    near = cv2.dilate(mass, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * far + 1, 2 * far + 1))) > 0
+    strokes = (body > 0) & ~near & (yy > neck)
+    k3, lab3, st3, _ = cv2.connectedComponentsWithStats(strokes.astype(np.uint8), 8)
+    for i in range(1, k3):
+        if st3[i, 4] >= 6:
+            rm |= lab3 == i
+    stub = cv2.dilate(rm.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    massd = cv2.dilate(mass, np.ones((3, 3), np.uint8)) > 0
+    for _ in range(far):
+        stub = (cv2.dilate(stub.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & (body > 0) & ~massd
+        rm |= stub
+    left = ((al > 24) & ~rm).astype(np.uint8)
+    k4, lab4, st4, _ = cv2.connectedComponentsWithStats(left, 8)
+    if k4 > 1:
+        main4 = 1 + int(np.argmax(st4[1:, 4]))
+        for i in range(1, k4):
+            if i != main4 and st4[i, 1] + pos[1] > neck:
+                rm |= lab4 == i
+    keepb = (al > 24) & ~rm
+    rmd = (cv2.dilate(rm.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0) & ~keepb
+    a[..., 3] = np.where(rmd, 0, al)
+    return Image.fromarray(a, "RGBA")
+
+
+def fix_outer_leaks(rel, im, dbg=None, lift=18, ko=7, kr=3, sm=5):
+    import cv2
+    from scipy import ndimage as ndi
+    a = np.array(im.convert("RGBA"))
+    al = a[..., 3].astype(np.float32)
+    L = a[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
+    med = float(np.median(L[al > 200]))
+    core = ((al > 230) & (L < med + lift)).astype(np.uint8)
+    core = cv2.morphologyEx(core, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ko, ko)))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(core, 8)
+    big = st[1:, cv2.CC_STAT_AREA].max()
+    core = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= 0.03 * big])
+    core = ndi.binary_fill_holes(cv2.morphologyEx(core.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8)))
+    keep = cv2.dilate(core.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * kr + 1, 2 * kr + 1)))
+    # the rim given back around the core keeps outline and anti-aliasing only, not robe white
+    keep = (keep > 0) & ~((~core) & (L > med + lift))
+    # 1-2 px burrs left on a cut edge
+    keep = cv2.morphologyEx(keep.astype(np.uint8), cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (sm, sm))) > 0
+    kf = cv2.GaussianBlur(keep.astype(np.float32), (0, 0), 0.7)
+    newal = np.minimum(al, kf * 255.0)
+    # inside the solid core: holes (alpha dips) and whitish robe/paper pixels are repainted from the cloth around
+    fillm = (core & ((al < 230) | (L > med + lift + 12))).astype(np.uint8)
+    if fillm.any():
+        bgr = np.ascontiguousarray(a[..., 2::-1])
+        bgr = cv2.inpaint(bgr, cv2.dilate(fillm, np.ones((3, 3), np.uint8)), 4, cv2.INPAINT_TELEA)
+        a[..., :3] = bgr[..., ::-1]
+        newal = np.where(fillm > 0, 255.0, newal)
+    if dbg is not None:
+        dbg.update(med=round(med, 1), removed=int(((al > 40) & (newal < 40)).sum()), filled=int(fillm.sum()))
+    a[..., 3] = newal.clip(0, 255).astype(np.uint8)
+    return Image.fromarray(a, "RGBA")

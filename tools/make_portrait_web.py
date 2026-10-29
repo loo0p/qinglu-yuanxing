@@ -27,6 +27,7 @@ for f in sorted(glob.glob(src + '/*/*')):
     im = Image.open(f)
     if FX: im = FX.fix(rel, im)
     if FX and hasattr(FX, 'defringe') and FX.needs_defringe(rel): im = FX.defringe(rel, im)   # v0.14.3：去纸色白边
+    if FX and hasattr(FX, 'post_fix'): im = FX.post_fix(rel, im)   # v0.15.4：外披里的白中衣亮痕/碎片
     if rel.endswith('.mask.png') or rel.endswith('.aux.png'):
         im.save(out, 'WEBP', lossless=True, quality=100, method=6)
     else:
