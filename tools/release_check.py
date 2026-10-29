@@ -285,6 +285,8 @@ with sync_playwright() as p:
             tap_scroll(zj['fudan1'][0], 900, 6)
         # 静室下面的青庐营建：灵圃 / 客舍 / 指点后辈 / 收徒
         zj['estate'] = [t for t in labels() if t.startswith('青庐：')][:1]
+        for _ in range(4):   # 营建卡片在静室最底下，冲关按钮压着：先翻到底
+            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 400); pg.wait_for_timeout(400)
         zj['men_open'] = tap_scroll('指点后辈', 1200, 8)
         step('zj_estate', bool(zj['estate']) and zj['men_open'] and state().get('sheet') == 'men')
         d0 = int(state().get('day') or 0)
@@ -315,11 +317,15 @@ with sync_playwright() as p:
         tap('收起', 800)
         clear_dialogs(3)
         zj['yao_open'] = tap('药铺', 1200) or tap_scroll('药铺', 1200, 4)
-        for _ in range(8):   # 货郎的货单在药铺最底下：翻到露出来
-            if any(' 换 ' in t and 100 <= y <= H - 90 for t, _, y in btns()): break
-            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 220); pg.wait_for_timeout(500)
-        zj['barter'] = [t for t, _, _ in btns() if ' 换 ' in t][:3]
-        step('zj_barter', zj['yao_open'] and len(zj['barter']) == 3)
+        zj['barter_hdr'] = [t for t in labels() if t.startswith('货郎')][:1]
+        for _ in range(4):   # 货郎的货单在药铺最底下：翻到底
+            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 400); pg.wait_for_timeout(400)
+        ls1 = int(state().get('lingshi') or 0)
+        bt = [t for t, _, _ in btns() if ' 换 ' in t and '（' not in t]   # 能换的（筑基档里三样都备了料）
+        zj['barter'] = bt[:3]
+        zj['bartered'] = tap_scroll(bt[0], 1200, 4) if bt else False
+        zj['barter_after'] = [t for t, _, _ in btns() if ' 换 ' in t][:3]
+        step('zj_barter', zj['yao_open'] and bool(zj['barter_hdr']) and zj['bartered'] and int(state().get('lingshi') or 0) == ls1)
         tap('收起', 800)
         res['zhuji'] = zj
     b.close()

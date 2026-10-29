@@ -24,6 +24,10 @@ func _init() -> void:
 	g.s["ration"] = 60
 	g.s["store"]["herb_qingzhi"] = 90
 	g.s["store"]["pill_juqi"] = 30
+	# 货郎的六样货单都备一点料（release_check 要真点一回以物易物）
+	for o in Estate.BARTER:
+		for id in o["give"]:
+			g.s["store"][id] = maxi(g.store_n(id), int(o["give"][id]) + 2)
 	Econ.build(g)
 	Estate.build(g, "pu1")
 	Estate.build(g, "ke")
