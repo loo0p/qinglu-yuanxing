@@ -292,14 +292,19 @@ func realm_text() -> String:
 
 func _log(t: String) -> void:
 	# v0.14.1：同一个月解锁好几处新去处，行记里也并成一条（出关通知里早就并了）
+	# v0.15.2：同一个月里中间隔了别的行记也并；一次长闭关里陆续认得的路，并进这次闭关的第一条
 	if t.begins_with("新去处：") and not s["log"].is_empty():
-		var last: Dictionary = s["log"][-1]
-		var lt := String(last["text"])
-		if int(last["day"]) == I("day") and lt.begins_with("新去处："):
-			var prev := lt.substr(4).get_slice("——", 0).get_slice("。", 0)
-			var nm := t.substr(4).get_slice("。", 0)
-			last["text"] = "新去处：%s、%s——这几处的路，她都认得了。" % [prev, nm]
-			return
+		var since := int(s.get("sec_m0", I("day"))) if bool(s.get("seclude", false)) else I("day")
+		for i in range(s["log"].size() - 1, -1, -1):
+			var last: Dictionary = s["log"][i]
+			if int(last["day"]) < since:
+				break
+			var lt := String(last["text"])
+			if lt.begins_with("新去处："):
+				var prev := lt.substr(4).get_slice("——", 0).get_slice("。", 0)
+				var nm := t.substr(4).get_slice("。", 0)
+				last["text"] = "新去处：%s、%s——这几处的路，她都认得了。" % [prev, nm]
+				return
 	s["log"].append({"day": I("day"), "text": t})
 
 ## v0.14：她自己的履历（江湖里人物卡上的那份，按年月）。day<0 = 江湖当月；补记旧月份时按日子插进去，不打乱先后
@@ -851,6 +856,7 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 	var sum := {"m0": I("day"), "xw0": I("xiuwei"), "r0": realm_text(), "w0": int(world.w["day"]) if world != null else 0}
 	if long:
 		s["seclude"] = true
+		s["sec_m0"] = I("day")
 		sum["kn"] = _known_snapshot()
 		pchron("入静室闭关（%s）。" % {"years": "%s年" % World.cn_num(n), "gate": "闭到修为圆满", "days": "%s个月" % World.cn_num(n)}.get(preset, "闭关"))
 	for i in SECLUDE_MAX:
@@ -888,6 +894,7 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 		if long and done < months and done % 12 == (int((done - 1) / 12) * 5 + 3) % 12:
 			_seclude_year_note(int((done - 1) / 12) + 1)   # 每年一笔，落在不同月份
 	s.erase("seclude")
+	s.erase("sec_m0")
 	if long and done > 0:
 		_seclude_summary(sum, done)
 	return done
