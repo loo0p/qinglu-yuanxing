@@ -9,6 +9,7 @@ const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
+const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
 const VERSION = "v0.15.4 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
@@ -25,7 +26,7 @@ const NAMES_PRESET = ["苏青禾", "林晚照", "沈知微", "温小满"]
 const SPEAKER = {"turtle": "老龟", "gelaosan": "葛老三", "heroine": ""}
 const ICON = {"herb_qingzhi": "ico_qingzhi", "herb_hantanlian": "ico_lian", "seed_lianzi": "ico_lian", "herb_chiyangguo": "ico_guo",
 	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_g_hulu", "fu_bishui": "ico_fu", "fu_jingshui": "ico_g_fu_jiu",
-	"fu_dingfeng_can": "ico_g_fu_can", "herb_xugucao": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
+	"fu_dingfeng_can": "ico_g_fu_can", "herb_xugucao": "ico_qingzhi", "herb_zizhi": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
 # v0.14.3 器物图标（按原型；没有的按 items.json 里的 icon 键）
 const GICON = {"剑": "ico_g_jian", "飞剑": "ico_g_feijian", "伞": "ico_g_san", "铃": "ico_g_ling", "印": "ico_g_yin",
 	"道袍": "ico_g_pao", "软甲": "ico_g_jia", "玉佩": "ico_g_pei", "簪": "ico_g_zan", "戒": "ico_g_jie",
@@ -1395,7 +1396,7 @@ func _sheet() -> void:
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜"}.get(sheet, "")
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜", "men": "青庐 · 门下"}.get(sheet, "")
 	var ht = H(tl, 24, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
@@ -1415,6 +1416,7 @@ func _sheet() -> void:
 		"auc": _sheet_auc(v)
 		"yao": _sheet_yao(v)
 		"jobs": _sheet_jobs(v)
+		"men": _sheet_men(v)
 	var vs = get_viewport_rect().size
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
@@ -1850,6 +1852,8 @@ func _sheet_yao(v: Node) -> void:
 		var iid: String = id
 		sells.append(["%s 1 颗（%d 灵石）· 仓 %d" % [N(iid), Econ.pill_price(g, iid), g.store_n(iid)], ICON.get(iid, "ico_fu"), func(): Econ.sell_pill(g, iid), g.store_n(iid) > 0])
 	sells.append(["灵谷 %d 斗（%d 灵石）· 仓 %d" % [Econ.LINGGU_BATCH, Econ.linggu_price(g), g.store_n("crop_linggu")], ICON.get("crop_linggu", "ico_fu"), func(): Econ.sell_linggu(g), g.store_n("crop_linggu") >= Econ.LINGGU_BATCH])
+	if int(g.plv_now()) >= 9:
+		sells.append(["紫芝 1 株（%d 灵石）· 仓 %d" % [Estate.zizhi_price(g), g.store_n(Estate.ZIZHI)], ICON.get(Estate.ZIZHI, "ico_fu"), func(): Estate.sell_zizhi(g), g.store_n(Estate.ZIZHI) > 0])
 	for x in sells:
 		var b = BI(x[0], x[1], x[2], x[3], grid, 40)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -1870,6 +1874,16 @@ func _sheet_yao(v: Node) -> void:
 			b2.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b2.add_theme_font_size_override("font_size", 13)
+	var ofs: Array = Estate.offers(g)
+	if not ofs.is_empty():
+		L("货郎 · 以物易物（一年换一回货单，每样一年一回）", 13, C_ACCENT, v)
+		for i0 in ofs:
+			var i: int = i0
+			var why: String = Estate.can_barter(g, i)
+			var b3 = B(Estate.offer_text(g, i) + ("" if why == "" else "（%s）" % why), func(): _est_msg(Estate.barter(g, i)), why == "", v, 40)
+			b3.autowrap_mode = TextServer.AUTOWRAP_OFF
+			b3.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			b3.add_theme_font_size_override("font_size", 13)
 
 ## v0.15.2：坊市差事榜——代炼（占丹炉）、客卿（隔三年回来坐镇）、悬赏（离家两个月，有伤）
 func _sheet_jobs(v: Node) -> void:
@@ -2450,6 +2464,63 @@ func _cult_econ() -> void:
 	LW("服丹：每半年服 %d 颗聚气丹，这半年闭关修为 +%d%%（仓里 %d 颗）。连着闭关满三年心境蒙尘、所得减半，满五年坐不住要出关；出门走两个月就好。" % [need, Econ.FUDAN_PCT, g.store_n("pill_juqi")], 11, C_DIM, c)
 	if Econ.dusty(g):
 		L("心境蒙尘：闭关所得减半，出门走走。", 12, C_WARN, c)
+	_estate_card()
+
+## v0.16：青庐营建（灵圃出紫芝、客舍留人）与门下（指点后辈、收徒）。筑基以后才有
+func _estate_card() -> void:
+	if int(g.plv_now()) < 9:
+		return
+	var c = card()
+	LW(Estate.text(g), 13, C_INK, c)
+	var r = row(c)
+	var ks: Array = []
+	if Estate.next_pu(g) != "":
+		ks.append(Estate.next_pu(g))
+	if int(Estate.E(g)["ke"]) <= 0:
+		ks.append("ke")
+	for k in ks:
+		var kk: String = k
+		var bd: Dictionary = Estate.BUILD[kk]
+		var why: String = Estate.can_build(g, kk)
+		var bb = B("%s %s（%d 灵石，年 %d）" % ["建" if kk == "ke" else "辟", bd["n"], int(bd["build"]), int(bd["fee"])], func(): Estate.build(g, kk), why == "", r, 42)
+		bb.add_theme_font_size_override("font_size", 13)
+	LW("紫芝是高阶灵草：坊市药铺收（约 %d 灵石一株），也能跟货郎换丹。用度欠着灵圃就停。" % Estate.zizhi_price(g), 11, C_DIM, c)
+	L(Estate.tu_text(g), 13, C_INK, c)
+	var r2 = row(c)
+	var w1: String = Estate.can_teach(g)
+	var tb = B("指点后辈（一个月）" if w1 == "" else "指点：%s" % w1, func(): sheet = "men", w1 == "", r2, 42)
+	tb.add_theme_font_size_override("font_size", 13)
+	var w2: String = Estate.can_take_tu(g)
+	var ub = B("收徒" if w2 == "" else "收徒：%s" % w2, func(): sheet = "men", w2 == "", r2, 42)
+	ub.add_theme_font_size_override("font_size", 13)
+
+func _est_msg(m: String) -> void:
+	if m != "":
+		g.notice(m)
+
+## v0.16：门下——挑一个后辈指点（一年一回），或收作徒弟（要客舍）
+func _sheet_men(v: Node) -> void:
+	var W = g.world
+	LW("指点：在家一个月，讲给比她低三个小境界以上的熟人。日后可能有回响。收徒：要有客舍，徒弟每年月例 %d 灵石，帮着侍弄阳田。" % Estate.TU_FEE, 11, C_DIM, v)
+	var w1: String = Estate.can_teach(g)
+	var w2: String = Estate.can_take_tu(g)
+	var seen := {}
+	for c0 in Estate.cands(g, Estate.TEACH_GAP) + Estate.cands(g, Estate.TU_GAP):
+		var c: Dictionary = c0
+		var cid := int(c["id"])
+		if seen.has(cid):
+			continue
+		seen[cid] = true
+		var cc = card(v)
+		L("%s · %s · 好感 %d" % [c["name"], W.realm(c), int(W.opinion(c, W.P()))], 13, C_INK, cc)
+		var rr = row(cc)
+		var tb = B("指点%s" % c["name"], func(): sheet = ""; _est_msg(Estate.teach(g, cid)), w1 == "", rr, 40)
+		tb.add_theme_font_size_override("font_size", 13)
+		var gap_ok: bool = int(c["lv"]) + Estate.TU_GAP <= int(W.plv())
+		var ub = B("收为徒弟", func(): sheet = ""; _est_msg(Estate.take_tu(g, cid)), w2 == "" and gap_ok, rr, 40)
+		ub.add_theme_font_size_override("font_size", 13)
+	if seen.is_empty():
+		L("认得的人里眼下没有能指点的后辈。", 12, C_DIM, v)
 
 ## v0.13：冲关按钮上写清是哪一关、几成把握
 func _gate_label() -> String:

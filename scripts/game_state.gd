@@ -54,7 +54,7 @@ const GELAOSAN_FRUIT_PRICE := 20
 const NAMES := {
 	"res_lingshi": "灵石", "res_xiuwei": "修为", "res_ganwu": "感悟", "res_xinjing": "心境",
 	"res_shouyuan": "寿元", "res_ganliang": "辟谷丹", "herb_qingzhi": "青芝", "seed_lianzi": "寒潭莲子",
-	"herb_hantanlian": "寒潭莲", "herb_chiyangguo": "赤阳果", "herb_xugucao": "续骨草", "crop_linggu": "灵谷",
+	"herb_hantanlian": "寒潭莲", "herb_chiyangguo": "赤阳果", "herb_xugucao": "续骨草", "crop_linggu": "灵谷", "herb_zizhi": "紫芝",
 	"pill_juqi": "聚气丹", "pill_quzhang": "驱瘴丹", "pill_zhuji": "筑基丹",
 	"fu_bishui": "避水符", "fu_jingshui": "净水符", "fu_dingfeng_can": "残符·定风",
 }
