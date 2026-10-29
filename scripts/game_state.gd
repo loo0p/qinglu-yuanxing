@@ -885,7 +885,13 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 		if long and done > 0:
 			var why := Econ.seclude_break(self)   # v0.15：阵法欠费停了、连着闭关五年蒙尘——出关
 			if why != "":
-				pchron(why)
+				# 头一回单记一条；以后并进出关那条合并条（不然百年里同一句记二三十回）
+				var ek := "told_" + ("dust" if why.contains("蒙") else "arr")
+				var ed: Dictionary = Econ.E(self)
+				if not bool(ed.get(ek, false)):
+					ed[ek] = true
+					pchron(why, -1, {"出关": "（%s）" % ("蒙尘" if why.contains("蒙") else "阵停")})
+				sum["why"] = "心头蒙尘，坐不下去了" if why.contains("蒙") else "阵法停了"
 				notice(why)
 				break
 		biguan_day()
@@ -1012,6 +1018,8 @@ func _seclude_chron(sum: Dictionary, done: int, out: Dictionary) -> void:
 		txt = "入静室闭关，说要%s；坐了%s。" % [plan, span_text(done)]
 	elif span_text(done) != plan:
 		txt = "入静室闭关，原说%s，坐了%s。" % [plan, span_text(done)]
+	if sum.has("why"):
+		txt += "%s。" % String(sum["why"])
 	txt += "出关时%s岁，%s%s。" % [World.cn_num(age_y()), realm_text(), "，仍在原地" if realm_text() == String(sum["r0"]) and not efx.has("修为") else ""]
 	var news := heard.slice(maxi(0, heard.size() - 3)) + lines.slice(0, maxi(0, 5 - mini(3, heard.size())))
 	if not news.is_empty():

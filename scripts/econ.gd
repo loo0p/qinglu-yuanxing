@@ -103,7 +103,9 @@ static func biguan_xw(gs, v: int) -> int:
 		out = out / 2
 		if int(e["sec_run"]) == DUST_MONTHS + 1:
 			gs.notice("连着闭关满三年，心境蒙尘：闭关所得减半。出门走两个月就好。")
-			gs.pchron("闭关久了，心境蒙尘，修为进得慢了。", -1, {"心境蒙尘": "", "闭关所得": "减半"})
+			if not bool(e.get("told_dust3", false)):   # 头一回记；以后由出关合并条带出
+				e["told_dust3"] = true
+				gs.pchron("闭关久了，心境蒙尘，修为进得慢了。", -1, {"心境蒙尘": "", "闭关所得": "减半"})
 	return out
 
 ## 每月（tick 末尾）：出门洗蒙尘、正月交聚灵阵年费、欠费的有钱了就续上、拍卖回响、托售过期
