@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.15.6 试玩版"
+const VERSION = "v0.15.7 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
