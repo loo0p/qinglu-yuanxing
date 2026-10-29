@@ -84,6 +84,9 @@ with sync_playwright() as p:
         for tb in ['生平', '行囊', '江湖', '历练', '青庐']:
             clear_dialogs()
             step('old_tab_' + {'生平': 'life', '行囊': 'pack', '江湖': 'jianghu', '历练': 'map', '青庐': 'home'}[tb], tap(tb, 1200))
+            if tb == '生平':   # 旧档读进来，她自己的履历（带效果小字）
+                step('old_lvli', tap('她在江湖里的生平', 1500))
+                tap('回江湖', 1200) or tap('生平', 1200)
         clear_dialogs()
         ok = tap('静室', 1200) and tap('十年', 6000)
         step('old_seclude10', ok)
@@ -91,6 +94,9 @@ with sync_playwright() as p:
         st = state(); sv = ls_save() or {}
         res['after_seclude'] = {'day': st.get('day'), 'saved_v': sv.get('state', {}).get('v'), 'saved_day': sv.get('state', {}).get('day')}
         step('old_after', True)
+        clear_dialogs()
+        tap('生平', 1500)
+        step('old_after_lvli', tap('她在江湖里的生平', 1500))
         b.close()
         print(json.dumps(res, ensure_ascii=False, indent=1)); sys.exit(0)
     step('create', tap('新游戏', 1500))
@@ -117,6 +123,9 @@ with sync_playwright() as p:
     for tb in ['生平', '行囊', '江湖', '青庐']:
         clear_dialogs()
         step('tab_' + {'生平': 'life', '行囊': 'pack', '江湖': 'jianghu', '青庐': 'home2'}[tb], tap(tb, 1200))
+        if tb == '生平':   # 开局不久她自己的履历
+            step('early_lvli', tap('她在江湖里的生平', 1500))
+            tap('回江湖', 1200) or tap('生平', 1200)
     # v0.14：坊市器物铺买一件 → 回家 → 行囊里装上 → 点装备槽卸下（只走玩家版按钮）
     gear = {}
     clear_dialogs()
