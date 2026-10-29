@@ -8,7 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.14.1 试玩版"
+const VERSION = "v0.14.2 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -834,9 +834,7 @@ func _layer_up(lay0: int, full0: bool) -> bool:
 		line = pv_layer(lay)
 	if line == "":
 		return false
-	g.notice(line)
-	if g.world != null:
-		g.world.chron(g.world.P(), "修为精进，入%s。" % g.realm_text())
+	g.notice(line)   # v0.14.2：履历由规则层在当月记（game_state._lq_chron），这里只提示
 	return true
 
 func pv_layer(lay: int) -> String:
@@ -1731,6 +1729,8 @@ func _sheet_auc(v: Node) -> void:
 		L("拍卖会三月、九月才开。", 13, C_DIM, v)
 		return
 	var lot: Dictionary = A["lot"]
+	if A.has("n"):
+		L("第 %d / %d 件%s" % [int(A["i"]), int(A["n"]), "（压轴）" if not Gear.auction_more(A) else ""], 12, C_DIM, v)
 	var hl = L("%s · %s" % [lot["n"], Gear.grade_name(lot)], 20, Color(Gear.GCOL[int(lot["g"])]), v)
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	LW(Gear.stat_text(lot) + "（%s）" % String(lot["h"][0][1]), 13, C_TEXT, v)
@@ -1738,7 +1738,10 @@ func _sheet_auc(v: Node) -> void:
 		LW(String(t), 13, C_DIM, v)
 	var r = row(v, 6)
 	if A["done"]:
+		if Gear.auction_more(A):
+			B("下一件", func(): Gear.auction_next_lot(g), true, r, 42)
 		B("散场", func(): sheet = "", true, r, 42)
+		L("手里 %d 灵石" % int(g.s["lingshi"]), 12, C_DIM, v)
 		return
 	var nxt: int = Gear.auction_next(A) if int(A["lead"]) != 0 else int(A["price"])
 	var lead_me: bool = int(A["lead"]) == -1
@@ -3746,7 +3749,7 @@ func _dev(cmd: String) -> String:
 			# 调试（v0.11）：世界图 / 点开一处 / 在坊市游历 / 上前搭话
 			_dev("jianghu")
 			var W = g.world
-			g.s["xiuwei"] = 150
+			g.s["xiuwei"] = 450   # 炼气三层（v0.14.2：炼气 1800）
 			TV.ensure(W)
 			W.w["unl"] = {}
 			W.w["heard"] = {"云梦泽": 1, "玄霜谷": 2, "古战场": 1}
@@ -4081,7 +4084,7 @@ func _dev(cmd: String) -> String:
 			g.s["store"]["pill_juqi"] = 3
 			g.s["store"]["fu_bishui"] = 2
 			g.s["store"]["herb_qingzhi"] = 6
-			g.s["xiuwei"] = 300
+			g.s["xiuwei"] = 900   # 炼气五层（v0.14.2：炼气 1800）
 			if cmd == "depart" or cmd == "laogui":
 				g.pack_put("pill_juqi", true)
 				g.pack_put("fu_bishui")

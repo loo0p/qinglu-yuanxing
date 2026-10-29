@@ -713,9 +713,54 @@ static func repair(gs, u: int) -> String:
 	it["h"].append([int(gs.s.get("day", 0)), "在坊市修过一回。"])
 	return ""
 
-## 拍卖：三月、九月坊市有拍卖会（春拍 / 秋拍），一件灵器（偶有宝器）
+## 拍卖：三月、九月坊市有拍卖会（春拍 / 秋拍）
+## v0.14.2：一场三件，按她的境界和身家配——前两件是够得着的小件（炼气时多是旧法器，起拍二三十灵石，跟价的也是境界相近的人），
+## 压轴一件高她一两个大境界（炼气时是灵器，偶有宝器），给她看看、攒个念想。一件落槌再拍下一件
+const AUC_LOTS := 3
 static func auction_month(day: int) -> bool:
 	return (maxi(day, 1) - 1) % 12 + 1 in [3, 9]
+
+static func _her_major(gs) -> int:
+	return int(gs.major()) if gs.has_method("major") else 0
+
+static func _round5(x: float) -> int:
+	return maxi(5, roundi(x / 5.0) * 5)
+
+## 一件拍品（含 NPC 心里的价）。small=true 是够得着的小件
+static func _auc_lot(gs, r: RandomNumberGenerator, small: bool, day: int) -> Dictionary:
+	var W = gs.world
+	var mj := _her_major(gs)
+	var ls := int(gs.s.get("lingshi", 0))
+	var her_lv: int = int(gs.plv_now()) if gs.has_method("plv_now") else 0
+	var sl: String = ["fabao", "fabao", "yi", "shi", "dai"][r.randi() % 5]
+	var arr: Array = BASES[sl]
+	var pid: String = arr[r.randi() % arr.size()]
+	var g := 0
+	var origin := ""
+	if small:
+		g = clampi(mj + 1, 1, 3)
+		while g > 1 and GBASE[g] * 0.4 > maxf(float(ls), 10.0):   # 身家够不着就降一品
+			g -= 1
+		origin = ["哪位散修手头紧，拿出来押的。", "旧洞府里清出来的，有些磨损。", "坊市老铺子压箱底的。"][r.randi() % 3]
+	else:
+		g = clampi(mj + 2, 2, 4)
+		if r.randf() < 0.2:
+			g = mini(4, g + 1)
+		origin = ["出自古战场。", "某位前辈坐化后，洞府里清出来的。", "海外商船带来的。"][r.randi() % 3]
+	var lot := make(gs, W, r, pid, g, origin, day)
+	if small:
+		lot["dur"] = 60 + r.randi() % 31   # 旧东西，成色六到九成
+	var v := value(lot, day)
+	var bid := {}
+	if W != null:
+		var cands: Array = W.npcs().filter(func(c): return (absi(int(c["lv"]) - her_lv) <= 3) if small else int(c["lv"]) >= 6)
+		cands.sort_custom(func(a, b): return int(a["id"]) < int(b["id"]))
+		for i in mini(3 if not small else 2, cands.size()):
+			var c: Dictionary = cands[r.randi() % cands.size()]
+			var k: float = (0.5 + 0.5 * r.randf()) if small else (0.7 + 0.6 * r.randf())
+			bid[str(int(c["id"]))] = roundi(v * k * (1.0 + int(c["lv"]) / 30.0))
+	var st := _round5(v * (0.4 if small else 0.6))
+	return {"lot": lot, "max": bid, "price": st}
 
 static func auction(gs) -> Dictionary:
 	var G: Dictionary = gs.s["gear"]
@@ -725,24 +770,37 @@ static func auction(gs) -> Dictionary:
 	if int(G["auc"].get("d", -1)) == day:
 		return G["auc"]
 	var r := _rng_for(gs, 5000 + day)
-	var sl: String = ["fabao", "fabao", "yi", "shi", "dai"][r.randi() % 5]
-	var arr: Array = BASES[sl]
-	var pid: String = arr[r.randi() % arr.size()]
-	var g := 3 if r.randf() < 0.2 else 2
-	var W = gs.world
-	var lot := make(gs, W, r, pid, g, ["出自古战场。", "某位前辈坐化后，洞府里清出来的。", "海外商船带来的。"][r.randi() % 3], day)
-	var v := value(lot, day)
-	var bid := {}
-	if W != null:
-		var cands: Array = W.npcs().filter(func(c): return int(c["lv"]) >= 6)
-		cands.sort_custom(func(a, b): return int(a["id"]) < int(b["id"]))
-		for i in mini(3, cands.size()):
-			var c: Dictionary = cands[r.randi() % cands.size()]
-			bid[str(int(c["id"]))] = roundi(v * (0.7 + 0.6 * r.randf()) * (1.0 + int(c["lv"]) / 30.0))
-	var start := roundi(v * 0.6 / 5.0) * 5
-	G["auc"] = {"d": day, "lot": lot, "price": start, "lead": 0, "max": bid, "done": false, "log": ["起拍 %d 灵石。" % start]}
-	_npc_raise(gs, G["auc"])
+	var q := []
+	for i in AUC_LOTS:
+		q.append(_auc_lot(gs, r, i < AUC_LOTS - 1, day))
+	G["auc"] = {"d": day, "q": q, "i": 0, "n": AUC_LOTS}
+	_auc_open(gs, G["auc"])
 	return G["auc"]
+
+## 把队里的下一件摆上台
+static func _auc_open(gs, A: Dictionary) -> void:
+	var nx: Dictionary = A["q"].pop_front()
+	A["i"] = int(A.get("i", 0)) + 1
+	A["lot"] = nx["lot"]
+	A["max"] = nx["max"]
+	A["price"] = int(nx["price"])
+	A["lead"] = 0
+	A["done"] = false
+	var tag := "压轴" if A["q"].is_empty() else "第%s件" % ["一", "二", "三", "四"][clampi(int(A["i"]) - 1, 0, 3)]
+	A["log"] = ["%s：%s，起拍 %d 灵石。" % [tag, A["lot"]["n"], int(A["price"])]]
+	_npc_raise(gs, A)
+
+## 还有下一件没拍
+static func auction_more(A: Dictionary) -> bool:
+	return not A.is_empty() and not A.get("q", []).is_empty()
+
+## 这件落槌了，摆下一件；返回 false 表示整场散了
+static func auction_next_lot(gs) -> bool:
+	var A := auction(gs)
+	if A.is_empty() or not A["done"] or not auction_more(A):
+		return false
+	_auc_open(gs, A)
+	return true
 
 static func _npc_raise(gs, A: Dictionary) -> void:
 	var best_id := ""

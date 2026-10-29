@@ -33,6 +33,8 @@ func _init() -> void:
 	t_effects()
 	t_market()
 	t_world()
+	t_lq1800()
+	t_auc_lots()
 	for l in lines:
 		print(l)
 	print("装备/闭关测试：%d 失败" % fails)
@@ -205,7 +207,7 @@ func t_save() -> void:
 	Gear.equip(g, int(sw["u"]))
 	var j := JSON.stringify(g.to_dict())
 	var h = GS.new()
-	ok(h.from_dict(JSON.parse_string(j)), "v4 存档读回")
+	ok(h.from_dict(JSON.parse_string(j)), "当前版本存档读回")
 	ok(Gear.eq(h, "fabao") != null and String(Gear.eq(h, "fabao")["n"]) == String(sw["n"]) and is_equal_approx(Gear.her_stat(h, "pw"), Gear.her_stat(g, "pw")), "装备与斗法加成存读一致")
 	# v3 → v4：旧档没有 gear，读入补一只布囊；行囊、灵石、仓库原样
 	var d: Dictionary = JSON.parse_string(j)
@@ -214,12 +216,12 @@ func t_save() -> void:
 	d["pack"] = [{"id": "pill_juqi", "n": 3, "key": false}, {"id": "fu_bishui", "n": 1, "key": true}]
 	d["lingshi"] = 77
 	var m = GS.new()
-	ok(m.from_dict(d) and int(m.s["v"]) == 4 and String(Gear.eq(m, "dai")["p"]) == "布囊", "v3 档迁移到 v4：补布囊")
+	ok(m.from_dict(d) and int(m.s["v"]) == GS.SAVE_VERSION and String(Gear.eq(m, "dai")["p"]) == "布囊", "v3 档迁移到当前版本：补布囊")
 	ok(m.s["pack"].size() == 2 and int(m.s["lingshi"]) == 77 and Gear.cells(m) == 6, "迁移不动原有行囊与灵石")
 	var f := FileAccess.open("res://tests/fixtures/save_v2_live_v0121_day36.json", FileAccess.READ)
 	if f != null:
 		var o = GS.new()
-		ok(o.from_dict(JSON.parse_string(f.get_as_text())["state"]) and o.s.has("gear") and int(o.s["v"]) == 4, "v2 老档（v0.12.1 线上）一路迁到 v4")
+		ok(o.from_dict(JSON.parse_string(f.get_as_text())["state"]) and o.s.has("gear") and int(o.s["v"]) == GS.SAVE_VERSION, "v2 老档（v0.12.1 线上）一路迁到当前版本 v%d" % GS.SAVE_VERSION)
 
 func t_effects() -> void:
 	var g = fresh(6)
@@ -279,7 +281,7 @@ func t_market() -> void:
 		g.tick("biguan")
 	g.s["lingshi"] = 100000
 	var A: Dictionary = Gear.auction(g)
-	ok(not A.is_empty() and int(A["lot"]["g"]) >= 2, "三月拍卖会：一件%s" % Gear.grade_name(A["lot"]))
+	ok(not A.is_empty() and int(A["n"]) == Gear.AUC_LOTS and int(A["i"]) == 1, "三月拍卖会：一场 %d 件，先拍第一件（%s）" % [int(A.get("n", 0)), Gear.grade_name(A["lot"])])
 	var n0: int = Gear.all_mine(g).size()
 	for i in 30:
 		if A["done"]:
@@ -322,3 +324,118 @@ func t_world() -> void:
 	ok(moved >= 1, "三十年里有器物换过主人（%d 件）" % moved)
 	ok(made >= 2, "法宝事件出现 %d 种（炼器/寻宝/夺宝/赠物/捡遗物）" % made)
 	ok(dup == 0, "一件器物同时只在一个人身上")
+
+## v0.14.2：炼气 600 → 1800。旧档修为 ×3、层数不变；每层当月记进履历，顺序是先破层、后关口、再出关
+func t_lq1800() -> void:
+	ok(GS.XW_GOAL == 1800, "炼气修为上限 1800")
+	for xw in [0, 199, 200, 250, 599, 600, 1000]:
+		var g = fresh(21)
+		var lay0: int = int(1 + xw * 9 / 600) if xw < 600 else 9
+		var full0: bool = xw >= 600
+		var d: Dictionary = JSON.parse_string(JSON.stringify(g.to_dict()))
+		d["v"] = 4
+		d["xiuwei"] = mini(xw, 600)
+		var m = GS.new()
+		var okd: bool = m.from_dict(d)
+		ok(okd and m.I("xiuwei") == mini(xw, 600) * 3 and m.layer() == lay0 and (m.I("xiuwei") >= m.xw_goal()) == full0, "v4 旧档修为 %d → %d，层数 %d 不变%s" % [mini(xw, 600), m.I("xiuwei"), lay0, "，仍是圆满" if full0 else ""])
+	var z = fresh(22)
+	z._raise_to(10)
+	z.s["xiuwei"] = 777
+	var dz: Dictionary = JSON.parse_string(JSON.stringify(z.to_dict()))
+	dz["v"] = 4
+	var mz = GS.new()
+	ok(mz.from_dict(dz) and mz.I("xiuwei") == 777 and mz.I("plv") == 10, "筑基以后的旧档修为不动（777）")
+	var f := FileAccess.open("res://tests/fixtures/save_v2_live_v0121_day36.json", FileAccess.READ)
+	if f != null:
+		var raw: Dictionary = JSON.parse_string(f.get_as_text())["state"]
+		var o = GS.new()
+		o.from_dict(raw.duplicate(true))
+		var exp: int = int(raw.get("xiuwei", 0)) * 3 if not (bool(raw.get("ended", false)) and String(raw.get("ending", "")) == "zhuji") else 0
+		ok(o.I("xiuwei") == exp, "v2 线上老档修为 %d → %d" % [int(raw.get("xiuwei", 0)), o.I("xiuwei")])
+	# 长闭关：每过一层都在当月记一笔，修满记关口，最后出关
+	var g = fresh(23)
+	g.s["ration"] = 30
+	g.s["ganwu"] = 0
+	var n0: int = g.world.P()["log"].size()
+	g.biguan("years", 10)
+	g.biguan("years", 10)
+	var add: Array = g.world.P()["log"].slice(n0)
+	var texts: Array = add.map(func(e): return String(e[1]))
+	var txt := "\n".join(texts)
+	ok(txt.count("修为精进，入炼气") >= 6 and txt.contains("入炼气九层"), "长闭关里过的层当月记下（%d 笔，含九层；一个月连过两层只记后一层）" % txt.count("修为精进，入炼气"))
+	var i9 := -1
+	var ig := -1
+	var io := -1
+	for i in texts.size():
+		if texts[i].contains("入炼气九层") and i9 < 0:
+			i9 = i
+		if texts[i].contains("修为到了筑基的关口") and ig < 0:
+			ig = i
+		if texts[i].begins_with("出关") and io < 0 and ig >= 0:
+			io = i
+	ok(i9 >= 0 and ig > i9 and io > ig, "顺序：入炼气九层（%d）→ 到了关口（%d）→ 出关（%d）" % [i9, ig, io])
+	ok(txt.count("修为到了筑基的关口") == 1, "关口只记一次")
+	var sorted := true
+	var lg: Array = g.world.P()["log"]
+	for i in range(1, lg.size()):
+		if int(lg[i][0]) < int(lg[i - 1][0]):
+			sorted = false
+	ok(sorted, "履历按年月先后")
+	ok(bool(g.s["flags"].get("zhuji_hint", false)), "修到炼气七层，翻出筑基丹方（以前看 s.plv，炼气时永远是 0，这条不触发）")
+	# 炼气圆满要多久：纯闭关（不出门、不服丹）
+	var h = GS.new()
+	h.new_game("测试", "sect", 24)   # 不开江湖：只看闭关本身的速度
+	h.s["ration"] = 30
+	var mon := 0
+	while h.I("xiuwei") < h.xw_goal() and mon < 400:
+		h.tick("biguan")
+		mon += 1
+	ok(mon == 150, "只闭关不出门：炼气圆满要 %d 个月（1800 / 12 = 150，十二年半）" % mon)
+
+## v0.14.2：拍卖一场三件，前两件够得着，压轴一件高她一两个大境界
+func t_auc_lots() -> void:
+	var g = fresh(31)
+	g.s["lingshi"] = 30
+	while (int(g.s["day"]) - 1) % 12 + 1 != 3:
+		g.tick("biguan")
+	var A: Dictionary = Gear.auction(g)
+	var seen := []
+	var cheap := 0
+	var grades := []
+	for k in Gear.AUC_LOTS:
+		seen.append("%s·%s 起拍 %d" % [A["lot"]["n"], Gear.grade_name(A["lot"]), int(A["price"])])
+		grades.append(int(A["lot"]["g"]))
+		if k < Gear.AUC_LOTS - 1 and int(A["price"]) <= 30:
+			cheap += 1
+		Gear.auction_pass(g)
+		if k < Gear.AUC_LOTS - 1:
+			ok(Gear.auction_more(A) and Gear.auction_next_lot(g), "第 %d 件落槌，摆下一件" % (k + 1))
+	print("拍卖（炼气，手里 30 灵石）：" + "；".join(seen))
+	ok(not Gear.auction_more(A) and A["done"], "三件拍完散场")
+	ok(cheap == Gear.AUC_LOTS - 1, "前两件起拍都在她够得着的价（≤30 灵石）：%s" % "；".join(seen))
+	ok(grades[0] == 1 and grades[1] == 1 and grades[2] >= 2, "炼气时：小件是法器，压轴是灵器或更高（%s）" % str(grades))
+	# 赢得下：多试几场，她至少拍下过一件小件
+	var won := 0
+	for sd in 12:
+		var w = fresh(40 + sd)
+		w.s["lingshi"] = 40
+		while (int(w.s["day"]) - 1) % 12 + 1 != 3:
+			w.tick("biguan")
+		var B: Dictionary = Gear.auction(w)
+		var n0: int = Gear.all_mine(w).size()
+		for t in 20:
+			if B["done"]:
+				break
+			if Gear.auction_bid(w) != "":
+				Gear.auction_pass(w)
+		if Gear.all_mine(w).size() > n0:
+			won += 1
+	ok(won >= 3, "炼气、手里 40 灵石，十二场里拍下第一件小件 %d 回（≥3）" % won)
+	# 筑基以后：小件升到灵器（身家够的话），压轴宝器起
+	var z = fresh(32)
+	z._raise_to(9)
+	z.s["lingshi"] = 400
+	while (int(z.s["day"]) - 1) % 12 + 1 != 9:
+		z.tick("biguan")
+	var C: Dictionary = Gear.auction(z)
+	ok(int(C["lot"]["g"]) == 2, "筑基、手里 400：第一件是灵器（%s）" % Gear.grade_name(C["lot"]))
