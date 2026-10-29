@@ -5,6 +5,7 @@ extends RefCounted
 ## 引擎状态整块存在 world.w["se"]（JSON 安全，随存档走）；旧档没有这一块，读档时按种子新建，不动已有的人和事。
 const SE = preload("res://addons/storylet_engine/storylet_engine.gd")
 const AG = preload("res://scripts/agency.gd")
+const Econ = preload("res://scripts/econ.gd")   # v0.15：送她器物的门槛、托售
 const PACKS := ["qinglu_core", "qinglu_life", "qinglu_bio", "qinglu_offer", "qinglu_gear"]
 const CN := ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"]
 static var _cache := {}
@@ -297,6 +298,19 @@ func se_op(op: Dictionary, inst, e) -> void:
 			if it2 == null:
 				inst["ctx"]["it"] = ""
 				return
+			# v0.15（Gemini v7 P0·NPC 托人白送）：送她法器以上，要够亲近、她祭得动、不高过她一个大境界，且这人一生只送一件重宝；
+			# 不够格的改成“用不上，托坊市器物铺五折转给她”（包里的送礼文字不出，这里自己记）
+			if k == "give_item" and dst.get("player", false) and W.g != null and not src.get("player", false):
+				if not Econ.gift_ok(W, src, it2):
+					var nm := String(it2["n"])
+					var gn: String = W.Gear.grade_name(it2)
+					var pr := Econ.consign(W, src, it2)
+					inst["ctx"]["it"] = ""
+					W.chron(src, "把用不上的一件%s托坊市器物铺转给%s。" % [nm, String(W.P().get("name", "她"))])
+					W.g.pchron("%s捎话：手里一件%s（%s）用不上，托坊市器物铺五折转给她，%d 灵石，两年内去取。" % [src["name"], nm, gn, pr])
+					W.g.notice("%s托坊市器物铺转一件%s（%s）给她，%d 灵石，两年内去坊市取。" % [src["name"], nm, gn, pr])
+					return
+				Econ.note_gift(W, src, it2)
 			var moved: Dictionary = W.Gear.transfer(W, src, dst, it2, e.say(op.get("h", "{A}给了{B}。"), inst, "h", e._op_vars(op, inst)))
 			inst["ctx"]["it"] = String(moved.get("n", ""))
 			inst["ctx"]["itg"] = W.Gear.grade_name(moved) if not moved.is_empty() else ""

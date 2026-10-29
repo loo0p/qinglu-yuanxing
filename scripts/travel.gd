@@ -1,4 +1,5 @@
 extends RefCounted
+const Econ = preload("res://scripts/econ.gd")   # v0.15 经济
 ## v0.11 去处与游历（travel.gd）
 ## 世界是一张逐步展开的地图：一开始只认得青庐左近（后山、坊市），别处先是“传闻”。
 ## 解锁不排章节：修为够了、坊市买了舆图、熟人引路、插手过那里的事——哪条先到算哪条（风声只让她“耳闻”）。
@@ -329,13 +330,14 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 		"herb":
 			# v0.13：筑基主药也能在野外碰上（寒潭边的寒潭莲；药王谷两样都偶有）
 			var rare := ""
+			# v0.15（Gemini v7 P0·开局）：野外碰上的寒潭莲都是谢了的，只捡得到莲子（要水田种）；成株的主药不再白捡
 			if p == "寒潭" and W.rng.randf() < 0.06:
-				rare = "herb_hantanlian"
+				rare = "seed_lianzi"
 			elif p == "药王谷" and W.rng.randf() < 0.05:
-				rare = "herb_hantanlian" if W.rng.randf() < 0.5 else "herb_chiyangguo"
+				rare = "seed_lianzi" if W.rng.randf() < 0.5 else "herb_chiyangguo"
 			if rare != "":
 				out["items"][rare] = 1
-				out["text"] = "这个月在%s转悠，竟撞见一株%s！" % [sp[0], "寒潭莲" if rare == "herb_hantanlian" else "赤阳果"]
+				out["text"] = "这个月在%s转悠，%s" % [sp[0], "石缝里卡着一粒寒潭莲子，莲早谢了。" if rare == "seed_lianzi" else "竟撞见一株赤阳果！"]
 			elif W.rng.randf() < 0.65:
 				var id := "herb_xugucao" if W.rng.randf() < 0.15 else "herb_qingzhi"
 				var n: int = 1 if id == "herb_xugucao" else W.rng.randi_range(1, 2 + rich)
@@ -343,7 +345,8 @@ static func roam_day(W, p: String, si: int) -> Dictionary:
 				out["text"] = "这个月在%s转悠，采到%s ×%d。" % [sp[0], "续骨草" if id == "herb_xugucao" else "青芝", n]
 		"ls":
 			if W.rng.randf() < 0.6:
-				out["ls"] = W.rng.randi_range(1, 3 + rich * 2)
+				# v0.15：按她的境界给（炼气 3–7、筑基 12–28、金丹 45–100……）；掷骰次数不变
+				out["ls"] = Econ.roam_ls(int(W.g.major()) if W.g != null else 0, rich, W.rng.randi_range(1, 100))
 				out["text"] = "在%s帮人搭了把手，得了%s块灵石。" % [sp[0], W.cnum(int(out["ls"]))]
 		"wu":
 			out["wu"] = W.rng.randi_range(2, 4 + rich)
