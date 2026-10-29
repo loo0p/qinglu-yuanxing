@@ -4,6 +4,7 @@ const GS = preload("res://scripts/game_state.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
+const Estate = preload("res://scripts/estate.gd")
 var fails := 0
 var lines: PackedStringArray = []
 
@@ -32,6 +33,10 @@ func _init() -> void:
 	t_jobs()
 	t_noworld_seclude()
 	t_newplace_merge()
+	t_estate()
+	t_teach_tu()
+	t_barter()
+	t_estate_old_save()
 	for l in lines:
 		print(l)
 	print("经济测试：%d 失败" % fails)
@@ -258,3 +263,151 @@ func t_newplace_merge() -> void:
 	ok(h.s["log"].size() == n0 + 2 and String(h.s["log"][n0]["text"]).contains("寒潭"), "一次长闭关里陆续认得的路，并进同一条")
 	h._log("新去处：药谷。")
 	ok(h.s["log"].size() == n0 + 3, "出关以后另起一条")
+
+func _home(g) -> void:
+	g.s["loc"] = "home"
+	g.s["roam"] = {}
+
+func _last_fx(g) -> Dictionary:
+	var lg: Array = g.world.P()["log"]
+	return lg[-1][2] if lg[-1].size() >= 3 and lg[-1][2] is Dictionary else {}
+
+## v0.16：灵圃 / 客舍：造价、每年正月用度、欠了就停、补上再开；灵圃出紫芝；履历带效果
+func t_estate() -> void:
+	var g = fresh(31)
+	_home(g)
+	ok(Estate.can_build(g, "pu1") != "", "炼气辟不了灵圃")
+	g._raise_to(9)
+	g.s["lingshi"] = 200
+	ok(Estate.build(g, "pu1") and int(g.s["lingshi"]) == 120 and int(Estate.E(g)["pu"]) == 1, "筑基辟灵圃：−80 灵石")
+	ok(String(g.world.P()["log"][-1][1]).contains("灵圃") and int(_last_fx(g).get("灵石", 0)) == -80, "履历一条带效果：%s" % str(_last_fx(g)))
+	ok(Estate.can_build(g, "pu2") != "", "二阶灵圃要结丹")
+	ok(Estate.build(g, "ke") and int(Estate.E(g)["ke"]) == 1 and int(g.s["lingshi"]) == 60, "建客舍：−60 灵石")
+	var z0: int = g.store_n(Estate.ZIZHI)
+	for i in Estate.PU_MONTHS[1]:
+		g.tick("biguan")
+		g.world.auto_choose()
+		g.world.close()
+	ok(g.store_n(Estate.ZIZHI) == z0 + 1, "灵圃九个月出一株紫芝")
+	# 到下一个正月：交用度 8 + 6
+	while (int(g.s["day"]) - 1) % 12 + 1 != 12:
+		g.tick("biguan")
+	g.s["lingshi"] = 100
+	g.tick("biguan")
+	ok(int(g.s["lingshi"]) == 100 - 14 and int(Estate.E(g)["est_y"]) == (int(g.s["day"]) - 1) / 12, "正月交用度 14 灵石")
+	for i in 11:
+		g.tick("biguan")
+	g.s["lingshi"] = 5
+	var pr0 := int(Estate.E(g)["pu_prog"])
+	g.tick("biguan")
+	ok(bool(Estate.E(g)["est_off"]) and int(Estate.E(g)["pu_prog"]) == pr0, "用度交不上：灵圃停着不长")
+	ok(String(g.world.P()["log"][-1][1]).contains("用度"), "欠用度写进履历")
+	g.s["lingshi"] = 50
+	g.tick("biguan")
+	ok(not bool(Estate.E(g)["est_off"]) and int(g.s["lingshi"]) == 36, "有钱了补上用度，灵圃接着长")
+
+func _junior(g, lv: int) -> Dictionary:
+	var W = g.world
+	for c in W.npcs():
+		if int(c.get("sbg", 0)) <= int(W.w["day"]):
+			c["lv"] = lv
+			W.R(W.P(), c)["m"] = 1
+			return c
+	return {}
+
+## v0.16：指点后辈（复用 jiang）、收徒（要客舍；复用 echo_tu）
+func t_teach_tu() -> void:
+	var g = fresh(47)
+	_home(g)
+	g._raise_to(9)
+	var W = g.world
+	ok(Estate.can_teach(g) != "" or Estate.cands(g, 3).size() > 0, "指点要有比她低三个小境界的熟人")
+	var c := _junior(g, 2)
+	ok(not c.is_empty() and Estate.can_teach(g) == "", "筑基、在家、有后辈：能指点")
+	var xp0 := float(c["xp"])
+	var n0: int = W.P()["log"].size()
+	var d0 := int(g.s["day"])
+	ok(Estate.teach(g, int(c["id"])) == "", "指点一回")
+	ok(int(g.s["day"]) == d0 + 1, "在家耗一个月")
+	ok(float(c["xp"]) > xp0 or int(c["lv"]) > 2, "后辈修为精进")
+	var hit := false
+	for i in range(n0, W.P()["log"].size()):
+		var e: Array = W.P()["log"][i]
+		if e.size() >= 3 and not (e[2] as Dictionary).is_empty():
+			hit = true
+	ok(W.P()["log"].size() > n0 and hit, "履历里有指点的一条，带效果小字")
+	ok(Estate.can_teach(g) != "", "一年一回")
+	ok(Estate.can_take_tu(g) == "先建客舍", "收徒要先建客舍")
+	g.s["lingshi"] = 200
+	Estate.build(g, "ke")
+	ok(Estate.can_take_tu(g) == "", "建了客舍能收徒")
+	var q0: int = W.saga().eng.st["q"].size()
+	ok(Estate.take_tu(g, int(c["id"])) == "", "收徒")
+	ok("徒" in W.R(W.P(), c)["t"] and "师" in W.R(c, W.P())["t"], "师徒名分")
+	ok(W.saga().eng.st["q"].size() == q0 + 1 and String(W.saga().eng.st["q"][-1][1]) == "echo_tu", "排上了履历包的“收徒的回响”")
+	ok(String(W.P()["log"][-1][1]).contains("为徒") and _last_fx(g).has("收徒"), "履历：%s %s" % [W.P()["log"][-1][1], str(_last_fx(g))])
+	ok(Estate.can_take_tu(g) != "", "客舍里只留一个徒弟")
+	ok(Estate.fee(g) == Estate.BUILD["ke"]["fee"] + Estate.TU_FEE, "用度里加上徒弟月例")
+	# 回响到期：走 echo_tu，写进她的履历
+	var it: Array = W.saga().eng.st["q"][-1]
+	it[0] = W.saga().eng.now()
+	var n1: int = W.P()["log"].size()
+	W.saga().daily()
+	var echo := false
+	for i in range(n1, W.P()["log"].size()):
+		if String(W.P()["log"][i][1]).contains(String(c["name"])):
+			echo = true
+	ok(echo, "收徒的回响到期写进她的履历")
+	c["alive"] = false
+	g.tick("biguan")
+	ok(int(Estate.E(g)["tu"]) == -1, "徒弟不在了，客舍空出来")
+
+## v0.16：货郎以物易物：一年三样、每样一年一回、仓里不够换不了、履历带效果
+func t_barter() -> void:
+	var g = fresh(58)
+	_to_market(g)
+	ok(Estate.offers(g).is_empty(), "炼气没有货郎")
+	g._raise_to(9)
+	_to_market(g)
+	var ofs: Array = Estate.offers(g)
+	ok(ofs.size() == 3 and ofs == Estate.offers(g), "筑基：货郎一年带三样（同一年不变）")
+	for id in ["crop_linggu", "herb_qingzhi", Estate.ZIZHI, "pill_quzhang", "herb_xugucao", "pill_juqi"]:
+		g.s["store"][id] = 0
+	g.s["store"].clear()
+	var i: int = ofs[0]
+	ok(Estate.can_barter(g, i).begins_with("仓里"), "仓里不够换不了")
+	for id in Estate.BARTER[i]["give"]:
+		g.s["store"][id] = int(Estate.BARTER[i]["give"][id])
+	var ls0 := int(g.s["lingshi"])
+	ok(Estate.barter(g, i) == "", "换了：%s" % Estate.offer_text(g, i))
+	var got_ok := true
+	for id in Estate.BARTER[i]["get"]:
+		got_ok = got_ok and g.store_n(id) == int(Estate.BARTER[i]["get"][id])
+	for id in Estate.BARTER[i]["give"]:
+		got_ok = got_ok and g.store_n(id) == 0
+	ok(got_ok and int(g.s["lingshi"]) == ls0, "东西换过来，灵石不动")
+	ok(String(g.world.P()["log"][-1][1]).contains("以物易物") and _last_fx(g).size() >= 2, "履历带效果：%s" % str(_last_fx(g)))
+	for id in Estate.BARTER[i]["give"]:
+		g.s["store"][id] = 99
+	ok(Estate.can_barter(g, i) == "今年换过了", "每样一年一回")
+	var notin := -1
+	for k in Estate.BARTER.size():
+		if not (k in ofs):
+			notin = k
+	ok(Estate.can_barter(g, notin) != "", "货单上没有的换不了")
+	g.s["store"][Estate.ZIZHI] = 2
+	var ls1 := int(g.s["lingshi"])
+	ok(Estate.sell_zizhi(g) and int(g.s["lingshi"]) == ls1 + Estate.zizhi_price(g), "紫芝卖给药铺")
+
+## 旧档（没有 v0.16 字段）读进来照常
+func t_estate_old_save() -> void:
+	var g = fresh(77)
+	g._raise_to(9)
+	var d: Dictionary = g.to_dict()
+	var e: Dictionary = d.get("econ", {}) if d.has("econ") else {}
+	var h = GS.new()
+	ok(h.from_dict(JSON.parse_string(JSON.stringify(d))), "存档读回")
+	h.s["econ"] = {"arr": 1}
+	ok(Estate.fee(h) == 0 and Estate.text(h).contains("还没有") and int(Estate.E(h)["tu"]) == -1, "旧档没有营建字段：按需补上")
+	h.tick("biguan")
+	ok(int(h.s["econ"]["arr"]) == 1, "旧档的聚灵阵不动")
