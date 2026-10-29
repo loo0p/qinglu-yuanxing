@@ -1947,7 +1947,7 @@
    "id": "shoutu",
    "trigger": "on:pmonth",
    "family": "pm",
-   "when": "ctx.sec == 0 and ctx.maj >= 2",
+   "when": "ctx.sec == 0 and ctx.maj >= 2 and g.tu_id() < 0",
    "weight": 0.9,
    "cooldown": 180,
    "effects": [
