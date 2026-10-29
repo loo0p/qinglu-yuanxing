@@ -18,6 +18,7 @@ timeout 300 $G --headless --path . -s res://tests/gear_test.gd
 timeout 300 $G --headless --path . -s res://tests/econ_test.gd
 timeout 300 $G --headless --path . -s res://tests/storylet_engine_test.gd
 timeout 600 $G --headless --path . -s res://tests/saga_test.gd
+timeout 600 $G --headless --path . -s res://tests/realm_test.gd
 timeout 900 $G --headless --path . -s res://tests/review_test.gd
 timeout 300 $G --headless --path . -s res://tests/play_random.gd
 timeout 600 $G --headless --path . -s res://tests/century_test.gd
