@@ -226,7 +226,7 @@ func _stage_up() -> void:
 		s["xiuwei"] = I("xiuwei") - xw_goal()
 		s["plv"] = I("plv") + 1
 		_log("修为渐深，入%s。" % realm_text())
-		pchron(("闭关中，修为渐深，入%s。" if bool(s.get("seclude", false)) else "修为渐深，入%s。") % realm_text(), I("day"))
+		pchron(("闭关中，修为渐深，入%s。" if bool(s.get("seclude", false)) else "修为渐深，入%s。") % realm_text(), I("day"), {"入": realm_text()})
 		notice("境界：%s" % realm_text())
 
 func shou_years() -> int:
@@ -294,15 +294,19 @@ func _log(t: String) -> void:
 	s["log"].append({"day": I("day"), "text": t})
 
 ## v0.14：她自己的履历（江湖里人物卡上的那份，按年月）。day<0 = 江湖当月；补记旧月份时按日子插进去，不打乱先后
-func pchron(t: String, day: int = -1) -> void:
+## v0.15：fx = 这条下面的小字效果（修为、寿元、境界……）；当月的写法走 world.chron，别处挂的效果也能挂上
+func pchron(t: String, day: int = -1, fx: Dictionary = {}) -> void:
 	if world == null:
 		return
 	var lg: Array = world.P()["log"]
 	var d := int(world.w["day"]) if day < 0 else day
+	var e := [d, t, fx] if not fx.is_empty() else [d, t]
+	if d == int(world.w["day"]):
+		world.fx_attach(world.P(), e)
 	var at := lg.size()
 	while at > 0 and int(lg[at - 1][0]) > d:
 		at -= 1
-	lg.insert(at, [d, t])
+	lg.insert(at, e)
 	World.trim_log(lg, World.PLOG_CAP)
 
 ## v0.13.1（Gemini v6 P0-6）：一样的话只留一条（长闭关不再五遍“赤阳果要熟了”）；
@@ -426,9 +430,9 @@ func _lq_chron(lay0: int, full0: bool) -> void:
 	if I("xiuwei") >= xw_goal() and not full0:
 		if int(s["flags"].get("gate_noted", -1)) != I("plv"):
 			s["flags"]["gate_noted"] = I("plv")
-			pchron("%s修为到了筑基的关口。" % sec, I("day"))
+			pchron("%s修为到了筑基的关口。" % sec, I("day"), {"修为": "%d/%d" % [I("xiuwei"), xw_goal()]})
 	elif layer() > lay0:
-		pchron("%s修为精进，入%s。" % [sec, realm_text()], I("day"))
+		pchron("%s修为精进，入%s。" % [sec, realm_text()], I("day"), {"层数": layer() - lay0})
 
 func add_wu(v: int) -> void:
 	if v <= 0:
@@ -838,11 +842,12 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 		biguan_day()
 		_stalled_chron(m0)
 		return 1
-	var sum := {"m0": I("day"), "xw0": I("xiuwei"), "r0": realm_text(), "w0": int(world.w["day"]) if world != null else 0}
+	var sum := {"m0": I("day"), "xw0": I("xiuwei"), "r0": realm_text(), "w0": int(world.w["day"]) if world != null else 0, "sy0": I("shouyuan"), "plv0": I("plv")}
 	if long:
 		s["seclude"] = true
 		sum["kn"] = _known_snapshot()
-		pchron("入静室闭关（%s）。" % {"years": "%s年" % World.cn_num(n), "gate": "闭到修为圆满", "days": "%s个月" % World.cn_num(n)}.get(preset, "闭关"))
+		# v0.15（Gemini v7 规则 C）：入关这一笔等出关时再写——写成一条“小传”（闭了多久、出关时的境界与年岁、这些年故人的大事），记在入关那个月
+		sum["plan"] = {"years": "%s年" % World.cn_num(n), "gate": "闭到修为圆满", "days": "%s个月" % World.cn_num(n)}.get(preset, "")
 	for i in SECLUDE_MAX:
 		if not at_home():
 			break
@@ -869,8 +874,8 @@ func biguan(preset: String, n: int = 1, target: String = "") -> int:
 			break
 		biguan_day()
 		done += 1
-		if long and done < months and done % 12 == (int((done - 1) / 12) * 5 + 3) % 12:
-			_seclude_year_note(int((done - 1) / 12) + 1)   # 每年一笔，落在不同月份
+		# v0.15（Gemini v7 规则 C）：不再每年一笔“闭关第 N 年”的套话；闭关里真出了事（走岔、顿悟、心魔、故人叩门……）
+		# 由内容包 qinglu_chron 按月写成带效果的一条（world.tick → _p_month）
 	s.erase("seclude")
 	if long and done > 0:
 		_seclude_summary(sum, done)
@@ -881,7 +886,7 @@ func _stalled_chron(m0: int) -> void:
 		return
 	if int(s["flags"].get("gate_noted", -1)) != I("plv"):
 		s["flags"]["gate_noted"] = I("plv")
-		pchron("修为到了%s的关口。" % gate_name(), m0)
+		pchron("修为到了%s的关口。" % gate_name(), m0, {"修为": "圆满"})
 	var head := "修为停在%s的关口，" % gate_name()
 	var lg: Array = world.P()["log"]
 	var st: Array = s["flags"].get("stall", [-1, 0, 0])
@@ -916,27 +921,8 @@ func _seclude_summary(sum: Dictionary, done: int) -> void:
 	_log("闭关%s，出关时已是%s。" % [span_text(done), date_text()])
 	_seclude_chron(sum, done, out)
 
-## v0.14：长闭关写进她自己的履历——入关、每年一笔（按季节与境界，不掷骰子，存读一致）、
-## 小境界、修为到关口、出关时听说的山外事（按事发的年月补记）、认识的人这些年的变化（坐化、破境、老了）
-const SECLUDE_NOTES := [
-	"闭关第%s年，%s。她把《旧主手记》里那段吐纳又走了一遍，心里静了些。",
-	"闭关第%s年，%s。静室外的雨下了半个月，她一次也没睁眼。",
-	"闭关第%s年，%s。一缕灵气在经脉里走岔了，她停了三日，慢慢引回来。",
-	"闭关第%s年，%s。丹田里那团气沉了一沉，像水落了石出。",
-	"闭关第%s年，%s。她在心里把这些年见过的人一个个想过去，又放下了。",
-	"闭关第%s年，%s。洞口的藤蔓长过了门槛，她听见了，没有起身。",
-	"闭关第%s年，%s。冲小关时心口一阵燥热，她咬牙压住，没有贪进。",
-	"闭关第%s年，%s。悟到“守”字比“进”字难，修为反倒顺了些。",
-	"闭关第%s年，%s。山下传来几声钟，她数到第九下，入了定。",
-	"闭关第%s年，%s。辟谷丹吃完一瓶，换了一瓶，日子就这么过去。",
-	"闭关第%s年，%s。梦里回到入山那一年，醒来手心全是汗。",
-	"闭关第%s年，%s。周天运转比去年快了半刻，她没有欢喜，只记下了。",
-]
-func _seclude_year_note(y: int) -> void:
-	var season := World.season(int(world.w["day"]))
-	var k := (y * 5 + int(world.w["day"]) / 120) % SECLUDE_NOTES.size()   # 5 与 12 互质：一轮不重样   # 5 与 12 互质：一轮不重样
-	pchron(SECLUDE_NOTES[k] % [World.cn_num(y), "%s，%s" % [season, realm_text()]])
-
+## v0.15：长闭关在履历里只写一条合并的（入关几年、出关时的境界、这些年听来的事和故人近况，见 _seclude_chron）；
+## 关中的事（顿悟、走岔、心魔、灵脉涨潮…）由 qinglu_chron 包的 pmonth 事件写，每条都有效果
 func _known_snapshot() -> Dictionary:
 	var out := {}
 	if world == null:
@@ -952,36 +938,69 @@ func _seclude_chron(sum: Dictionary, done: int, out: Dictionary) -> void:
 	# v0.14.1：“修为到了关口”每个关口只记一次（修为满了还闭关，不再一回回重记）
 	if at_gate() and I("xiuwei") >= xw_goal() and int(s["flags"].get("gate_noted", -1)) != I("plv"):
 		s["flags"]["gate_noted"] = I("plv")
-		pchron("修为到了%s的关口。" % gate_name())
-	pchron("出关。闭关%s，%d 岁，%s。" % [span_text(done), age_y(), realm_text()])
-	# 山外的事：她认识的人有关的，按事发年月补记（最多 6 件），注明是出关后才听说
-	var heard := 0
+		pchron("修为到了%s的关口。" % gate_name(), -1, {"修为": "圆满"})
+	var efx := {}
+	if I("plv") == int(sum.get("plv0", I("plv"))) and I("xiuwei") != int(sum["xw0"]):
+		efx["修为"] = I("xiuwei") - int(sum["xw0"])
+	if realm_text() != String(sum["r0"]):
+		efx["入"] = realm_text()
+	var sy := int((int(sum.get("sy0", I("shouyuan"))) - I("shouyuan")) / 12)
+	if sy > 0:
+		efx["寿元|年"] = -sy
+	# 山外的事（v0.15，Gemini v7 P1）：只收与她相干的——相熟 / 结怨 / 师徒 / 道侣的人的大事，认识的人的生死与结侣；
+	# 切磋胜负这类水词不进她的履历
+	var heard := []
 	for x in world.w["news"]:
-		if int(x[0]) <= int(sum["w0"]) or heard >= 6:
+		if int(x[0]) <= int(sum["w0"]):
 			continue
-		var k := false
+		var t := String(x[1])
+		var kd := String(x[3]) if x.size() > 3 else ""
+		if t.contains("切磋") or t.contains("半招"):
+			continue
+		var close := false
+		var kn0 := false
 		for i in x[2]:
-			if world.known(world.C(i)):
-				k = true
-		if k:
-			pchron("（出关后才听说）%s" % String(x[1]), int(x[0]))
-			heard += 1
-	# 认识的人：这些年坐化 / 破境 / 老了
+			var o: Dictionary = world.C(i)
+			if o.is_empty() or not world.known(o):
+				continue
+			kn0 = true
+			var r: Dictionary = world._rel(world.P(), o)
+			if absi(int(r.get("f", 0))) >= 25 or int(r.get("g", 0)) >= 20 or not (r.get("t", []) as Array).is_empty():
+				close = true
+		if (close and kd in ["死", "侣", "破", "宝", "子", "徒"]) or (kn0 and kd in ["死", "侣"]):
+			heard.append(t.trim_prefix("听说").trim_suffix("。"))
+	# 认识的人：这些年坐化 / 破境（相熟的排前面）
 	var kn: Dictionary = sum.get("kn", {})
 	var lines := []
+	var near := []
 	for id in kn:
 		var c: Dictionary = world.C(id)
 		if c.is_empty():
 			continue
 		var was: Array = kn[id]
+		var ln := ""
 		if bool(was[1]) and not bool(c["alive"]):
-			lines.append("%s已经%s了" % [c["name"], "飞升" if c.get("asc", false) else "不在"])
+			ln = "%s已经%s了" % [c["name"], "飞升" if c.get("asc", false) else "不在"]
+		elif bool(c["alive"]) and World.major(int(c["lv"])) > World.major(int(was[0])):
+			ln = "%s入了%s" % [c["name"], World.realm_name(int(c["lv"]))]
 		elif bool(c["alive"]) and int(c["lv"]) > int(was[0]):
-			lines.append("%s入了%s" % [c["name"], World.realm_name(int(c["lv"]))])
-		elif bool(c["alive"]) and float(c["age"]) - float(was[2]) >= 10.0 and lines.size() < 6:
-			lines.append("%s已是%d岁" % [c["name"], int(c["age"])])
-	if not lines.is_empty():
-		pchron("故人这些年：%s。" % "；".join(lines.slice(0, 6)))
+			ln = "%s入了%s" % [c["name"], World.realm_name(int(c["lv"]))]
+		if ln == "":
+			continue
+		var rr: Dictionary = world._rel(world.P(), c)
+		(near if absi(int(rr.get("f", 0))) >= 20 or not (rr.get("t", []) as Array).is_empty() else lines).append(ln)
+	lines = near + lines
+	var plan := String(sum.get("plan", ""))
+	var txt := "入静室闭关%s。" % (plan if plan != "" and not plan.begins_with("闭") else span_text(done))
+	if plan.begins_with("闭"):
+		txt = "入静室闭关，说要%s；坐了%s。" % [plan, span_text(done)]
+	elif span_text(done) != plan:
+		txt = "入静室闭关，原说%s，坐了%s。" % [plan, span_text(done)]
+	txt += "出关时%s岁，%s%s。" % [World.cn_num(age_y()), realm_text(), "，仍在原地" if realm_text() == String(sum["r0"]) and not efx.has("修为") else ""]
+	var news := heard.slice(maxi(0, heard.size() - 3)) + lines.slice(0, maxi(0, 5 - mini(3, heard.size())))
+	if not news.is_empty():
+		txt += "这些年：%s。" % "；".join(news)
+	pchron(txt, int(sum["w0"]), efx)
 	out["people"] = lines.slice(0, 6)
 
 ## “三年零五个月”“十一个月”
@@ -1690,11 +1709,12 @@ func answer_xinmo(i: int) -> Dictionary:
 func _gate_pass() -> Dictionary:
 	s["loc"] = "home"
 	var lv := I("plv")
+	var _ls0 := lifespan_m()
 	if lv < 9:
 		_store_add("pill_zhuji", -1)
 		_raise_to(9)
 		_log("%s，筑基功成。" % date_text())
-		pchron("冲关，筑基功成。")
+		pchron("冲关，筑基功成。", -1, {"入": realm_text(), "寿元|年": int((lifespan_m() - _ls0) / 12)} if lifespan_m() > _ls0 else {"入": realm_text()})
 		return {"done": true, "passed": true, "gate": "筑基", "ok": true}
 	var ok := rng.randf() < gate_chance()
 	match String(s.get("debug_gate", "")):
@@ -1713,7 +1733,7 @@ func _gate_pass() -> Dictionary:
 			_log("%s，雷劫第九道落下，她没有接住。" % date_text())
 			return {"done": true, "passed": true, "gate": gn, "ok": false, "ended": true}
 		_log("%s，冲击%s未成，经脉受损（伤 %d 个月，修为退了两成半，折寿 5 年）。" % [date_text(), gn, GATE_FAIL_INJ])
-		pchron("冲击%s未成，经脉受损，折寿五年。" % gn)
+		pchron("冲击%s未成，经脉受损，折寿五年。" % gn, -1, {"伤|月": GATE_FAIL_INJ, "修为": "退两成半", "寿元|年": -int(GATE_FAIL_SHOU / 12)})
 		if I("shouyuan") <= 0:
 			_die_old()
 		return {"done": true, "passed": true, "gate": gn, "ok": false}
@@ -1725,7 +1745,7 @@ func _gate_pass() -> Dictionary:
 		return {"done": true, "passed": true, "gate": gn, "ok": true, "ended": true}
 	_raise_to(lv + 1)
 	_log("%s，%s功成，入%s。" % [date_text(), gn, realm_text()])
-	pchron("冲击%s，功成，入%s。" % [gn, realm_text()])
+	pchron("冲击%s，功成，入%s。" % [gn, realm_text()], -1, {"入": realm_text(), "寿元|年": int((lifespan_m() - _ls0) / 12)} if lifespan_m() > _ls0 else {"入": realm_text()})
 	return {"done": true, "passed": true, "gate": gn, "ok": true}
 
 func _raise_to(lv: int) -> void:

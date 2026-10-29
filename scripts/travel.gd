@@ -402,7 +402,7 @@ static func passerby(W, p: String) -> Dictionary:
 				sect = s
 		var c: Dictionary = W._new_char("", sect, W.rng.randi_range(0, 4))
 		c["place"] = p
-		W.chron(c, ("初入仙途，拜入%s。" % c["sect"]) if c["sect"] != "散修" else "初入仙途，做了散修。")
+		W.chron(c, ("初入仙途，拜入%s。" % c["sect"]) if c["sect"] != "散修" else "初入仙途，做了散修。", {"入门": c["sect"]})
 		return c
 	var cs := []
 	for c in W.npcs():
@@ -527,7 +527,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 						W._wu(5)
 						if W.tag(n, "傲气") or k == "压人":
 							W.remember(n, p, "在%s切磋输给了她" % pl, -4, "辱")
-							W.R(n, p)["g"] = int(W.R(n, p)["g"]) + 4
+							W.radd(n, p, 0, 4)
 							return "几招下来，她占了上风（感悟 +5）。%s收了剑，脸色不大好看。" % nm
 						W.fav(n, 4, "在%s同她切磋过，服气" % pl, 3)
 						return "几招下来，她占了上风（感悟 +5）。%s抱拳道：“领教了。”" % nm

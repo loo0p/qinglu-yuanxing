@@ -8,7 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.14.3 试玩版"
+const VERSION = "v0.15.0 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -3587,8 +3587,16 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 			tp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			er.add_child(tp)
-			var tl = L(String(e[1]).replace(pname, "她") if c.get("player", false) else String(e[1]), 14, C_TEXT, tp)
+			var tv = VBoxContainer.new()
+			tv.add_theme_constant_override("separation", 1)
+			tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tp.add_child(tv)
+			var tl = L(String(e[1]).replace(pname, "她") if c.get("player", false) else String(e[1]), 14, C_TEXT, tv)
 			tl.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			# v0.15：这件事改动了什么（悟性+1　得「青玉符」　与某某好感+8），小字一行
+			var fxs: String = w.fx_text(e[2]) if e.size() > 2 else ""
+			if fxs != "":
+				L(fxs.replace(pname, "她"), 12, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.8), tv)
 			var who := []
 			for o in ppl:
 				if String(e[1]).contains(String(o["name"])):

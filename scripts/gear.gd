@@ -672,7 +672,7 @@ static func shop_buy(gs, u: int) -> String:
 			st.remove_at(i)
 			give_her(gs, it, "她在坊市器物铺以 %d 灵石购得。" % pr)
 			gs._log("在坊市器物铺买了%s（%d 灵石）。" % [full_name(it), pr])
-			gs.pchron("在坊市买下一件%s。" % it["n"])
+			gs.pchron("在坊市买下一件%s。" % it["n"], -1, {"灵石": -pr, "得「%s」" % String(it["n"]): ""})
 			return ""
 	return "这件已经卖掉了。"
 
