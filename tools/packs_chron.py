@@ -294,21 +294,21 @@ CHRON += [
            sched("echo_gf", 72, 240, keep=["y0", "m0", "sect"])),
         oc("no", "0.4 + 0.15 * g.pt('避')", chron("A", "#q_gf#她把拜帖原样退了回去。"), attr("A", "xin", 1))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")] + [setv("sect", "'#q_sect#'")], doc="金丹后：宗门请她做供奉（应下的，十到三十年后宗门有难来请）"),
-    pm("shoutu", OUT + " and ctx.maj >= 2", 0.5, 240, [
+    pm("shoutu", OUT + " and ctx.maj >= 2", 0.9, 180, [
         oc("yes", "0.5 + 0.2 * g.pt('善')", chron("A", "#q_tu##q_tu_yes#"), rel("B", "P", f=20), mem("B", "P", "{pn}收留点拨之恩", 18, "教"), {"op": "xp", "who": "B", "frac": 0.3},
-           attr("A", "mei", 1), sched("echo_tu", 72, 200, keep=["y0", "m0"], cast={"B": "B"})),
+           attr("A", "mei", 1), {"op": "mark", "key": "tu"}, sched("echo_tu", 72, 200, keep=["y0", "m0"], cast={"B": "B"})),
         oc("no", 0.5, chron("A", "#q_tu##q_tu_no#"), rel("B", "P", f=-4), attr("A", "xin", 1))],
-       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": KNOWN + " and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 15"}],
+       effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": "SELF.alive and not g.busy(SELF) and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 0"}],
        doc="金丹后：有人在青庐外跪求指点（收下的，十到二十五年后回来）"),
     pm("sec_danhuo", SEC + " and ctx.maj == 2", 0.5, 96, [
         oc("ok", "0.5 + 0.1 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_danhuo##q_danhuo_ok#"), wu(4), pxw(30)),
         oc("bad", "0.7 - 0.05 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_danhuo##q_danhuo_bad#"), pinj(4), pxw(-30), life("A", -1))],
        doc="金丹：丹火反噬（心性定）"),
-    pm("sec_shenyou", SEC + " and ctx.maj >= 3", 0.9, 36, [
+    pm("sec_shenyou", SEC + " and ctx.maj >= 3", 0.7, 60, [
         oc("ok", 1.0, chron("A", "#q_sec_head##q_shenyou#"), wu(5), pxw(40)),
         oc("lost", "0.3 - 0.02 * g.at(A, 'xin')", chron("A", "#q_sec_head#元神出窍，神游到半途，被一阵罡风吹散了方向，三日才回到肉身。"), pinj(3), attr("A", "xin", 1))],
        doc="元婴：元神出窍神游"),
-    pm("yuanying_old", OUT + " and ctx.maj >= 3", 0.6, 120, [
+    pm("yuanying_old", OUT + " and ctx.maj >= 3", 1.0, 96, [
         oc("ok", 1.0, chron("A", "#q_yy_old#"), attr("A", "xin", 1), wu(3))], doc="元婴：故人凋零"),
 ]
 # ---------------------------------------------------------------- v0.15.5：更多伏笔（残图、丹恩、故里、心魔旧人）与金丹 / 元婴专属
@@ -323,16 +323,16 @@ CHRON += [
        doc="伏笔：受伤时得人送丹（八到二十五年后她去还）"),
     pm("home", OUT + " and ctx.maj >= 1", 0.3, 9999, [oc("ok", 1.0, chron("A", "#q_home#"), attr("A", "xin", 1), sched("echo_home", 360, 600, keep=["y0", "m0"]))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], doc="伏笔：回凡间故里（三五十年后，那孩子已老）"),
-    pm("benming", HOME + " and ctx.maj >= 2 and g.eqn('fabao') != ''", 0.6, 9999, [
+    pm("benming", HOME + " and ctx.maj >= 2 and g.eqn('fabao') != ''", 1.5, 9999, [
         oc("ok", "0.5 + 0.08 * g.at(A, 'wu')", chron("A", "#q_benming##q_benming_ok#"), pxw(40), wu(4), {"op": "mark", "key": "benming"}),
         oc("bad", 0.4, chron("A", "#q_benming##q_benming_bad#"), pinj(3), pxw(-20), attr("A", "xin", 1))],
        effects=[setv("it", "g.eqn('fabao')")], doc="金丹：炼本命法宝（器物锚点；悟性定成败）"),
-    pm("guanjie", OUT + " and ctx.maj >= 2", 0.5, 120, [
+    pm("guanjie", OUT + " and ctx.maj >= 2", 0.7, 120, [
         oc("ok", 1.0, chron("A", "#q_guanjie##q_guanjie_t#", bp="=B.place"), wu(5), pxw(20), rel("P", "B", f=4))],
-       roles=[{"name": "B", "where": "g.known(SELF) and SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"}], doc="金丹：观人渡劫"),
-    pm("xuming", OUT + " and ctx.maj >= 3", 1.0, 240, [
+       roles=[{"name": "B", "where": "SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"}], doc="金丹：观人渡劫"),
+    pm("xuming", OUT + " and ctx.maj >= 3", 1.5, 180, [
         oc("ok", 1.0, chron("A", "#q_xuming##q_xuming_t#"), life("B", 10), life("A", -3), rel("B", "P", f=20), mem("B", "P", "{pn}替我续了命", 20, "恩"))],
-       roles=[{"name": "B", "where": KNOWN + " and g.lf(SELF) > 0.9 and g.pf(SELF) >= 30"}], doc="元婴：替将尽的故人续命（她折寿）"),
+       roles=[{"name": "B", "where": KNOWN + " and g.lf(SELF) > 0.8 and g.pf(SELF) >= 10"}], doc="元婴：替将尽的故人续命（她折寿）"),
 ]
 # ---------------------------------------------------------------- 回响（chain）
 CHRON += [

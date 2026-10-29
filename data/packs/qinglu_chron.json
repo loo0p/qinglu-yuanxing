@@ -1948,8 +1948,8 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 0 and ctx.maj >= 2",
-   "weight": 0.5,
-   "cooldown": 240,
+   "weight": 0.9,
+   "cooldown": 180,
    "effects": [
     {
      "op": "set",
@@ -1998,6 +1998,10 @@
        "d": 1
       },
       {
+       "op": "mark",
+       "key": "tu"
+      },
+      {
        "op": "schedule",
        "id": "echo_tu",
        "in": [
@@ -2041,7 +2045,7 @@
    "roles": [
     {
      "name": "B",
-     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 15"
+     "where": "SELF.alive and not g.busy(SELF) and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 0"
     }
    ],
    "doc": "金丹后：有人在青庐外跪求指点（收下的，十到二十五年后回来）"
@@ -2106,8 +2110,8 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 1 and ctx.maj >= 3",
-   "weight": 0.9,
-   "cooldown": 36,
+   "weight": 0.7,
+   "cooldown": 60,
    "effects": [],
    "outcomes": [
     {
@@ -2158,8 +2162,8 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 0 and ctx.maj >= 3",
-   "weight": 0.6,
-   "cooldown": 120,
+   "weight": 1.0,
+   "cooldown": 96,
    "effects": [],
    "outcomes": [
     {
@@ -2379,7 +2383,7 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 0 and ctx.road == 0 and ctx.maj >= 2 and g.eqn('fabao') != ''",
-   "weight": 0.6,
+   "weight": 1.5,
    "cooldown": 9999,
    "effects": [
     {
@@ -2445,7 +2449,7 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 0 and ctx.maj >= 2",
-   "weight": 0.5,
+   "weight": 0.7,
    "cooldown": 120,
    "effects": [],
    "outcomes": [
@@ -2481,7 +2485,7 @@
    "roles": [
     {
      "name": "B",
-     "where": "g.known(SELF) and SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"
+     "where": "SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"
     }
    ],
    "doc": "金丹：观人渡劫"
@@ -2491,8 +2495,8 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 0 and ctx.maj >= 3",
-   "weight": 1.0,
-   "cooldown": 240,
+   "weight": 1.5,
+   "cooldown": 180,
    "effects": [],
    "outcomes": [
     {
@@ -2534,7 +2538,7 @@
    "roles": [
     {
      "name": "B",
-     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lf(SELF) > 0.9 and g.pf(SELF) >= 30"
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lf(SELF) > 0.8 and g.pf(SELF) >= 10"
     }
    ],
    "doc": "元婴：替将尽的故人续命（她折寿）"
