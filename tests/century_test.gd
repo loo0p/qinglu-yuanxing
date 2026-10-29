@@ -56,6 +56,10 @@ func _init() -> void:
 			g.s["ration"] = 30
 			g.biguan("gate", 1)
 			_drain(g)
+			if g.s.has("econ") and int(g.s["econ"].get("sec_run", 0)) >= 36 and not g.at_gate():   # v0.15：闭关蒙尘被逼出关——像玩家一样出门走两个月
+				for k in 2:
+					g.tick("road")
+				_drain(g)
 			if g.s["ended"]:
 				break
 			if int(g.s["injured"]) > 0 or int(g.s["unstable"]) > 0:
@@ -108,6 +112,8 @@ func _init() -> void:
 		g4.s["ration"] = 30
 		g4.s["shouyuan"] = 9999
 		g4.s["xiuwei"] = 0   # 不让她修满提前出关：这一段只看江湖
+		if g4.s.has("econ"):
+			g4.s["econ"]["sec_run"] = 0   # v0.15 长闭关蒙尘：这一段只看江湖，不让她被逼出关
 		g4.biguan("days", 12)
 		_drain(g4)
 		var n: int = g4.world.npcs().size()

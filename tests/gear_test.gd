@@ -45,6 +45,11 @@ func t_seclude() -> void:
 	g._raise_to(9)
 	g.s["ration"] = 30
 	var n0: int = g.world.P()["log"].size()
+	var done: int = g.biguan("years", 20)
+	# v0.15（Gemini v7 专项 2）：计划闭关二十年，连坐满五年心头蒙尘、出关；出门走两个月洗净再闭
+	ok(done <= 60, "计划二十年，最多连坐五年（这回 %d 个月）就出关" % done)
+	for i in 2:
+		g.tick("road")
 	g.biguan("years", 20)
 	var lg: Array = g.world.P()["log"]
 	var add := lg.slice(n0)
@@ -57,7 +62,8 @@ func t_seclude() -> void:
 			sorted = false
 	ok(sorted, "履历按年月先后")
 	ok(txt.contains("入静室闭关") and txt.contains("出关"), "有入关、出关两笔")
-	ok(txt.contains("闭关第十年"), "每年一笔心得")
+	ok(txt.contains("闭关第四年") and txt.contains("坐不下去了"), "每年一笔心得；五年蒙尘出关写进履历")
+	ok(txt.contains("心境蒙尘"), "满三年蒙尘写进履历")
 
 ## v0.14.1：修为满了还闭关——履历里“关口”只记一回，连着几回并成一行，不再“入关/关口/出关”三笔一组地重复
 func t_stalled() -> void:
@@ -357,8 +363,12 @@ func t_lq1800() -> void:
 	g.s["ration"] = 30
 	g.s["ganwu"] = 0
 	var n0: int = g.world.P()["log"].size()
-	g.biguan("years", 10)
-	g.biguan("years", 10)
+	for k in 6:   # v0.15：五年一出关，出门走两个月再接着闭
+		if g.at_gate():
+			break
+		g.biguan("years", 10)
+		for i in 2:
+			g.tick("road")
 	var add: Array = g.world.P()["log"].slice(n0)
 	var texts: Array = add.map(func(e): return String(e[1]))
 	var txt := "\n".join(texts)
@@ -405,20 +415,20 @@ func t_auc_lots() -> void:
 	for k in Gear.AUC_LOTS:
 		seen.append("%s·%s 起拍 %d" % [A["lot"]["n"], Gear.grade_name(A["lot"]), int(A["price"])])
 		grades.append(int(A["lot"]["g"]))
-		if k < Gear.AUC_LOTS - 1 and int(A["price"]) <= 30:
+		if k < Gear.AUC_LOTS - 1 and int(A["price"]) >= 55 and int(A["price"]) <= 90:
 			cheap += 1
 		Gear.auction_pass(g)
 		if k < Gear.AUC_LOTS - 1:
 			ok(Gear.auction_more(A) and Gear.auction_next_lot(g), "第 %d 件落槌，摆下一件" % (k + 1))
 	print("拍卖（炼气，手里 30 灵石）：" + "；".join(seen))
 	ok(not Gear.auction_more(A) and A["done"], "三件拍完散场")
-	ok(cheap == Gear.AUC_LOTS - 1, "前两件起拍都在她够得着的价（≤30 灵石）：%s" % "；".join(seen))
-	ok(grades[0] == 1 and grades[1] == 1 and grades[2] >= 2, "炼气时：小件是法器，压轴是灵器或更高（%s）" % str(grades))
+	ok(cheap == Gear.AUC_LOTS - 1, "v0.15 春拍小拍：前两件起拍在 55–90 灵石：%s" % "；".join(seen))
+	ok(grades[0] == 1 and grades[1] == 1 and grades[2] == 1, "炼气时春拍：三件都是法器（%s）" % str(grades))
 	# 赢得下：多试几场，她至少拍下过一件小件
 	var won := 0
 	for sd in 12:
 		var w = fresh(40 + sd)
-		w.s["lingshi"] = 40
+		w.s["lingshi"] = 120
 		while (int(w.s["day"]) - 1) % 12 + 1 != 3:
 			w.tick("biguan")
 		var B: Dictionary = Gear.auction(w)
@@ -430,7 +440,7 @@ func t_auc_lots() -> void:
 				Gear.auction_pass(w)
 		if Gear.all_mine(w).size() > n0:
 			won += 1
-	ok(won >= 3, "炼气、手里 40 灵石，十二场里拍下第一件小件 %d 回（≥3）" % won)
+	ok(won >= 3, "炼气、手里 120 灵石，十二场春拍里拍下第一件 %d 回（≥3）" % won)
 	# 筑基以后：小件升到灵器（身家够的话），压轴宝器起
 	var z = fresh(32)
 	z._raise_to(9)
@@ -438,4 +448,9 @@ func t_auc_lots() -> void:
 	while (int(z.s["day"]) - 1) % 12 + 1 != 9:
 		z.tick("biguan")
 	var C: Dictionary = Gear.auction(z)
-	ok(int(C["lot"]["g"]) == 2, "筑基、手里 400：第一件是灵器（%s）" % Gear.grade_name(C["lot"]))
+	ok(int(C["lot"]["g"]) == 2 and int(C["price"]) >= 180 and int(C["price"]) <= 320, "筑基秋拍：第一件是灵器，起拍 180–320（%s %d）" % [Gear.grade_name(C["lot"]), int(C["price"])])
+	Gear.auction_pass(z)
+	Gear.auction_next_lot(z)
+	Gear.auction_pass(z)
+	Gear.auction_next_lot(z)
+	ok(int(C["lot"]["g"]) == 3, "筑基秋拍压轴：宝器（%s）" % Gear.grade_name(C["lot"]))
