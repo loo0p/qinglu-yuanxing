@@ -8,7 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.14.2 试玩版"
+const VERSION = "v0.14.3 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
