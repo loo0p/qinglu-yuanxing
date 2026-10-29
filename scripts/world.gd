@@ -292,7 +292,7 @@ func create(seed_v: int, pname: String, gs = null, n_npc: int = 20) -> void:
 			a["gt"] = int(t["id"])
 			R(a, t)["g"] = 60
 			remember(a, t, "%s害过我的亲人" % t["name"], -30)
-	chron(P(), "十六岁，青云宗外门落选，租下后山脚下的旧洞府青庐，做了散修。")
+	chron(P(), "十六岁，青云宗外门落选，租下后山脚下的旧洞府青庐，做了散修。", {"散修": "", "住进青庐": ""})
 	for c in npcs():
 		c["pre"] = saga().bio(c)   # v0.12 前尘：入局之前的履历（带年岁），也会结下师承、旧情
 	# v0.12.1：不再开局指定“命定之人”与一场排好日子的离别（Gemini v5 P0#3）；缘分与生死都从人自己的来往里长出来
@@ -714,9 +714,23 @@ static func fx_text(d) -> String:
 	if not (d is Dictionary):
 		return ""
 	var out := []
+	var both := {}   # v0.15.3：同一个人两个方向的好感 / 印象（“对X好感+5”“X好感+4”）并成一个“与X好感+5/+4”
+	for k in d:
+		var key := String(k)
+		if key.begins_with("对") and d.has(key.substr(1)) and not (d[k] is String) and not (d[key.substr(1)] is String):
+			both[key.substr(1)] = [int(d[k]), int(d[key.substr(1)])]
 	for k in d:
 		var key := String(k)
 		if key.begins_with("_"):
+			continue
+		if both.has(key):
+			continue
+		if key.begins_with("对") and both.has(key.substr(1)):
+			var pr: Array = both[key.substr(1)]
+			if int(pr[0]) == 0 and int(pr[1]) == 0:
+				continue
+			var sv := "%+d" % int(pr[0]) if int(pr[0]) == int(pr[1]) else "%+d/%+d" % [int(pr[0]), int(pr[1])]
+			out.append("与" + key.substr(1) + sv)
 			continue
 		var v = d[k]
 		var unit := ""
@@ -2650,6 +2664,7 @@ func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> 
 				chron(p, pv("偶遇记", ["与%s同行到岔路口。", "和%s一起避了场雨。", "路上结识%s，同行了一程。", "与%s结伴走过一段山路。"]) % nm)
 			else:
 				out = "%s。%s" % [pv("偶遇别", ["各自赶路", "她拱了拱手，没多停", "彼此点头，擦肩而过", "她侧身让了路"]), pv("偶遇别名", ["后来才知道，那人叫%s。", "后来在坊市听人提起，才知那是%s。", "那人走远了，她才想起腰牌上的字：%s。", "过后她才想起，那人临别报过名号——%s。", "隔了几日，她才从别人嘴里对上号：那是%s。"]) % nm]
+				remember(n, p, "路上与%s打过照面" % pn(), 1)   # v0.15.3：见过一面也留个印象（履历条下有一行“印象+1”）
 				chron(p, pv("偶遇别记", ["路上与%s擦肩而过。", "在路上见过%s一面，没有搭话。", "与%s点头而过。", "山道上遇见%s，各走各的路。", "同%s打了个照面，没有多留。"]) % nm)
 		"求助":
 			meet(n)
@@ -2938,6 +2953,8 @@ func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> 
 			var b := C(roles["B"])
 			if oid == "none":
 				out = pv("站队避", ["她绕路走了。", "她只当没看见。", "她在远处站了一会儿，走了。"])
+				remember(a, p, "%s袖手旁观" % pn(), -2)   # v0.15.3：两边都记下她没帮忙
+				remember(b, p, "%s袖手旁观" % pn(), -2)
 				chron(p, pv("站队避记", ["撞见%s与%s相争，没有掺和。", "%s和%s起了争执，她绕开了。", "%s与%s的事，她没有插手。"]) % [a["name"], b["name"]])
 			else:
 				var x: Dictionary = a if oid == "a" else b
@@ -3046,6 +3063,9 @@ func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> 
 				party.append(C(i))
 			if oid == "out":
 				out = pv("秘境守", ["她在外面守了三日，等来的是一身伤的%s。", "她在阵口生了一堆火。第二夜，%s从里面爬了出来。", "她守着阵口，替众人看着退路。出来时，%s朝她点了点头。"]) % _ch(party)["name"]
+				for c3 in party:   # v0.15.3：守阵口的情分
+					if not c3.is_empty() and bool(c3.get("alive", true)):
+						radd(c3, p, 3)
 				chron(p, pv("秘境守记", ["秘境开时，她守在外面。", "秘境开着的那一个月，替进去的人守着阵口。"]))
 			else:
 				for x in party:
@@ -3246,6 +3266,7 @@ func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> 
 					chron(p, "在%s寻到%s。" % [wh, it3])
 				else:
 					out = pv("宝空", ["她在%s转了三天，只找到一圈被人踩烂的土。" % wh, "到了%s，只剩一个坑。有人先来过。" % wh])
+					_ling(-mini(2, lingshi()))   # v0.15.3：白跑一趟，路上的花销
 					chron(p, "去%s寻%s，扑了个空。" % [wh, it3])
 		"宝地相争":
 			meet(n)
@@ -3533,6 +3554,8 @@ func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> 
 		"点化":
 			if oid == "send":
 				out = "她塞了两个饼，叫孩子下山去。孩子走得很慢，一步一回头。"
+				if not n.is_empty():
+					remember(n, p, "%s塞的两个饼" % pn(), 3)   # v0.15.3：孩子记着那两个饼
 				chron(p, "打发走了柴门外的孩子%s。" % nm)
 			else:
 				meet(n)

@@ -50,12 +50,14 @@ func t_seclude() -> void:
 	ok(done <= 60, "计划二十年，最多连坐五年（这回 %d 个月）就出关" % done)
 	for i in 2:
 		g.tick("road")
-	g.biguan("years", 20)
+	var done2: int = g.biguan("years", 20)
 	var lg: Array = g.world.P()["log"]
 	var add := lg.slice(n0)
 	var txt := "\n".join(add.map(func(e): return "%s %s" % [g.world.cal_text(int(e[0])), e[1]]))
 	print(txt)
-	ok(add.size() >= 15, "二十年闭关写进她的履历 %d 条（≥15）" % add.size())
+	# v0.15.3：第二段可能提前撞上关口（随机），按实际坐满的年数算：每年至少一条
+	var need := maxi(8, int(ceil((done + done2) / 12.0)))
+	ok(add.size() >= need, "闭关 %d+%d 个月写进她的履历 %d 条（≥%d）" % [done, done2, add.size(), need])
 	var sorted := true
 	for i in range(1, lg.size()):
 		if int(lg[i][0]) < int(lg[i - 1][0]):

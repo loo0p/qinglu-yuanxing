@@ -320,7 +320,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 		"ignore":
 			pt["ig"] = 1
 			out = W.pv("插手不管", ["她没有动。江湖上的事，各有各的因果。", "她把这件事放下了。过些时候，自会有下文。", "她听过就罢了，回去照旧炼她的丹。"])
-			W.chron(p, "听说%s的事，没有插手。" % f["a"])
+			# v0.15.3：“听说某某的事，没有插手”不再记进履历（什么也没改，只是没做）
 			return out
 		"warn":
 			if not W.known(b):

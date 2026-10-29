@@ -1747,7 +1747,7 @@ func answer_xinmo(i: int) -> Dictionary:
 	if Gear.on_xinmo_fail(self):
 		s["unstable"] = 1
 		_log("静心符烧成了灰，道心稳住了些。")
-	pchron("冲关，心魔一问没有过去。")
+	pchron("冲关，心魔一问没有过去。", -1, {"道心不稳|月": int(s["unstable"])})
 	if I("plv") < 9:
 		_log("心魔劫未过：她答的，与她做过的对不上。筑基丹还在，先闭关 3 个月（炼化减半）。")
 	else:

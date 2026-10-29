@@ -57,7 +57,18 @@
    "when": "ctx.sec == 1",
    "weight": 1.0,
    "cooldown": 30,
-   "effects": [],
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
    "outcomes": [
     {
      "id": "ok",
@@ -96,11 +107,29 @@
       {
        "op": "pxw",
        "n": -15
+      },
+      {
+       "op": "chance",
+       "p": 0.35,
+       "then": [
+        {
+         "op": "schedule",
+         "id": "echo_wound",
+         "in": [
+          120,
+          360
+         ],
+         "keep": [
+          "y0",
+          "m0"
+         ]
+        }
+       ]
       }
      ]
     }
    ],
-   "doc": "经脉走岔：心性高的稳住（心性+1、感悟+2），低的受伤折修为"
+   "doc": "经脉走岔：心性高的稳住（心性+1、感悟+2），低的受伤折修为（三成留下暗伤，十到三十年后再犯 / 化开）"
   },
   {
    "id": "sec_dunwu",
@@ -253,7 +282,7 @@
    "family": "pm",
    "when": "ctx.sec == 1",
    "weight": 0.8,
-   "cooldown": 30,
+   "cooldown": 36,
    "effects": [],
    "outcomes": [
     {
@@ -868,6 +897,16 @@
      "op": "set",
      "name": "it",
      "value": "g.eqn('fabao')"
+    },
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
     }
    ],
    "outcomes": [
@@ -887,6 +926,25 @@
       {
        "op": "wu",
        "n": 1
+      },
+      {
+       "op": "chance",
+       "p": 0.3,
+       "then": [
+        {
+         "op": "schedule",
+         "id": "echo_qi",
+         "in": [
+          120,
+          300
+         ],
+         "keep": [
+          "y0",
+          "m0",
+          "it"
+         ]
+        }
+       ]
       }
      ]
     }
@@ -905,6 +963,16 @@
      "op": "set",
      "name": "maj",
      "value": "min(3, ctx.maj)"
+    },
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
     }
    ],
    "outcomes": [
@@ -944,6 +1012,27 @@
        "who": "A",
        "k": "mei",
        "d": 1
+      },
+      {
+       "op": "chance",
+       "p": 0.5,
+       "then": [
+        {
+         "op": "schedule",
+         "id": "echo_jiang",
+         "in": [
+          120,
+          360
+         ],
+         "keep": [
+          "y0",
+          "m0"
+         ],
+         "cast": {
+          "B": "B"
+         }
+        }
+       ]
       }
      ]
     }
@@ -1173,7 +1262,7 @@
    "family": "pm",
    "when": "ctx.sec == 0",
    "weight": 0.9,
-   "cooldown": 14,
+   "cooldown": 20,
    "effects": [],
    "outcomes": [
     {
@@ -1582,6 +1671,490 @@
    "doc": "叩关/瓶颈"
   },
   {
+   "id": "lend",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and g.ls() >= 20",
+   "weight": 0.5,
+   "cooldown": 120,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_lend#",
+       "vars": {
+        "bp": "=B.place"
+       }
+      },
+      {
+       "op": "ling",
+       "n": -12
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 8
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "P",
+       "text": "{pn}在我落魄时借过我灵石",
+       "wt": 10,
+       "kind": "恩"
+      },
+      {
+       "op": "schedule",
+       "id": "echo_lend",
+       "in": [
+        96,
+        300
+       ],
+       "keep": [
+        "y0",
+        "m0"
+       ],
+       "cast": {
+        "B": "B"
+       }
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.pf(SELF) >= 10 and g.lv(SELF) <= g.plv() and not g.bonded(SELF, g.player())"
+    }
+   ],
+   "doc": "伏笔：借灵石给落魄的熟人（八到二十五年后还）"
+  },
+  {
+   "id": "yue",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0",
+   "weight": 0.5,
+   "cooldown": 180,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    },
+    {
+     "op": "set",
+     "name": "bp",
+     "value": "B.place"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_yue#",
+       "vars": {
+        "bp": "=B.place"
+       }
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 6
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 6
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "P",
+       "text": "与{pn}约在{bp}再见",
+       "wt": 8,
+       "kind": "约",
+       "vars": {
+        "bp": "=B.place"
+       }
+      },
+      {
+       "op": "schedule",
+       "id": "echo_yue",
+       "in": [
+        120,
+        360
+       ],
+       "keep": [
+        "y0",
+        "m0",
+        "bp"
+       ],
+       "cast": {
+        "B": "B"
+       }
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.pf(SELF) >= 25"
+    }
+   ],
+   "doc": "伏笔：与故人约期（十到三十年后赴约，人在不在另说）"
+  },
+  {
+   "id": "gongfeng",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 2",
+   "weight": 0.5,
+   "cooldown": 9999,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    },
+    {
+     "op": "set",
+     "name": "sect",
+     "value": "'#q_sect#'"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "yes",
+     "weight": "0.5 + 0.1 * g.at(A, 'mei')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_gf#应下了，领了一块客卿玉牌。"
+      },
+      {
+       "op": "ling",
+       "n": 60
+      },
+      {
+       "op": "ptag",
+       "k": "利",
+       "d": 1
+      },
+      {
+       "op": "schedule",
+       "id": "echo_gf",
+       "in": [
+        120,
+        360
+       ],
+       "keep": [
+        "y0",
+        "m0",
+        "sect"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "weight": "0.4 + 0.15 * g.pt('避')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_gf#她把拜帖原样退了回去。"
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "doc": "金丹后：宗门请她做供奉（应下的，十到三十年后宗门有难来请）"
+  },
+  {
+   "id": "shoutu",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 2",
+   "weight": 0.5,
+   "cooldown": 240,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "yes",
+     "weight": "0.5 + 0.2 * g.pt('善')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_tu##q_tu_yes#"
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 20
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "P",
+       "text": "{pn}收留点拨之恩",
+       "wt": 18,
+       "kind": "教"
+      },
+      {
+       "op": "xp",
+       "who": "B",
+       "frac": 0.3
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "mei",
+       "d": 1
+      },
+      {
+       "op": "schedule",
+       "id": "echo_tu",
+       "in": [
+        120,
+        300
+       ],
+       "keep": [
+        "y0",
+        "m0"
+       ],
+       "cast": {
+        "B": "B"
+       }
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "weight": 0.5,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_tu##q_tu_no#"
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": -4
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 15"
+    }
+   ],
+   "doc": "金丹后：有人在青庐外跪求指点（收下的，十到二十五年后回来）"
+  },
+  {
+   "id": "sec_danhuo",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 1 and ctx.maj == 2",
+   "weight": 0.8,
+   "cooldown": 48,
+   "effects": [],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "0.5 + 0.1 * g.at(A, 'xin')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_sec_head##q_danhuo##q_danhuo_ok#"
+      },
+      {
+       "op": "wu",
+       "n": 4
+      },
+      {
+       "op": "pxw",
+       "n": 30
+      }
+     ]
+    },
+    {
+     "id": "bad",
+     "weight": "0.7 - 0.05 * g.at(A, 'xin')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_sec_head##q_danhuo##q_danhuo_bad#"
+      },
+      {
+       "op": "pinj",
+       "days": 4
+      },
+      {
+       "op": "pxw",
+       "n": -30
+      },
+      {
+       "op": "life",
+       "who": "A",
+       "y": -1
+      }
+     ]
+    }
+   ],
+   "doc": "金丹：丹火反噬（心性定）"
+  },
+  {
+   "id": "sec_shenyou",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 1 and ctx.maj >= 3",
+   "weight": 0.9,
+   "cooldown": 36,
+   "effects": [],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_sec_head##q_shenyou#"
+      },
+      {
+       "op": "wu",
+       "n": 5
+      },
+      {
+       "op": "pxw",
+       "n": 40
+      }
+     ]
+    },
+    {
+     "id": "lost",
+     "weight": "0.3 - 0.02 * g.at(A, 'xin')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_sec_head#元神出窍，神游到半途，被一阵罡风吹散了方向，三日才回到肉身。"
+      },
+      {
+       "op": "pinj",
+       "days": 3
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "doc": "元婴：元神出窍神游"
+  },
+  {
+   "id": "yuanying_old",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 3",
+   "weight": 0.6,
+   "cooldown": 120,
+   "effects": [],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_yy_old#"
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      },
+      {
+       "op": "wu",
+       "n": 3
+      }
+     ]
+    }
+   ],
+   "doc": "元婴：故人凋零"
+  },
+  {
    "id": "echo_save",
    "trigger": "chain",
    "in": [
@@ -1961,6 +2534,491 @@
        ]
       }
      ]
+    }
+   ]
+  },
+  {
+   "id": "echo_lend",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "dead_ok": [
+    "B"
+   ],
+   "doc": "借灵石的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    },
+    {
+     "op": "set",
+     "name": "br",
+     "value": "g.realm(B)"
+    },
+    {
+     "op": "set",
+     "name": "p0",
+     "value": "B.place"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "rich",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_lend#{B}如今已是{br}，还的是当年的三倍。"
+      },
+      {
+       "op": "ling",
+       "n": 36
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 8
+      }
+     ],
+     "when": "B.alive and g.maj(B) >= 1",
+     "first": true
+    },
+    {
+     "id": "even",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_lend#一块不少，还多了一包茶叶。"
+      },
+      {
+       "op": "ling",
+       "n": 14
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 6
+      }
+     ],
+     "when": "B.alive",
+     "first": true
+    },
+    {
+     "id": "dead",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_lend_dead#"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "first": true
+    }
+   ]
+  },
+  {
+   "id": "echo_yue",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "dead_ok": [
+    "B"
+   ],
+   "doc": "约期的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    },
+    {
+     "op": "set",
+     "name": "br",
+     "value": "g.realm(B)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "met",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_yue#{B}已经等在那里了，如今是{br}。两人喝了一夜，各自说了这些年的事。"
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 10
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 10
+      },
+      {
+       "op": "wu",
+       "n": 3
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "when": "B.alive",
+     "first": true
+    },
+    {
+     "id": "gone",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_yue#等了三日，{B}没有来。后来才听说，{B}早已不在了。"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "first": true
+    }
+   ]
+  },
+  {
+   "id": "echo_wound",
+   "trigger": "chain",
+   "doc": "暗伤的回响（根骨定化开还是复发）",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "heal",
+     "weight": "0.2 + 0.08 * g.at(g.player(), 'gen')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_wound#这回被她一口气化开了，经脉反倒比从前宽了一分。"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "gen",
+       "d": 1
+      },
+      {
+       "op": "pxw",
+       "n": 15
+      }
+     ]
+    },
+    {
+     "id": "flare",
+     "weight": "0.8 - 0.05 * g.at(g.player(), 'gen')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_wound#今年又犯了，疼了一个月。"
+      },
+      {
+       "op": "pinj",
+       "days": 2
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "echo_jiang",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "when": "B.alive",
+   "doc": "指点晚辈的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    },
+    {
+     "op": "set",
+     "name": "br",
+     "value": "g.realm(B)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "over",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_jiang#如今已是{br}，来青庐坐了半日，反过来替她解了一处惑。"
+      },
+      {
+       "op": "wu",
+       "n": 5
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 8
+      }
+     ],
+     "when": "g.lv(B) >= g.plv()",
+     "first": true
+    },
+    {
+     "id": "gift",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_jiang#如今已是{br}，托人送来一份谢礼，说那一回少走了十年弯路。"
+      },
+      {
+       "op": "ling",
+       "n": "8 + 6 * g.maj(B)"
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 6
+      }
+     ],
+     "first": true
+    }
+   ]
+  },
+  {
+   "id": "echo_qi",
+   "trigger": "chain",
+   "doc": "温养法宝的回响（器物还在不在身上）",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "wake",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_qi#今年夜里自己亮了一回——器灵醒了。"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "yun",
+       "d": 1
+      },
+      {
+       "op": "pxw",
+       "n": 20
+      }
+     ],
+     "when": "g.eqn('fabao') == ctx.it",
+     "first": true
+    },
+    {
+     "id": "miss",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_qi_miss#"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "first": true
+    }
+   ]
+  },
+  {
+   "id": "echo_gf",
+   "trigger": "chain",
+   "doc": "供奉的回响：宗门有难",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "go",
+     "weight": "0.6 + 0.1 * g.pt('善')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_gf#她去了，守了七日山门，带着伤回来。"
+      },
+      {
+       "op": "pinj",
+       "days": 3
+      },
+      {
+       "op": "ling",
+       "n": 40
+      },
+      {
+       "op": "ptag",
+       "k": "善",
+       "d": 1
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "weight": "0.3 + 0.15 * g.pt('避')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_gf#她把玉牌还了回去，没有去。"
+      },
+      {
+       "op": "ptag",
+       "k": "避",
+       "d": 1
+      },
+      {
+       "op": "ling",
+       "n": -20
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "echo_tu",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "when": "B.alive",
+   "doc": "收徒的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    },
+    {
+     "op": "set",
+     "name": "br",
+     "value": "g.realm(B)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "back",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_tu#如今已是{br}，回来给她磕了个头，留下一件东西。"
+      },
+      {
+       "op": "give_item",
+       "a": "B",
+       "b": "P",
+       "h": "{B}回青庐谢师时所赠。"
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 10
+      }
+     ],
+     "when": "g.gear_n(B) > 0",
+     "first": true
+    },
+    {
+     "id": "visit",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_tu#如今已是{br}，回来替她把药圃翻了一遍土。"
+      },
+      {
+       "op": "ling",
+       "n": 10
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 8
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "first": true
     }
    ]
   },

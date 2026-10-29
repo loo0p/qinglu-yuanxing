@@ -20,6 +20,7 @@ func boot() -> void:
 	if not W.w.has("se") or not (W.w["se"] is Dictionary):
 		W.w["se"] = {}
 	eng = SE.new(self, W.w["se"], (int(W.w.get("rng_seed", 0)) * 7919 + 17) % 2147483647)
+	eng.cfg["recent_frac"] = 0.75   # v0.15.3：同一局里少重复同一句（避开该符号最近用过的四分之三）
 	for pid in PACKS:
 		var p = pack(pid)
 		if p is Dictionary:
