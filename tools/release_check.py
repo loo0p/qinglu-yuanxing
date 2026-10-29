@@ -2,9 +2,11 @@
 # 只用玩家版也有的只读钩子 window.qinglu_btns（屏上按钮文字与位置）与 window.qinglu_state；不用调试钩子。
 # 桌面 Chrome 无头（swiftshader，模拟触控），不是真机。
 # 用法：python3 tools/release_check.py <URL> <截图前缀> [宽 高] [旧档.json]
+# 新游戏这一趟走完，再开一个干净页签读 tests/fixtures/save_zhuji_v016.json（tools/make_zhuji_save.gd 生成的筑基档）：
+# 静室里点服丹闭关开关、青庐营建卡片 → 门下 → 指点后辈、行囊里看穿道袍带外袍的立绘、去坊市点差事榜接一单代炼、货郎以物易物。
 # 给了旧档（{"rev":..,"state":{..}}，如 tests/fixtures/save_v2_live_v0121_day36.json）就改走“读旧档”：
 # 开页前写进 localStorage → 标题页点「继续」→ 查读进来的日子没变、存回去是 v3、旧档没被清空 → 各页签 → 闭关十年。
-import json, sys, time
+import json, os, sys, time
 from playwright.sync_api import sync_playwright
 url, pre = sys.argv[1], sys.argv[2]
 W, H = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (390, 844)
@@ -253,5 +255,72 @@ with sync_playwright() as p:
     step('decades_home', tap('青庐', 1200))
     step('decades_life', tap('生平', 1500))
     step('decades_lvli', tap('她在江湖里的生平', 1500))   # 闭关以后她自己的履历
+    ZJ = 'tests/fixtures/save_zhuji_v016.json'
+    if OLD is None and os.path.exists(ZJ):
+        zsave = json.load(open(ZJ))
+        zj = {}
+        c2 = b.new_context(viewport={'width': W, 'height': H}, device_scale_factor=2, has_touch=True, is_mobile=True)
+        c2.add_init_script('if(!sessionStorage.getItem("qc_seeded")){localStorage.setItem("qinglu_v6_slot1",%s);sessionStorage.setItem("qc_seeded","1");}' % json.dumps(json.dumps(zsave, ensure_ascii=False)))
+        pg = c2.new_page()
+        pg.on('console', lambda m: res['errors'].append(m.text) if m.type == 'error' else None)
+        pg.on('pageerror', lambda e: res['errors'].append('pageerror: ' + str(e)))
+        pg.goto(url)
+        pg.wait_for_function('window.qinglu_btns !== undefined && window.qinglu_state !== undefined', timeout=120000)
+        pg.wait_for_timeout(1500)
+        step('zj_continue', tap('继续', 2500))
+        clear_dialogs()
+        st = state()
+        zj['loaded'] = {'day': st.get('day'), 'lingshi': st.get('lingshi')}
+        step('zj_loaded', st.get('screen') == 'game' and st.get('day') == zsave['state']['day'])
+        # 静室：服丹闭关开关点开、再点回
+        tap('青庐', 1200)
+        zj['room'] = tap('静室', 1200)
+        fd = [t for t, _, _ in btns() if t.startswith('服丹闭关：')]
+        zj['fudan0'] = fd[:1]
+        if fd:
+            tap_scroll(fd[0], 900, 6)
+            zj['fudan1'] = [t for t, _, _ in btns() if t.startswith('服丹闭关：')][:1]
+        step('zj_fudan', bool(fd) and bool(zj.get('fudan1')) and zj['fudan1'][0] != fd[0])
+        if zj.get('fudan1'):
+            tap_scroll(zj['fudan1'][0], 900, 6)
+        # 静室下面的青庐营建：灵圃 / 客舍 / 指点后辈 / 收徒
+        zj['estate'] = [t for t in labels() if t.startswith('青庐：')][:1]
+        zj['men_open'] = tap_scroll('指点后辈', 1200, 8)
+        step('zj_estate', bool(zj['estate']) and zj['men_open'] and state().get('sheet') == 'men')
+        d0 = int(state().get('day') or 0)
+        tb = [t for t, _, _ in btns() if t.startswith('指点')]
+        zj['teach_btn'] = tb[:1]
+        if tb:
+            tap(tb[0], 2500)
+        clear_dialogs(20)
+        zj['teach_day'] = [d0, state().get('day')]
+        step('zj_taught', bool(tb) and int(state().get('day') or 0) == d0 + 1)
+        tap('收起', 800)
+        clear_dialogs()
+        # 行囊：法衣槽是道袍，立绘带外袍
+        tap('行囊', 1200)
+        zj['robe'] = [t for t, _, _ in btns() if t.startswith('法衣') and '道袍' in t][:1]
+        step('zj_robe', bool(zj['robe']))
+        # 坊市：差事榜接一单代炼；药铺里的货郎
+        clear_dialogs()
+        ok = tap('历练') and tap('坊市') and (tap('去坊市游历', 1500) or tap('去坊市', 1500))
+        for _ in range(6):
+            clear_dialogs()
+            if state().get('loc') == 'roam': break
+        zj['jobs_open'] = tap('差事榜', 1200) or tap_scroll('差事榜', 1200, 4)
+        ls0 = int(state().get('lingshi') or 0)
+        zj['comm'] = tap('接一单代炼', 1200) or tap_scroll('接一单代炼', 1200, 4)
+        zj['comm_ls'] = [ls0, state().get('lingshi')]
+        step('zj_jobs', zj['jobs_open'] and state().get('sheet') == 'jobs' and zj['comm'] and int(state().get('lingshi') or 0) < ls0)
+        tap('收起', 800)
+        clear_dialogs(3)
+        zj['yao_open'] = tap('药铺', 1200) or tap_scroll('药铺', 1200, 4)
+        for _ in range(8):   # 货郎的货单在药铺最底下：翻到露出来
+            if any(' 换 ' in t and 100 <= y <= H - 90 for t, _, y in btns()): break
+            pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 220); pg.wait_for_timeout(500)
+        zj['barter'] = [t for t, _, _ in btns() if ' 换 ' in t][:3]
+        step('zj_barter', zj['yao_open'] and len(zj['barter']) == 3)
+        tap('收起', 800)
+        res['zhuji'] = zj
     b.close()
 print(json.dumps(res, ensure_ascii=False, indent=1))
