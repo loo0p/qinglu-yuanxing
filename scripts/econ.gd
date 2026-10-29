@@ -103,7 +103,7 @@ static func biguan_xw(gs, v: int) -> int:
 		out = out / 2
 		if int(e["sec_run"]) == DUST_MONTHS + 1:
 			gs.notice("连着闭关满三年，心境蒙尘：闭关所得减半。出门走两个月就好。")
-			gs.pchron("闭关久了，心境蒙尘，修为进得慢了。")
+			gs.pchron("闭关久了，心境蒙尘，修为进得慢了。", -1, {"心境蒙尘": "", "闭关所得": "减半"})
 	return out
 
 ## 每月（tick 末尾）：出门洗蒙尘、正月交聚灵阵年费、欠费的有钱了就续上、拍卖回响、托售过期
@@ -127,7 +127,7 @@ static func monthly(gs, mode: String) -> void:
 				if bool(gs.s.get("seclude", false)):
 					e["arr_break"] = true
 				gs.notice("%s的年费（%d 灵石）交不上，阵眼的灵石耗尽，阵法停了。" % [ARR[a]["n"], fee])
-				gs.pchron("%s的灵石耗尽，阵法停了。" % ARR[a]["n"])
+				gs.pchron("%s的灵石耗尽，阵法停了。" % ARR[a]["n"], -1, {"「%s」停" % ARR[a]["n"]: ""})
 		elif bool(e["arr_off"]) and int(gs.s["lingshi"]) >= fee:
 			gs.s["lingshi"] = int(gs.s["lingshi"]) - fee
 			e["fee_y"] = y
@@ -191,7 +191,7 @@ static func build(gs) -> bool:
 	e["fee_y"] = _year(gs)   # 布阵这一年的年费含在里头
 	e["built_ls"] = int(e.get("built_ls", 0)) + int(nx["build"])
 	gs._log("在静室布下%s（−%d 灵石；闭关修为 +%d%%，每年正月交 %d 灵石）。" % [nx["n"], int(nx["build"]), int(nx["pct"]), int(nx["fee"])])
-	gs.pchron("在青庐静室布下%s。" % nx["n"])
+	gs.pchron("在青庐静室布下%s。" % nx["n"], -1, {"灵石": -int(nx["build"]), "闭关修为": "+%d%%" % int(nx["pct"])})
 	return true
 
 static func set_fudan(gs, on_: bool) -> void:
@@ -333,7 +333,7 @@ static func consign_buy(gs, u: int) -> String:
 	it["ext"] = true
 	Gear.give_her(gs, it, "她以 %d 灵石从%s手里接下。" % [pr, x["from"]])
 	gs._log("在坊市接下%s托售的%s（%d 灵石）。" % [x["from"], Gear.full_name(it), pr])
-	gs.pchron("以 %d 灵石接下%s托售的一件%s。" % [pr, x["from"], it["n"]])
+	gs.pchron("以 %d 灵石接下%s托售的一件%s。" % [pr, x["from"], it["n"]], -1, {"灵石": -pr, "得「%s」" % String(it["n"]): ""})
 	return ""
 
 # ---------------------------------------------------------------- 拍卖回响
@@ -371,7 +371,7 @@ static func _echo_due(gs) -> void:
 			if hit == null:
 				continue
 			lst.erase(hit)
-			W.chron(c2, "出了坊市没多远，被人截了道，拍来的%s丢了。" % hit["n"])
+			W.chron(c2, "出了坊市没多远，被人截了道，拍来的%s丢了。" % hit["n"], {"失「%s」" % String(hit["n"]): ""})
 		W.rumor(String(x[1]), who, "拍")
 	e["echo"] = keep
 
