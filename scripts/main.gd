@@ -1877,7 +1877,7 @@ func _sheet_jobs(v: Node) -> void:
 	L("坊市名声 %d · 手里 %d 灵石" % [int(e["rep"]), int(g.s["lingshi"])], 12, C_DIM, v)
 	var c1 = card(v)
 	L("代炼", 14, C_ACCENT, c1)
-	LW("药铺出主料，她搭 %d 株青芝、先付 %d 灵石地火钱；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, int(Jobs.COMM_FUEL[clampi(g.major(), 0, 4)]), Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
+	LW("药铺出主料，她搭 %d 株青芝、先付 %d 灵石地火钱；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, int(Jobs.COMM_FUEL[clampi(g.major(), 1, 4)]), Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
 	if Jobs.furnace_busy(g):
 		LW(Jobs.comm_text(g), 11, C_WARN, c1)
 	var w1: String = Jobs.can_comm(g)
@@ -1886,12 +1886,12 @@ func _sheet_jobs(v: Node) -> void:
 	L("客卿", 14, C_ACCENT, c2)
 	LW(Jobs.kq_text(g), 11, C_DIM, c2)
 	var w2: String = Jobs.can_kq(g)
-	var kt := "应下客卿（坐镇一个月）" if int(e["kq"]) < 0 else "回来坐镇一个月（领 %d 灵石）" % (Jobs.kq_due(g) * Jobs.kq_pay(g))
-	B(kt if w2 == "" else "客卿：%s" % w2, func(): sheet = ""; Jobs.sit_kq(g), w2 == "", c2, 40)
+	var kq_lb := "应下客卿（坐镇一个月）" if int(e["kq"]) < 0 else "回来坐镇一个月（领 %d 灵石）" % (Jobs.kq_due(g) * Jobs.kq_pay(g))
+	B(kq_lb if w2 == "" else "客卿：%s" % w2, func(): sheet = ""; Jobs.sit_kq(g), w2 == "", c2, 40)
 	var c3 = card(v)
 	L("悬赏", 14, C_ACCENT, c3)
-	var rg: Array = Jobs.bty_range(g)
-	LW("离家两个月：除妖、护镖、拿贼，先花 %d 灵石备符箓干粮。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(Jobs.BTY_KIT[clampi(g.major(), 0, 4)]), int(rg[0]), int(rg[1])], 11, C_DIM, c3)
+	var rg: Array = Jobs.bty_range(g) if g.major() >= 1 else Jobs.BTY[1]
+	LW("离家两个月：除妖、护镖、拿贼，先花 %d 灵石备符箓干粮。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(Jobs.BTY_KIT[clampi(g.major(), 1, 4)]), int(rg[0]), int(rg[1])], 11, C_DIM, c3)
 	var w3: String = Jobs.can_bty(g)
 	B("揭一张悬赏（离开两个月）" if w3 == "" else "悬赏：%s" % w3, func(): sheet = ""; Jobs.take_bty(g), w3 == "", c3, 40)
 
