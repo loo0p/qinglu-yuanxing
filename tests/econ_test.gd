@@ -198,16 +198,16 @@ func t_jobs() -> void:
 	g._raise_to(9)
 	g.s["ration"] = 60
 	g.s["store"]["herb_qingzhi"] = 40
-	g.s["lingshi"] = 0
+	g.s["lingshi"] = 100
 	ok(Jobs.can_kq(g) != "", "名声不到 2，坊市不请客卿")
-	ok(Jobs.take_comm(g) and g.store_n("herb_qingzhi") == 30 and Jobs.furnace_busy(g), "筑基接代炼：搭 10 株青芝，丹炉被占")
+	ok(Jobs.take_comm(g) and g.store_n("herb_qingzhi") == 30 and int(g.s["lingshi"]) == 100 - Jobs.COMM_FUEL[1] and Jobs.furnace_busy(g), "筑基接代炼：搭 10 株青芝、付地火钱，丹炉被占")
 	g.s["queue"] = [["juqi", 2]]
 	g.tick("road")
 	ok(int(g.s["queue"][0][1]) == 2, "代炼占炉时自家的丹不走火候")
 	for i in 3:
 		g.tick("road")
 	ok(not Jobs.furnace_busy(g), "四个月后这一单交了")
-	var ls1 := int(g.s["lingshi"])
+	var ls1 := int(g.s["lingshi"]) - (100 - Jobs.COMM_FUEL[1])
 	ok(ls1 > 0 or int(Jobs.E(g).get("comm_fail", 0)) == 1, "成了得灵石（%d），炸了赔料钱" % ls1)
 	var lg: Array = g.world.P()["log"]
 	ok(lg[-1].size() == 3 and (lg[-1][2] as Dictionary).has("灵石"), "履历记一条带效果标签：%s %s" % [lg[-1][1], str(lg[-1][2])])
@@ -215,7 +215,7 @@ func t_jobs() -> void:
 	ok(Jobs.take_bty(g), "揭悬赏")
 	var e: Dictionary = Jobs.E(g)
 	var rg: Array = Jobs.bty_range(g)
-	ok(int(e["rep"]) == rep0 + 1 and int(e["jobs_ls"]) - maxi(0, ls1) >= int(rg[0]) / 2 - 3, "悬赏办完：名声 +1、得赏（累计差事 %d 灵石）" % int(e["jobs_ls"]))
+	ok(int(e["rep"]) == rep0 + 1 and int(e["jobs_cost"]) == Jobs.COMM_FUEL[1] + Jobs.BTY_KIT[1] and int(e["jobs_ls"]) - maxi(0, ls1) >= int(rg[0]) / 2 - 3, "悬赏办完：名声 +1、得赏（累计差事 %d 灵石）" % int(e["jobs_ls"]))
 	ok(Jobs.can_bty(g) != "", "榜上半年才有新的（或带着伤）")
 	e["rep"] = 2
 	g.s["injured"] = 0

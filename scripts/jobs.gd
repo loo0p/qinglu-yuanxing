@@ -8,17 +8,19 @@ extends RefCounted
 const Gear = preload("res://scripts/gear.gd")
 const World = preload("res://scripts/world.gd")
 
-const COMM_PAY := [0, 45, 150, 420, 1200]    # 按大境界（炼气接不到）
+const COMM_PAY := [0, 75, 150, 420, 1200]    # 按大境界（炼气接不到）
 const COMM_QZ := 10
+const COMM_FUEL := [0, 16, 30, 85, 240]       # 地火钱，接单时先付（坊市租地火炉的钱，她自己出）
 const COMM_MONTHS := 4
 const COMM_FAIL := 15                         # 炸炉百分比；二阶聚灵阵以上（丹炉成丹率 +10%）减到 5
 const COMM_MAX := 3                           # 手上同时最多三单
 const COMM_YEAR := 6                          # 一年最多接六单
-const KQ_PAY := [0, 40, 140, 380, 1100]       # 客卿年俸
+const KQ_PAY := [0, 70, 140, 380, 1100]       # 客卿年俸
 const KQ_REP := 2                             # 名声到 2（办成两件差事）坊市才请她做客卿
 const KQ_TERM := 36                           # 隔三年没回来坐镇，客卿之位另请了人；俸最多攒三年
-const BTY := [[0, 0], [40, 80], [140, 260], [400, 700], [1200, 2000]]
+const BTY := [[0, 0], [70, 130], [140, 260], [400, 700], [1200, 2000]]
 const BTY_MONTHS := 2
+const BTY_KIT := [0, 20, 30, 85, 240]         # 揭榜先备符箓干粮
 const BTY_CD := 6
 const BTY_HURT := 25
 const BTY_BAD := 6
@@ -32,7 +34,7 @@ static func E(gs) -> Dictionary:
 	var e: Dictionary = gs.s["econ"]
 	if not e.has("comm") or not (e["comm"] is Array):
 		e["comm"] = []
-	for k in ["rep", "comm_n", "jobs_ls", "jobs_n", "hurt_n"]:
+	for k in ["rep", "comm_n", "jobs_ls", "jobs_n", "hurt_n", "jobs_cost"]:
 		e[k] = int(e.get(k, 0))
 	for k in ["kq", "kq_d", "bty_d", "comm_y"]:
 		e[k] = int(e.get(k, -99 if k != "kq" else -1))
@@ -90,6 +92,8 @@ static func can_comm(gs) -> String:
 		return "今年的单子接满了"
 	if gs.store_n("herb_qingzhi") < COMM_QZ:
 		return "要搭 %d 株青芝" % COMM_QZ
+	if int(gs.s.get("lingshi", 0)) < int(COMM_FUEL[clampi(_mj(gs), 0, 4)]):
+		return "地火钱 %d 灵石不够" % int(COMM_FUEL[clampi(_mj(gs), 0, 4)])
 	return ""
 
 static func take_comm(gs) -> bool:
@@ -101,9 +105,12 @@ static func take_comm(gs) -> bool:
 		e["comm_n"] = 0
 	e["comm_n"] = int(e["comm_n"]) + 1
 	gs._store_add("herb_qingzhi", -COMM_QZ)
+	var fuel := int(COMM_FUEL[clampi(_mj(gs), 0, 4)])
+	gs.s["lingshi"] = int(gs.s["lingshi"]) - fuel
+	e["jobs_cost"] = int(e["jobs_cost"]) + fuel
 	var pay := comm_pay(gs)
 	e["comm"].append([COMM_MONTHS, pay, maxi(5, pay / 3)])
-	gs.roam_note("药铺托她代炼一炉丹：主家出主料，她搭 %d 株青芝；炉子要占 %d 个月，成了 %d 灵石，炸了赔 %d。" % [COMM_QZ, COMM_MONTHS, pay, maxi(5, pay / 3)])
+	gs.roam_note("药铺托她代炼一炉丹：主家出主料，她搭 %d 株青芝、先付 %d 灵石地火钱；炉子要占 %d 个月，成了 %d 灵石，炸了赔 %d。" % [COMM_QZ, fuel, COMM_MONTHS, pay, maxi(5, pay / 3)])
 	return true
 
 ## 代炼的单子在炉上：她自家排的丹停炉（tick 里看这个）
@@ -228,6 +235,8 @@ static func can_bty(gs) -> String:
 		return "带着伤"
 	if _day(gs) - int(E(gs)["bty_d"]) < BTY_CD:
 		return "榜上没有新的（%d 个月后再来）" % (BTY_CD - (_day(gs) - int(E(gs)["bty_d"])))
+	if int(gs.s.get("lingshi", 0)) < int(BTY_KIT[clampi(_mj(gs), 0, 4)]):
+		return "备符箓干粮要 %d 灵石" % int(BTY_KIT[clampi(_mj(gs), 0, 4)])
 	return ""
 
 static func take_bty(gs) -> bool:
@@ -235,6 +244,8 @@ static func take_bty(gs) -> bool:
 		return false
 	var e := E(gs)
 	e["bty_d"] = _day(gs)
+	gs.s["lingshi"] = int(gs.s["lingshi"]) - int(BTY_KIT[clampi(_mj(gs), 0, 4)])
+	e["jobs_cost"] = int(e["jobs_cost"]) + int(BTY_KIT[clampi(_mj(gs), 0, 4)])
 	var rg := bty_range(gs)
 	var r := Gear._rng_for(gs, 9500 + _day(gs))
 	var pay := r.randi_range(int(rg[0]), int(rg[1]))
@@ -278,4 +289,4 @@ static func monthly(gs) -> void:
 
 static func summary(gs) -> Dictionary:
 	var e := E(gs)
-	return {"jobs_ls": int(e["jobs_ls"]), "jobs_n": int(e["jobs_n"]), "comm_fail": int(e.get("comm_fail", 0)), "kq_n": int(e.get("kq_n", 0)), "bty_n": int(e.get("bty_n", 0)), "hurt_n": int(e["hurt_n"]), "rep": int(e["rep"])}
+	return {"jobs_ls": int(e["jobs_ls"]), "jobs_n": int(e["jobs_n"]), "jobs_cost": int(e["jobs_cost"]), "comm_fail": int(e.get("comm_fail", 0)), "kq_n": int(e.get("kq_n", 0)), "bty_n": int(e.get("bty_n", 0)), "hurt_n": int(e["hurt_n"]), "rep": int(e["rep"])}
