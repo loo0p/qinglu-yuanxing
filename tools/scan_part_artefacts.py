@@ -161,6 +161,7 @@ REVIEWED = {
     ("hair_m7-base_m", "paper"): (80, "金冠的细边"),
     ("hair_fe2-base_fe", "frag"): (100, "冠上的珠子"),
     ("outer_f1-base_f", "frag"): (160, "纱披上单独的一缕纱"),
+    ("hair_me1-base_me", "frag"): (130, "两撮髭须之间画的唇线（原有，去掉粉色中衣后不再连着）"),
 }
 
 
