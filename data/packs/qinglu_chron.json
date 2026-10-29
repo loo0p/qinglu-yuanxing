@@ -2019,8 +2019,8 @@
    "trigger": "on:pmonth",
    "family": "pm",
    "when": "ctx.sec == 1 and ctx.maj == 2",
-   "weight": 0.8,
-   "cooldown": 48,
+   "weight": 0.5,
+   "cooldown": 96,
    "effects": [],
    "outcomes": [
     {
@@ -2240,6 +2240,12 @@
       }
      ]
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2346,6 +2352,12 @@
      ],
      "first": true
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2403,6 +2415,12 @@
       }
      ]
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2417,6 +2435,10 @@
     }
    ],
    "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    },
     {
      "name": "B",
      "optional": true,
@@ -2535,6 +2557,12 @@
       }
      ]
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2629,6 +2657,12 @@
      ],
      "first": true
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2707,6 +2741,12 @@
      ],
      "first": true
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2762,6 +2802,12 @@
        "d": 1
       }
      ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
     }
    ]
   },
@@ -2831,6 +2877,12 @@
      ],
      "first": true
     }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
    ]
   },
   {
@@ -2885,6 +2937,12 @@
       }
      ],
      "first": true
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
     }
    ]
   },
@@ -2943,6 +3001,12 @@
        "n": -20
       }
      ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
     }
    ]
   },
@@ -3019,6 +3083,12 @@
       }
      ],
      "first": true
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
     }
    ]
   },

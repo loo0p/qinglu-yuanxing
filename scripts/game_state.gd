@@ -1017,6 +1017,13 @@ func _seclude_chron(sum: Dictionary, done: int, out: Dictionary) -> void:
 			ln = "%s入了%s" % [c["name"], World.realm_name(int(c["lv"]))]
 		if ln == "":
 			continue
+		# v0.15.3：“听说”里已经说过这个人（死于谁手 / 入了几层），不再重复一句“已经不在了”
+		var dup := false
+		for h in heard:
+			if String(c["name"]) in String(h):
+				dup = true
+		if dup:
+			continue
 		var rr: Dictionary = world._rel(world.P(), c)
 		(near if absi(int(rr.get("f", 0))) >= 20 or not (rr.get("t", []) as Array).is_empty() else lines).append(ln)
 	lines = near + lines

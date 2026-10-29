@@ -367,6 +367,8 @@ func say(t, inst: Dictionary, key: String = "", vars: Dictionary = {}) -> String
 	var s := _fill(String(t), inst, vars)   # 先填变量：允许 "#d_like_{like}#" 这种按变量选语法符号
 	if "#" in s:
 		s = _fill(_grammar().flatten(s), inst, vars)
+	if "#" in s:   # 变量里存的是 #符号#，展开后才填进来：再展一层
+		s = _fill(_grammar().flatten(s), inst, vars)
 	return s
 
 func _fill(s: String, inst: Dictionary, vars: Dictionary) -> String:
@@ -851,7 +853,10 @@ func _op(op: Dictionary, inst: Dictionary) -> void:
 		"var", "say":
 			inst["ctx"][String(op["name"])] = say(op.get("text", ""), inst, String(op["name"]), _op_vars(op, inst))
 		"set":
-			inst["ctx"][String(op["name"])] = ev(op.get("value", 0), inst)
+			var sv = ev(op.get("value", 0), inst)
+			if sv is String and "#" in sv:   # 存的是 #符号#：当场展开定下来，后面几句说的才是同一株草 / 同一棵树
+				sv = say(sv, inst)
+			inst["ctx"][String(op["name"])] = sv
 		"flag":
 			var k := say(String(op["key"]), inst, "", _op_vars(op, inst))
 			if op.has("set"):

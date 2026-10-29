@@ -279,7 +279,7 @@ CHRON += [
         oc("no", 0.5, chron("A", "#q_tu##q_tu_no#"), rel("B", "P", f=-4), attr("A", "xin", 1))],
        effects=[setv("y0", "g.cy()"), setv("m0", "g.now_m()")], roles=[{"name": "B", "where": KNOWN + " and g.lv(SELF) + 4 <= g.plv() and g.pf(SELF) >= 15"}],
        doc="金丹后：有人在青庐外跪求指点（收下的，十到二十五年后回来）"),
-    pm("sec_danhuo", SEC + " and ctx.maj == 2", 0.8, 48, [
+    pm("sec_danhuo", SEC + " and ctx.maj == 2", 0.5, 96, [
         oc("ok", "0.5 + 0.1 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_danhuo##q_danhuo_ok#"), wu(4), pxw(30)),
         oc("bad", "0.7 - 0.05 * g.at(A, 'xin')", chron("A", "#q_sec_head##q_danhuo##q_danhuo_bad#"), pinj(4), pxw(-30), life("A", -1))],
        doc="金丹：丹火反噬（心性定）"),
@@ -356,6 +356,11 @@ CHRON += [
         oc("back", 1.0, chron("P", "#q_echo_tu#如今已是{br}，回来给她磕了个头，留下一件东西。"), {"op": "give_item", "a": "B", "b": "P", "h": "{B}回青庐谢师时所赠。"}, rel("P", "B", f=10), when="g.gear_n(B) > 0", first=True),
         oc("visit", 1.0, chron("P", "#q_echo_tu#如今已是{br}，回来替她把药圃翻了一遍土。"), ling(10), rel("P", "B", f=8), attr("P", "xin", 1), first=True)]},
 ]
+# v0.15.3 修：回响（chain）里写 chron("P", …) 的，P 不在 cast 里 → 引擎找不到人，整条没写进履历（效果照扣）。
+# 给每条回响补一个固定角色 P = 她。
+for _s in CHRON:
+    if _s.get("trigger") == "chain" and not any(r.get("name") == "P" for r in _s.get("roles", [])):
+        _s["roles"] = [{"name": "P", "fixed": "g.player()"}] + _s.get("roles", [])
 # ---------------------------------------------------------------- NPC：资质随经历起落（他们的生平也挂机制）
 g("n_ku", "在{p}的瀑布下站了一个月桩。", "每日负石上山，一年没断。", "在{p}跟一头熊较了半年的力气。")
 g("n_du", "把一部经读到第九遍，读出了前人没注的一句。", "在{p}的藏经阁里抄了半年的书。", "替师门整理残卷，看出一处缺漏。")
