@@ -381,6 +381,29 @@ static func realm_name(lv: int) -> String:
 static func lifespan(lv: int) -> int:
 	return 100 if lv < 9 else (200 if lv < 12 else (500 if lv < 15 else (1000 if lv < 18 else 2000)))
 
+## v0.15：她这个月的日子（qinglu_chron 包，on:pmonth）。闭关、在外、在家各一个概率；每条都挂机制
+const PM_P := {"sec": 0.09, "road": 0.11, "home": 0.08}
+func _p_month() -> void:
+	if g == null or bool(g.s.get("ended", false)):
+		return
+	var sec := bool(g.s.get("seclude", false))
+	var loc := String(g.s.get("loc", "home"))
+	var road := loc in ["trip", "roam"]
+	if rng.randf() >= float(PM_P["sec" if sec else ("road" if road else "home")]):
+		return
+	var pl := plv()
+	fx_begin()
+	saga().emit("pmonth", P(), {"sec": 1 if sec else 0, "road": 1 if road else 0, "maj": 0 if pl < 9 else (1 if pl < 12 else (2 if pl < 15 else 3))})
+	fx_end()
+
+## 大境界：炼气 0、筑基 1、金丹 2、元婴 3、化神 4
+static func major(lv: int) -> int:
+	return 0 if lv < 9 else mini(4, 1 + int((lv - 9) / 3))
+
+## v0.15（Gemini v7 P1 境界常识）：对方高她一个大境界以上，争抢不是“肩上青一块”的事
+func outclassed(n: Dictionary) -> bool:
+	return major(int(n["lv"])) - major(plv()) >= 1
+
 func realm(c: Dictionary) -> String:
 	return realm_name(int(c["lv"]))
 
@@ -474,31 +497,265 @@ func remember(c: Dictionary, o, text: String, wt: int, kind: String = "", aid: i
 		m.append(kind)   # v0.9：记忆的种类（救/劫/辱/欠……）与来由动作，可缺省
 		m.append(aid)
 	c["mem"].append(m)
+	if wt != 0 and o is Dictionary and not o.is_empty() and not c.get("player", false):
+		var on := pn() if o.get("player", false) else String(o["name"])
+		fx(c, "对%s印象" % on, wt)
+		if o.get("player", false):
+			fx(o, "%s印象" % String(c["name"]), wt, false)
 	if c["mem"].size() > 24:
 		var d := int(w["day"])
 		c["mem"].sort_custom(func(x, y): return absf(float(x[3])) - (d - float(x[0])) * 0.05 < absf(float(y[3])) - (d - float(y[0])) * 0.05)
 		c["mem"].pop_front()
 
-const PLOG_CAP := 300   # v0.14：她自己的履历留得长些（几十年闭关也写进去）；别人仍是 120
+
+# ================================================================ v0.15 履历挂机制：属性 + 每条履历下面的小字效果
+## 五项资质（人人都有）：根骨（修炼快慢、伤好得快）、悟性（感悟、破境）、心性（冲关不易走火、心魔）、魅力（好感涨得快）、气运（奇遇、寻宝）。
+## 不吃世界随机数：按人物 id 与开局种子散列出来，旧档里的人第一次用到时补上，存读一致
+const ATTRS := ["gen", "wu", "xin", "mei", "yun"]
+const ATTR_CN := {"gen": "根骨", "wu": "悟性", "xin": "心性", "mei": "魅力", "yun": "气运"}
+func attr(c: Dictionary) -> Dictionary:
+	if not c.has("at") or not (c["at"] is Dictionary):
+		var r := RandomNumberGenerator.new()
+		r.seed = int(w.get("rng_seed", 0)) * 1000003 + int(c["id"]) * 7919 + 11
+		var at := {}
+		for k in ATTRS:
+			at[k] = r.randi_range(1, 5) + r.randi_range(1, 5)   # 2–10，五六最多
+		c["at"] = at
+	return c["at"]
+
+func at(c: Dictionary, k: String) -> int:
+	return int(attr(c).get(k, 5))
+
+## 资质增减（1–15），写进效果
+func attr_add(c: Dictionary, k: String, d: int) -> void:
+	if d == 0 or not ATTR_CN.has(k):
+		return
+	var a := attr(c)
+	var v0 := int(a.get(k, 5))
+	a[k] = clampi(v0 + d, 1, 15)
+	if int(a[k]) != v0:
+		fx(c, String(ATTR_CN[k]), int(a[k]) - v0)
+	elif d > 0:
+		# 到顶了：多出来的那点化进修为（不让这一笔落空）
+		if c.get("player", false):
+			pxw(6)
+		else:
+			c["xp"] = qz(float(c["xp"]) + 0.1 * 8.0 * pow(1.35, int(c["lv"])), 10000.0)
+			fx(c, "修为", "精进")
+	elif c.get("player", false):
+		_inj(1)
+	else:
+		c["inj"] = maxi(int(c["inj"]), 1)
+		fx(c, "伤|月", 1)
+
+## 寿元增减（年）。她：青庐的 shouyuan 按月记；别人：加在 life 上，lifespan_of 读它
+func life_add(c: Dictionary, years: int) -> void:
+	if years == 0:
+		return
+	if c.get("player", false):
+		if g != null:
+			g.s["shouyuan"] = maxi(1, int(g.s["shouyuan"]) + years * 12)
+	else:
+		c["life"] = int(c.get("life", 0)) + years
+	fx(c, "寿元|年", years)
+
+func lifespan_of(c: Dictionary) -> int:
+	return lifespan(int(c["lv"])) + int(c.get("life", 0))
+
+## 关系增减（好感 f / 怨 g），同时记效果：a 对 b 的看法变了，写在 a 的这条履历下；b 是她时，她那条也记一笔“某某好感”
+func radd(a: Dictionary, b: Dictionary, df: int, dg: int = 0) -> void:
+	var r := R(a, b)
+	if df != 0:
+		r["f"] = int(r["f"]) + df
+	if dg != 0:
+		var g0 := int(r["g"])
+		r["g"] = maxi(0, g0 + dg)
+		dg = int(r["g"]) - g0
+	var bn := pn() if b.get("player", false) else String(b["name"])
+	var an := pn() if a.get("player", false) else String(a["name"])
+	if df != 0:
+		fx(a, "对%s好感" % bn, df)
+		if b.get("player", false):
+			fx(b, "%s好感" % an, df, false)
+	if dg != 0:
+		fx(a, "对%s怨" % bn, dg)
+		if b.get("player", false):
+			fx(b, "%s怨" % an, dg, false)
+
+## 效果暂存：一件事（一个 storylet 实例 / 一次 agency 行动）是一个“范围”。范围里先写的履历条目先开着，
+## 后面的效果挂到它下面；效果先到、条目后写的，先存着，写条目时一起挂上。范围结束就清。
+var _fx_open := {}
+var _fx_pend := {}
+var _fx_soft := {}   # 范围内 pend=false 的（她那边的“某某好感”）：她这件事里写了条目就挂上，没写就丢
+var _fx_last := {}   # 范围内每人最后写的一条：范围结束时，这件事后来攒下的效果挂到这一条上
+var _fx_first := {}  # 范围内已经写过“第一条”的人（第一条认领范围开始前、写它之前攒下的效果）
+var _fx_depth := 0
+var _fx_snap := {}   # 范围开始时各人的修为/伤/灵石：范围结束时比一比，代码里直接改了数值、没走 fx 的也能显出来
+func fx_begin(snap: bool = false) -> void:
+	if _fx_depth == 0:
+		_fx_snap.clear()
+	if snap and _fx_snap.is_empty():
+		for k in w["C"]:
+			var c: Dictionary = w["C"][k]
+			if k != "1" and c.get("alive", true):
+				_fx_snap[int(c["id"])] = [float(c.get("xp", 0.0)), int(c.get("inj", 0)), int(c.get("ls", -1)), int(c.get("lv", 0))]
+	if _fx_depth == 0:
+		_fx_open.clear()   # 范围外先记下的（如冲关破境）留在 _fx_pend，挂到这件事写的条目上
+		_fx_last.clear()
+		_fx_first.clear()
+		_fx_soft.clear()
+	_fx_depth += 1
+
+func fx_end() -> void:
+	_fx_depth = maxi(0, _fx_depth - 1)
+	if _fx_depth > 0:
+		return
+	var today := int(w["day"])
+	for id in _fx_last:
+		if _fx_snap.has(id):
+			_fx_diff(int(id))
+	for id in _fx_last:
+		var e: Array = _fx_last[id]
+		for src in [_fx_pend, _fx_soft]:
+			if src.has(id) and int(src[id]["d"]) == today and int(e[0]) == today:
+				if e.size() < 3:
+					e.append({})
+				var x: Dictionary = src[id]["x"]
+				for k in x:
+					_fx_put(e[2], String(k), x[k])
+				src.erase(id)
+	# 她这件事里没写条目：效果留到本月她的下一条（比如事后的“出关”）；别人的就算了
+	var pid := 1
+	for id in _fx_pend.keys():
+		if int(id) != pid:
+			_fx_pend.erase(id)
+	_fx_soft.clear()
+	_fx_last.clear()
+	_fx_open.clear()
+
+func _fx_diff(id: int) -> void:
+	var c: Dictionary = w["C"].get(str(id), {})
+	if c.is_empty():
+		return
+	var s0: Array = _fx_snap[id]
+	var have: Dictionary = _fx_pend[id]["x"] if _fx_pend.has(id) and int(_fx_pend[id]["d"]) == int(w["day"]) else {}
+	var dx := float(c.get("xp", 0.0)) - float(s0[0])
+	if int(c.get("lv", 0)) == int(s0[3]) and not have.has("修为") and not have.has("入"):
+		if dx > 0.5:
+			_pend_put(_fx_pend, id, "修为", "精进")
+		elif dx < -0.5:
+			_pend_put(_fx_pend, id, "修为", "折损")
+	var di := int(c.get("inj", 0)) - int(s0[1])
+	if di > 0 and not have.has("伤|月"):
+		_pend_put(_fx_pend, id, "伤|月", di)
+	if int(s0[2]) >= 0 or c.has("ls"):
+		var l0 := int(s0[2]) if int(s0[2]) >= 0 else 5 + int(s0[3]) * 3
+		var dl := int(c.get("ls", l0)) - l0
+		if dl != 0 and not have.has("灵石"):
+			_pend_put(_fx_pend, id, "灵石", dl)
+
+func _pend_put(src: Dictionary, id: int, key: String, v) -> void:
+	if not src.has(id) or int(src[id]["d"]) != int(w["day"]):
+		src[id] = {"d": int(w["day"]), "x": {}}
+	_fx_put(src[id]["x"], key, v)
+
+## v：数字（同键相加）或 ""（只是个标记，如“得「青玉符」”）。pend=false：没有开着的条目就不留（她那边的“某某好感”）
+func fx(c: Dictionary, key: String, v = "", pend: bool = true) -> void:
+	if c.is_empty():
+		return
+	var id := int(c["id"])
+	if _fx_depth > 0:
+		_pend_put(_fx_pend if pend else _fx_soft, id, key, v)
+		return
+	var e = _fx_open.get(id, null)
+	if e != null and int(e[0]) == int(w["day"]):
+		if e.size() < 3:
+			e.append({})
+		_fx_put(e[2], key, v)
+	elif pend:
+		_pend_put(_fx_pend, id, key, v)
+
+static func _fx_put(d: Dictionary, key: String, v) -> void:
+	if v is String:
+		d[key] = v
+	elif d.has(key) and not (d[key] is String):
+		d[key] = int(d[key]) + int(v)
+	else:
+		d[key] = int(v)
+
+## 一条当月新写的履历：范围内只记下“最后一条”（范围结束再挂）；范围外把先前暂存的挂上来，并作为“开着的”那条
+func fx_attach(c: Dictionary, e: Array) -> void:
+	var id := int(c["id"])
+	if _fx_depth > 0:
+		# 这件事里她/他写的第一条（不算自带标记的“初识”“知道了去”）认领之前攒下的；之后的效果到结束时挂最后一条
+		var tagged := e.size() >= 3
+		if not tagged and not _fx_first.has(id):
+			_fx_first[id] = true
+			if _fx_pend.has(id) and int(_fx_pend[id]["d"]) == int(w["day"]):
+				e.append({})
+				var x0: Dictionary = _fx_pend[id]["x"]
+				for k in x0:
+					_fx_put(e[2], String(k), x0[k])
+				_fx_pend.erase(id)
+		if not tagged or not _fx_last.has(id):
+			_fx_last[id] = e
+		return
+	if _fx_pend.has(id) and int(_fx_pend[id]["d"]) == int(w["day"]):
+		if e.size() < 3:
+			e.append({})
+		var x: Dictionary = _fx_pend[id]["x"]
+		for k in x:
+			_fx_put(e[2], String(k), x[k])
+		_fx_pend.erase(id)
+	_fx_open[id] = e
+
+## 效果小字：“悟性+1　得「青玉符」　谢微灵好感+8”
+static func fx_text(d) -> String:
+	if not (d is Dictionary):
+		return ""
+	var out := []
+	for k in d:
+		var key := String(k)
+		if key.begins_with("_"):
+			continue
+		var v = d[k]
+		var unit := ""
+		if key.contains("|"):
+			unit = key.get_slice("|", 1)
+			key = key.get_slice("|", 0)
+		if v is String:
+			out.append(key + String(v))
+		elif int(v) != 0:
+			out.append("%s%s%d%s" % [key, "+" if int(v) > 0 else "", int(v), unit])
+	return "　".join(out)
+
+const PLOG_CAP := 900   # v0.15：她一辈子的履历（几十上百年，每年七八条）都留着；v0.14 是 300
+const NLOG_CAP := 160   # 别人的生平；v0.14 是 120
 ## v0.13.1（Gemini v6 评审 P0-3 / P1-7）：履历里的大事（破境、拜师收徒、结侣、救命、夺宝、生子、坐化…）
 ## 不再被 120 条滚动挤掉——满了先挤最早的一条“日常”；同一句日常一辈子最多记两回（闲话、切磋不再刷屏）
 const MILESTONE_WORDS := ["入了", "筑基", "结丹", "金丹", "元婴", "化神", "冲关", "拜", "为徒", "收徒", "道侣", "结为", "决裂", "救", "夺", "截", "斩", "添了", "生了", "坐化", "身故", "陨", "掌门", "继位", "出生", "仇", "心魔", "落选"]
+## 听来的（不是她亲历的）：出关补记的传闻、故人近况
+static func is_hearsay(text: String) -> bool:
+	return text.begins_with("（出关后才听说）") or text.begins_with("（出关方知）") or text.begins_with("故人这些年")
+
 static func is_milestone(text: String) -> bool:
 	# v0.14.1：出关后补记的传闻、故人近况是“听来的”，里面有“夺/截/救”也不算她的大事——
 	# 不然百年后 300 条全是传闻，最早的入境、拜师反倒被挤掉（sim100 种子 31 履历从二十三年开始）
-	if text.begins_with("（出关后才听说）") or text.begins_with("故人这些年") or text.begins_with("闭关第"):
+	if is_hearsay(text) or text.begins_with("闭关第"):
 		return false
 	for k in MILESTONE_WORDS:
 		if text.contains(k):
 			return true
 	return false
 
-func chron(c: Dictionary, text: String) -> void:
+func chron(c: Dictionary, text: String, fxd: Dictionary = {}) -> void:
 	var lg: Array = c["log"]
 	var ct := cal_text(int(w["day"]))
 	if text.begins_with(ct):   # 履历每条前面本来就有年月，正文里不再重复
 		text = text.substr(ct.length()).lstrip("，, ")
 	# v0.14.1：同一个月认得好几处路，并成一句“知道了去A、B的路。”
+	if text.begins_with("知道了去") and fxd.is_empty():
+		fxd = {"新去处": ""}
 	if text.begins_with("知道了去") and not lg.is_empty() and int(lg[-1][0]) == int(w["day"]) and String(lg[-1][1]).begins_with("知道了去"):
 		lg[-1][1] = String(lg[-1][1]).trim_suffix("的路。") + "、" + text.substr(4)
 		return
@@ -510,8 +767,12 @@ func chron(c: Dictionary, text: String) -> void:
 				same += 1
 		if same >= 2:
 			return
-	lg.append([int(w["day"]), text])
-	trim_log(lg, PLOG_CAP if c.get("player", false) else 120)
+	var e := [int(w["day"]), text]
+	if not fxd.is_empty():
+		e.append(fxd.duplicate())
+	fx_attach(c, e)
+	lg.append(e)
+	trim_log(lg, PLOG_CAP if c.get("player", false) else NLOG_CAP)
 
 ## 履历满了：先挤最早一条“听来的”（出关后补记的传闻、故人近况），再挤最早一条日常；大事不动
 ## v0.14.1：她的闭关履历走 pchron（按日期插入），原来直接 pop_front，把入境、拜师也挤掉了——两条路都用这一个
@@ -520,7 +781,7 @@ static func trim_log(lg: Array, cap: int) -> void:
 		var drop := -1
 		for i in lg.size() - 1:
 			var t0 := String(lg[i][1])
-			if t0.begins_with("（出关后才听说）") or t0.begins_with("故人这些年"):
+			if is_hearsay(t0):
 				drop = i
 				break
 		if drop < 0:
@@ -675,10 +936,33 @@ func _sync_player() -> void:
 
 func _inj(days: int) -> void:
 	if g != null:
+		# v0.15：根骨好，伤好得快（每高一点少半成，最多少三成）
+		days = maxi(1, int(round(days * clampf(1.0 - 0.05 * (at(P(), "gen") - 5), 0.7, 1.3))))
 		days = Gear.on_injury(g, days)   # v0.14：法衣减伤、护身符挡一回、法宝法衣磨损
+		if days > int(g.s.get("injured", 0)):
+			fx(P(), "伤|月", days - int(g.s.get("injured", 0)))
 		g.s["injured"] = maxi(int(g.s.get("injured", 0)), days)
 
+## v0.15：她的修为直接增减（奇遇炼化、走岔折损）。没有青庐（规则测试）时记在 xp 上
+func pxw(n: int) -> void:
+	if n == 0:
+		return
+	if g == null:
+		P()["xp"] = float(P()["xp"]) + n
+		return
+	var x0 := int(g.s["xiuwei"])
+	if n > 0:
+		g.gain(n, "ganwu")
+	else:
+		g.s["xiuwei"] = maxi(0, x0 + n)
+	if int(g.s["xiuwei"]) != x0:
+		fx(P(), "修为", int(g.s["xiuwei"]) - x0)
+
 func _wu(n: int) -> void:
+	# v0.15：悟性高，同一件事悟得多些（每高一点多一成，四舍五入）
+	if n > 0:
+		n = maxi(1, int(round(n * (1.0 + 0.1 * (at(P(), "wu") - 5)))))
+	fx(P(), "感悟", n)
 	if g != null:
 		g.add_wu(n)
 	else:
@@ -691,6 +975,7 @@ func _ling(n: int) -> int:
 		w["wx"] = int(w["day"])   # 一下进账不少，坊市里有人看见了
 	var before := int(g.s.get("lingshi", 0))
 	g.s["lingshi"] = maxi(0, before + n)
+	fx(P(), "灵石", int(g.s["lingshi"]) - before)
 	return int(g.s["lingshi"]) - before
 
 func lingshi() -> int:
@@ -700,6 +985,11 @@ func lingshi() -> int:
 ## home=false 时（路上）只让世界过日子，说书人不出事件；回家后再说
 func tick(home: bool = true, road: bool = true) -> void:
 	w["day"] = int(w["day"]) + 1
+	_fx_open.clear()
+	_fx_pend.clear()
+	_fx_soft.clear()
+	_fx_last.clear()
+	_fx_depth = 0
 	_sync_player()
 	# v0.9：她在哪（青庐 / 路上的某处）。只用来微调“谁会碰上她”的权重，不挡任何事
 	w["here"] = "青庐" if home or (g != null and String(g.s.get("loc", "")) in ["home", "xinmo", "ending"]) else _road_place()
@@ -708,20 +998,24 @@ func tick(home: bool = true, road: bool = true) -> void:
 		c["age"] = qz(float(c["age"]) + 1.0 / 12.0, 10000.0)   # v0.13：一回合一个月；取整到 4 位：JSON 往返不丢精度
 		if int(c["inj"]) > 0:
 			c["inj"] = int(c["inj"]) - 1
-		c["xp"] = qz(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0) * (1.8 if c.has("dh") else 1.0), 10000.0)
+		# v0.15：根骨、悟性快慢各差几成（不多吃随机数）
+		var amul := 1.0 + 0.04 * (at(c, "gen") - 5) + 0.03 * (at(c, "wu") - 5)
+		c["xp"] = qz(float(c["xp"]) + rng.randf_range(0.6, 1.4) * (0.4 if int(c["inj"]) > 0 else 1.0) * (1.8 if c.has("dh") else 1.0) * amul, 10000.0)
 		var lv := int(c["lv"])
 		if float(c["xp"]) >= 8.0 * pow(1.35, lv):
 			c["xp"] = 0.0
 			var big: bool = lv in [8, 11, 14, 17]
-			if big and rng.randf() < 0.45:
+			if big and rng.randf() < clampf(0.45 - 0.03 * (at(c, "xin") - 5), 0.25, 0.65):   # v0.15：心性稳，冲关少走火
 				c["inj"] = 20
+				fx(c, "伤|月", 20)
 				saga().emit("break_fail", c, {"r": REALMS[lv + 1]})   # 冲关失败：文字、心魔都在内容包里
 				if c["alive"] and rng.randf() < 0.15:
 					die(c, "冲关走火入魔，身死道消")
 				continue
 			c["lv"] = lv + 1
+			fx(c, "入", realm(c))
 			saga().emit("break", c, {"big": 1 if big else 0})
-		if float(c["age"]) > lifespan(int(c["lv"])) and rng.randf() < (0.06 if int(c.get("frail", 0)) == 1 else 0.02):
+		if float(c["age"]) > lifespan_of(c) and rng.randf() < (0.06 if int(c.get("frail", 0)) == 1 else 0.02):
 			die(c, saga().old_how(c))
 			continue
 		if int(c["lv"]) >= 18 and rng.randf() < 0.01:
@@ -741,7 +1035,9 @@ func tick(home: bool = true, road: bool = true) -> void:
 			var key := _pair(a, b)
 			if int(w["day"]) - int(w["pair_cd"].get(key, -99)) >= 20:
 				w["pair_cd"][key] = int(w["day"])
+				fx_begin(true)
 				world_event(a, b, place)
+				fx_end()
 	for c in npcs():
 		if c["alive"] and rng.randf() < 0.08:
 			saga().beat(c)   # v0.12：各人按自己的性子、念头、关系出一件小事（含旧的“独行”）
@@ -751,6 +1047,7 @@ func tick(home: bool = true, road: bool = true) -> void:
 	AG.daily(self)
 	TV.daily(self)   # v0.11：人按念头在各地走动；她的去处逐步解锁
 	saga().daily()   # v0.12：到期的连锁事件 + 世界级的大比、秘境
+	_p_month()
 	_arc_tick()
 	_hunt_tick()
 	if (home or road) and w["pending"].is_empty():
@@ -869,7 +1166,7 @@ func _generations() -> void:
 			gen["heads"][sect] = int(best["id"])
 			if hid > 0:
 				gen["n_succ"] = int(gen["n_succ"]) + 1
-				chron(best, "%s继任%s掌门。" % [cal_text(now), sect])
+				chron(best, "%s继任%s掌门。" % [cal_text(now), sect], {"掌门": sect})
 				rumor("%s掌门%s之后，%s继任掌门。" % [sect, ("%s不在了" % h["name"]) if not h.is_empty() else "出缺", best["name"]], [best], "继")
 			else:
 				chron(best, "为%s掌门。" % sect)
@@ -941,6 +1238,7 @@ func die(c: Dictionary, how: String) -> void:
 		return
 	c["alive"] = false
 	chron(c, how + "。")
+	fx(c, "陨落")
 	rumor("%s%s。" % [c["name"], how], [c], "死")
 	var killer = _killer_of(how)
 	var near := {}   # v0.12：道侣、徒弟由内容包写更细的哀悼，这里不再写“三日不语”
@@ -954,7 +1252,7 @@ func die(c: Dictionary, how: String) -> void:
 			var r0: Dictionary = o["rel"][str(int(c["id"]))]
 			if "道侣" in r0["t"] or "师" in r0["t"] or "徒" in r0["t"] or "结义" in r0["t"] or int(r0["f"]) > 40:
 				remember(o, killer, "%s害了%s" % [killer["name"], c["name"]], -28, "仇")
-				R(o, killer)["g"] = int(R(o, killer)["g"]) + 30
+				radd(o, killer, 0, 30)
 				o["rt"] = 1
 	for o in w["C"].values():
 		if o["alive"] and o["rel"].has(str(int(c["id"]))):
@@ -1696,12 +1994,14 @@ func meet(c: Dictionary) -> bool:
 		r["m0"] = int(w["day"])   # v0.12.1：哪一步初识（选角门槛看“相识多久”；旧档没有这个键 = 早就认识）
 		r["lv0"] = [int(c["lv"]), plv()]   # v0.8：初见时彼此的境界（日后“昔日仰望，今日平视”）
 		var who: String = c["sect"] if c["sect"] == "散修" else c["sect"] + "修士"
-		chron(p, "初识%s——%s，%s，%s、%s。" % [c["name"], who, realm(c), c["traits"][0], c["traits"][1]])
+		chron(p, "初识%s——%s，%s，%s、%s。" % [c["name"], who, realm(c), c["traits"][0], c["traits"][1]], {"结识" + String(c["name"]): ""})
 	return first
 
 func fav(c: Dictionary, d: int, mem: String = "", wt: int = 0) -> void:
 	var p := P()
-	R(c, p)["f"] = int(R(c, p)["f"]) + d
+	if d > 0:
+		d = maxi(1, int(round(d * (1.0 + 0.05 * (at(p, "mei") - 5)))))   # v0.15：魅力
+	radd(c, p, d)
 	R(p, c)["f"] = int(R(p, c)["f"]) + int(d / 2)
 	if mem != "":
 		remember(c, p, mem, wt)
@@ -1740,7 +2040,7 @@ func _spawn_shidi() -> Dictionary:
 	R(c, p)["m"] = 1
 	R(c, p)["f"] = 10
 	R(p, c)["f"] = 6
-	chron(c, ("初入仙途，拜入%s。" % sect) if sect != "散修" else "初入仙途，做了散修。")
+	chron(c, ("初入仙途，拜入%s。" % sect) if sect != "散修" else "初入仙途，做了散修。", {"入门": sect})
 	return c
 
 ## 一念点化：柴门外蹲着一个引气三年还没入门的孩子
@@ -1959,7 +2259,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 				"opts": [_o("g:" + gs[0], gs[0]), _o("g:" + gs[1], gs[1]), _o("g:" + gs[2], gs[2])] + ([_o("qz", "自家灵田的青芝（2 株）")] if _has("herb_qingzhi", 2) else [])}
 		"朱果之争":
 			return {"speaker": int(n["id"]), "text": "%s%s" % [pv("朱果起", ["%s崖上的朱果熟了，正要伸手，%s也到了。", "%s石缝里那株朱果红透了。她刚拨开藤蔓，身后有人落了地——%s。", "%s的朱果香飘了半里。她赶到时，%s已经站在崖边。"]) % [n["place"], nm], pv("朱果话", ["“先到不算先得。”", "“这果子，我盯了三个月。”", "“让给我，我记你一个人情。”"])],
-				"opts": [_o("give", "让给%s" % ta(n)), _o("fight", "各凭本事")]}
+				"opts": [_o("give", "让给%s" % ta(n)), _o("fight", "硬抢（对方是%s，凶多吉少）" % realm(n) if outclassed(n) else "各凭本事")]}
 		"站队":
 			var a := C(roles["A"])
 			var b := C(roles["B"])
@@ -2149,7 +2449,7 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 		"宝地相争":
 			var it2: String = ctx.get("item", "那株灵草")
 			return {"speaker": int(n["id"]), "text": pv("宝争", ["%s还在，可%s先到了一步，正蹲在旁边看。" % [it2, nm], "她赶到时，%s的剑已经插在%s旁边的土里：“先来后到。”" % [nm, it2], "%s和她几乎同时伸了手。两人都停在半空。" % nm]),
-				"opts": [_o("fight", "各凭本事"), _o("share", "提议一人一半"), _o("give", "让给%s" % ta(n))]}
+				"opts": [_o("fight", "硬抢（对方是%s，凶多吉少）" % realm(n) if outclassed(n) else "各凭本事"), _o("share", "提议一人一半"), _o("give", "让给%s" % ta(n))]}
 		"对手突破":
 			n["lv"] = mini(17, int(n["lv"]) + 1)
 			chron(n, "破境，入%s。" % realm(n))
@@ -2203,8 +2503,8 @@ func present(tid: String, roles: Dictionary, ctx: Dictionary) -> Dictionary:
 			var b3 := C(roles["B"])
 			ctx["cause"] = pv("两难因", ["一株救命的九叶紫参", "一枚能续命的回天丹", "师门里一个空出来的长老位子", "一卷只够一人修的残经"])
 			if roles.has("made"):
-				R(a3, b3)["g"] = int(R(a3, b3)["g"]) + 40
-				R(b3, a3)["g"] = int(R(b3, a3)["g"]) + 30
+				radd(a3, b3, 0, 40)
+				radd(b3, a3, 0, 30)
 				remember(a3, b3, "%s夺了我的%s" % [b3["name"], ctx["cause"]], -20)
 			b3["inj"] = maxi(int(b3["inj"]), 10)
 			return {"speaker": int(a3["id"]), "text": _liangnan_text(a3, b3, ctx["cause"]),
@@ -2275,7 +2575,14 @@ func _jielu_text(n: Dictionary, h: Dictionary) -> String:
 func _roll(mine: float, theirs: float, a: float = 5.0, b: float = 5.0) -> bool:
 	return mine + rng.randf() * a > theirs + rng.randf() * b
 
+## v0.15：她做的一个选择是一个效果范围（结果里改的好感、灵石、伤都挂在这件事写的那条履历下）
 func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
+	fx_begin(true)
+	var r := _resolve0(tid, roles, ctx, oid)
+	fx_end()
+	return r
+
+func _resolve0(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> String:
 	if saga().is_tid(tid):
 		return saga().resolve(tid, roles, ctx, oid)
 	if tid in TV.TIDS:
@@ -2330,7 +2637,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			else:
 				var got := _ling(rng.randi_range(8, 14))
 				fav(n, -50, "%s趁我重伤劫了我" % pn(), -45)
-				R(n, p)["g"] = int(R(n, p)["g"]) + 60
+				radd(n, p, 0, 60)
 				out = pv("求助劫", ["储物袋里有%s块灵石。她没回头。", "她解下那只储物袋，掂了掂，%s块灵石。身后的人连骂都骂不出声。"]) % cnum(got)
 				chron(p, "搜走了%s的储物袋，得灵石%s块。" % [nm, cnum(got)])
 				chron(n, "重伤时被%s劫了储物袋。" % pn())
@@ -2355,21 +2662,21 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "fight":
 				if _roll(pl, float(n["lv"]), 5, 4):
 					n["inj"] = 10
-					R(n, p)["g"] = int(R(n, p)["g"]) + 20
+					radd(n, p, 0, 20)
 					note_defeat(n, p)
 					out = pv("仇退", ["她在院里把%s打退了。灵田踩坏了半垄。", "剑光在院里绕了三圈。%s退出柴门时，衣襟被削去一角。", "她一剑压住%s的剑脊：“到此为止。”对方咬牙退走。"]).replace("%s", nm)
 					chron(p, "%s寻上青庐，被她在院里打退。" % nm)
 					chron(n, "寻%s报仇，败退。" % pn())
 				else:
 					_inj(3)
-					R(n, p)["g"] = int(R(n, p)["g"]) - 30
+					radd(n, p, 0, -30)
 					out = pv("仇败", ["她败了。丹炉被砸出一道裂。%s出了这口气，扬长而去。", "三招之后，她的剑落进了灵田。%s一脚踢翻丹炉，头也不回地走了。", "她撑着门框站起来时，%s已经出了柴门。丹炉上多了一道裂。"]).replace("%s", nm) + "\n（受伤：闭关炼化减半 3 个月）"
 					chron(p, "%s寻上青庐，她败了，丹炉被砸。" % nm)
 					chron(n, "砸了%s的丹炉。" % pn())
 			elif oid == "pay" or oid == "beg":
 				if oid == "pay":
 					_ling(-10)
-				R(n, p)["g"] = int(R(n, p)["g"]) - 25
+				radd(n, p, 0, -25)
 				out = ("她把灵石奉还，又添了一成。" if oid == "pay" else "她低头认了错。") + "%s冷哼一声，收了剑。" % nm
 				chron(p, "%s寻上门，她赔了礼。" % nm)
 			else:
@@ -2409,7 +2716,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					if ("死于%s" % x["name"]) in how or ("被%s" % x["name"]) in how:
 						killer = x
 				if killer != null:
-					R(p, killer)["g"] = int(R(p, killer)["g"]) + 40
+					radd(p, killer, 0, 40)
 					remember(p, killer, "%s杀了%s" % [killer["name"], nm], -30)
 					schedule(rng.randi_range(4, 9), "寻凶", {"B": int(killer["id"])})
 					out += "碑前，她记下了一个名字：%s。" % killer["name"]
@@ -2430,7 +2737,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					die(n, "被%s所斩" % pn())
 				else:
 					_inj(4)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 20
+					radd(n, p, 0, 20)
 					out = pv("寻凶败", ["与%s一战，败，伤了根基。", "%s比传闻里更狠。她拼着挨了一掌才脱身。", "她的剑断在%s手里，人是被过路的樵夫背回来的。"]) % nm + "\n（重伤：闭关炼化减半 4 个月）"
 					chron(p, pv("寻凶败记", ["寻%s报仇，败了，伤了根基。", "与%s一战，重伤而回。"]) % nm)
 					var hb := hunt(int(n["id"]))
@@ -2464,20 +2771,20 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				chron(p, "%s在外头说她的闲话，她没理会。" % nm)
 				schedule(rng.randi_range(12, 20), "落难", {"B": int(n["id"])}, {"arc": "romance"})
 			elif tag(n, "阴狠") or tag(n, "记仇"):
-				R(n, p)["g"] = int(R(n, p)["g"]) + 30
+				radd(n, p, 0, 30)
 				remember(n, p, "%s当众给我难堪" % pn(), -20)
 				out = "话说僵了。%s拂袖而去，留下一句：“你记着。”" % nm
 				chron(p, "与%s当面说破，不欢而散。" % nm)
 				schedule(rng.randi_range(12, 20), "仇人上门", {"B": int(n["id"])})
 			else:
 				fav(n, 8, "%s肯当面同我把话说开" % pn(), 6)
-				R(n, p)["g"] = maxi(0, int(R(n, p)["g"]) - 10)
+				radd(n, p, 0, -10)
 				out = "两人在茶棚下坐了一刻。%s最后说：“是我小气了。”" % nm
 				chron(p, "与%s在茶棚下把话说开了。" % nm)
 		"旧友托梦":
 			var k := C(roles["K"])
 			if oid == "name":
-				R(p, k)["g"] = int(R(p, k)["g"]) + 40
+				radd(p, k, 0, 40)
 				remember(p, k, "%s杀了%s" % [k["name"], nm], -30)
 				out = "她起身点灯，在丹炉底下刻了一个名字：%s。" % k["name"]
 				chron(p, "梦见%s，醒来记下了%s的名字。" % [nm, k["name"]])
@@ -2496,7 +2803,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					die(n, "被%s所斩" % pn())
 				else:
 					_inj(3)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 15
+					radd(n, p, 0, 15)
 					out = "她败了。%s翻遍青庐，什么也没找到，临走踢翻了丹炉。\n（受伤：闭关炼化减半 3 个月）" % nm
 					chron(p, "%s寻上青庐，她不敌，丹炉被踢翻。" % nm)
 			elif oid == "give":
@@ -2564,15 +2871,23 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			chron(p, out)
 		"朱果之争":
 			meet(n)
-			if oid == "fight":
+			if oid == "fight" and outclassed(n):
+				_inj(6)
+				life_add(p, -3)
+				radd(n, p, 0, 10)
+				out = pv("朱果威压", ["%s（%s）袖袍一拂，她连人带剑倒飞出去，撞断了一棵松。经脉震裂，朱果自然没了。", "她刚拔剑，%s（%s）只抬了抬眼，威压落下来，她跪在崖边吐了一口血。"]) % [nm, realm(n)] + "\n（重伤半年，折寿三年）"
+			elif oid == "fight":
 				if _roll(pl, float(n["lv"])):
 					_wu(15)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 20
+					radd(n, p, 0, 20)
 					remember(n, p, "%s抢了我的朱果" % pn(), -15)
 					out = pv("朱果胜", ["她先摘到了。%s的脸色很难看。", "%s的手慢了半寸，朱果落在她掌心。", "绕着朱果树斗了三合，她摘了果子就走。"]).replace("%s", nm) + "\n（朱果入腹：感悟 +15）"
 				else:
 					_inj(2)
 					out = pv("朱果败", ["她挨了%s一掌，朱果没了。", "朱果被%s摘走，她肩上青了一块。", "被%s一道剑气削了半截袖子。"]) % nm + "\n（受伤：闭关炼化减半 2 个月）"
+			elif outclassed(n):
+				attr_add(p, "xin", 1)
+				out = pv("朱果避", ["见%s是%s，她连威压都喘不过气，低头退入林中。" % [nm, realm(n)], "%s（%s）看都没看她，伸手摘了果子。她攥紧了剑柄，终究退开了。" % [nm, realm(n)]])
 			else:
 				fav(n, 5)
 				out = pv("朱果让", ["她把朱果让给了%s。", "她退了一步，朱果归了%s。", "%s道了声承让，她笑了笑。"]) % nm
@@ -2589,7 +2904,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				meet(x)
 				meet(y)
 				fav(x, 15, "%s帮过我" % pn(), 15)
-				R(y, p)["g"] = int(R(y, p)["g"]) + 25
+				radd(y, p, 0, 25)
 				remember(y, p, "%s帮%s对付我" % [pn(), x["name"]], -20)
 				out = pv("站队选", ["她站到了%s身边。", "她替%s挡了一剑。", "她开口替%s说了句话。", "她把剑横在了%s身前。", "她只往%s那边站了一步，局面就变了。"]) % x["name"] + pv("站队记", ["%s记住了她。", "%s没再说什么，只深深看了她一眼。", "%s冷笑一声，拂袖走了。", "%s收了剑，临走回头看了她一眼。"]) % y["name"]
 				chron(p, pv("站队选记", ["{a}与{b}相争，她帮了{x}。", "{a}和{b}起了争执，她站在{x}一边。", "替{x}出头，与{y}结下了梁子。"]).format({"a": a["name"], "b": b["name"], "x": x["name"], "y": y["name"]}))
@@ -2664,6 +2979,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				_inj(1)
 				out = pv("心魔败", ["它没有散。出关后好些日子不想说话。", "她败下阵来，吐了一口血，在静室里躺了大半个月。", "它笑她。她没能还嘴。"])
 			else:
+				attr_add(p, "xin", 1)
 				out = pv("心魔诵", ["经诵到第七遍，灯影平了。", "她闭着眼，把外门早课的那段经一字一字念完。", "木鱼敲了一夜，到鸡鸣才停。"])
 			chron(p, "心魔起，" + out.split("\n")[0])
 		"魔修袭镇":
@@ -2674,7 +2990,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					fav(h, 10, "一起守过镇子", 15)
 					chron(h, "与%s同守小镇。" % pn())
 					hn.append(h["name"])
-				R(n, p)["g"] = int(R(n, p)["g"]) + 30
+				radd(n, p, 0, 30)
 				_inj(3)
 				out = ("她守在镇口，%s闻讯赶来。" % "、".join(hn) if not hn.is_empty() else pv("袭镇守", ["她一个人守在镇口。", "镇口只剩她一个人和一把剑。"])) + pv("袭镇明", ["天亮时，火灭了。", "鸡叫头遍，北边的人退了。"]) + "\n（受伤：闭关炼化减半 3 个月）"
 				chron(p, "%s带人袭镇，她守在镇口。" % nm)
@@ -2698,9 +3014,9 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				var foes := party.filter(func(x): return not _close_p(x))
 				if rng.randf() < 0.5 and not foes.is_empty():
 					var a2: Dictionary = _ch(foes)
-					R(a2, p)["g"] = int(R(a2, p)["g"]) + 10
+					radd(a2, p, 0, 10)
 					remember(p, a2, "秘境里%s推我" % a2["name"], -20)
-					R(p, a2)["g"] = int(R(p, a2)["g"]) + 30
+					radd(p, a2, 0, 30)
 					out = pv("秘境推", ["出秘境时，%s在背后推了她一把，险些把她推回塌陷的阵眼。", "分宝时，%s的剑尖抵在了她背心。她把东西让了，自己留下的那半卷残图却没人看得上。", "阵眼塌下来那一刻，%s抢先踩着她的肩跃了出去。"]) % a2["name"] + "\n（残阵里的感悟 +15）"
 				else:
 					var b2: Dictionary = _ch(party)
@@ -2715,7 +3031,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			chron(p, pv("访客记", ["%s来青庐坐了坐。", "%s来讨了碗茶。", "%s路过，在青庐歇了个脚。", "与%s在檐下说了半日话。", "%s来过，留下半袋新茶。"]) % nm)
 		"坊市欺客":
 			meet(n)
-			R(p, n)["g"] = int(R(p, n)["g"]) + 10
+			radd(p, n, 0, 10)
 			chron(p, pv("欺客记", ["在坊市吃了%s的亏。", "被%s坑了几块灵石。", "从%s手里买到了假货。"]) % nm)
 		"义结金兰":
 			R(p, n)["t"].append("结义")
@@ -2728,17 +3044,17 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			meet(n)
 			if oid == "pay":
 				_ling(-int(ctx.get("cost", 0)))
-				R(p, n)["g"] = int(R(p, n)["g"]) + 15
+				radd(p, n, 0, 15)
 				out = pv("劫给", ["%s掂了掂，让开了路。" % nm, "%s数了两遍，嫌少，到底还是让开了。" % nm])
 				chron(p, pv("劫给记", ["被%s拦路，交了买路钱。", "山口遇上%s，破财消灾。"]) % nm)
 			elif _roll(pl, float(n["lv"])):
-				R(n, p)["g"] = int(R(n, p)["g"]) + 15
+				radd(n, p, 0, 15)
 				out = pv("劫胜", ["三招过后，%s退进了林子。" % nm, "她一剑削断了%s的刀穗。对方愣了愣，转身就跑。" % nm, "剑光一闪，%s捂着手腕退开：“算你狠。”" % nm])
 				chron(p, "被%s拦路，拔剑逼退了%s。" % [nm, ta(n)])
 			else:
 				_inj(2)
 				_ling(-int(ctx.get("cost", 0)))
-				R(p, n)["g"] = int(R(p, n)["g"]) + 25
+				radd(p, n, 0, 25)
 				out = pv("劫败", ["她没打过。灵石被搜走了。", "剑被挑飞，储物袋也被扯了去。", "她退到崖边，只好松手交出灵石。"]) + "\n（受伤：闭关炼化减半 2 个月）"
 				chron(p, pv("劫败记", ["被%s拦路，没打过。", "在山口吃了%s的亏，灵石被劫。", "夜路上遇见%s，伤了，灵石也没保住。"]) % nm)
 		"宗门招徒":
@@ -2792,7 +3108,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "raise":
 				_ling(-18)
 				_wu(14)
-				R(n, p)["g"] = int(R(n, p)["g"]) + 12
+				radd(n, p, 0, 12)
 				out = "她一口叫到十八。满堂静了一静，%s放下了牌子。
 （得%s，参悟所得：感悟 +14）" % [nm, lot2]
 				chron(p, "在拍卖会上以十八灵石拍下%s，压了%s一头。" % [lot2, nm])
@@ -2803,7 +3119,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				else:
 					_ling(-12)
 					_wu(10)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 5
+					radd(n, p, 0, 5)
 					out = "十二灵石，落槌。%s回头看了她一眼。
 （得%s：感悟 +10）" % [nm, lot2]
 					chron(p, "在拍卖会上拍下%s。" % lot2)
@@ -2817,14 +3133,14 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "fight":
 				if _roll(pl, float(n["lv"]) + 2.0, 6, 4):
 					_wu(10)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 20
+					radd(n, p, 0, 20)
 					out = pv("伏胜", ["她一剑劈开火把，从缺口里冲了出去。身后%s的骂声追了半里地。" % nm, "三个人倒了两个。%s扶着树退开，没敢再追。" % nm]) + "
 （死里逃生：感悟 +10）"
 					chron(p, "被%s伏击，杀出了重围。" % nm)
 				else:
 					_inj(4)
 					var lost2 := _ling(-mini(10, lingshi()))
-					R(p, n)["g"] = int(R(p, n)["g"]) + 30
+					radd(p, n, 0, 30)
 					out = "她没冲出去。醒来时躺在路边，储物袋空了，少了 %d 块灵石。
 （重伤：闭关炼化减半 4 个月）" % -lost2
 					chron(p, "被%s伏击，重伤，灵石被劫。" % nm)
@@ -2839,7 +3155,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					chron(p, "被%s伏击，带伤脱身。" % nm)
 			else:
 				var lost3 := _ling(-mini(6, lingshi()))
-				R(p, n)["g"] = int(R(p, n)["g"]) + 10
+				radd(p, n, 0, 10)
 				out = "她把包袱往地上一扔，转身就走。%s没追。（损失 %d 灵石的货）" % [nm, -lost3]
 				chron(p, "被%s伏击，弃货保命。" % nm)
 		"师弟惹祸":
@@ -2893,10 +3209,15 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 		"宝地相争":
 			meet(n)
 			var it4: String = ctx.get("item", "灵草")
-			if oid == "fight":
+			if oid == "fight" and outclassed(n):
+				_inj(6)
+				life_add(p, -3)
+				out = "%s（%s）只一指，她的护体灵光便碎了。%s归了%s，她在床上躺了半年。\n（重伤半年，折寿三年）" % [nm, realm(n), it4, ta(n)]
+				chron(p, "与%s（%s）争%s，被一指破了护体灵光，重伤。" % [nm, realm(n), it4])
+			elif oid == "fight":
 				if _roll(pl, float(n["lv"])):
 					_wu(15)
-					R(n, p)["g"] = int(R(n, p)["g"]) + 15
+					radd(n, p, 0, 15)
 					remember(n, p, "%s抢了我的%s" % [pn(), it4], -12)
 					out = "她抢先一步。%s到手，%s的脸沉了下来。
 （感悟 +15）" % [it4, nm]
@@ -2924,7 +3245,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			elif oid == "visit":
 				meet(n)
 				fav(n, 6, "%s来道过贺" % pn(), 6)
-				R(n, p)["g"] = maxi(0, int(R(n, p)["g"]) - 8)
+				radd(n, p, 0, -8)
 				out = pv("破境贺", ["她提了一坛酒去道贺。%s愣了愣，到底让她进了门。", "她备了一份薄礼登门。%s收下了，回赠她一句修行上的话。", "她去道贺，%s正被人围着。看见她，%s挤出人群迎了出来。"]).replace("%s", nm)
 				chron(p, "去给%s贺破境。" % nm)
 			else:
@@ -2954,7 +3275,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					out = "丹炼糊了。%s捏着鼻子，又要走了%s块灵石。" % [nm, cnum(-lost6)]
 					chron(p, "想用丹抵%s的债，炼糊了。" % nm)
 			else:
-				R(n, p)["g"] = int(R(n, p)["g"]) + 15
+				radd(n, p, 0, 15)
 				rumor("%s说青庐那个女修赖账。" % nm, [n])
 				out = pv("赖账", ["她说，租洞府时葛老三没提过这笔账。%s把借据收回去，冷笑一声走了。", "她把借据和《旧主手记》对了对：“这不是他的字。”%s脸色一变，夺过借据就走。"]).replace("%s", nm)
 				chron(p, "%s来讨旧债，她没认。" % nm)
@@ -3035,7 +3356,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "ask":
 				var kl = _killer_of(String(n["log"][-1][1]) if not n["log"].is_empty() else "")
 				if kl != null and kl["alive"]:
-					R(p, kl)["g"] = int(R(p, kl)["g"]) + 30
+					radd(p, kl, 0, 30)
 					remember(p, kl, "%s身上带着%s的%s" % [kl["name"], nm, mk], -20)
 					out = "摊主被她盯得发毛，到底说了：是从%s手里收的，那人急着出手，价都没还。\n她把%s揣进怀里，没付钱，摊主也没敢要。" % [kl["name"], mk]
 					chron(p, "在坊市认出%s的遗物%s，问出是从%s手里流出来的。" % [nm, mk, kl["name"]])
@@ -3061,7 +3382,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				_inj(5)
 				fav(a3, 4, "那夜%s谁也没让" % pn(), 10)
 				fav(b3, 10, "那夜%s拼着伤了根基保我" % pn(), 18)
-				R(a3, b3)["g"] = maxi(0, int(R(a3, b3)["g"]) - 15)
+				radd(a3, b3, 0, -15)
 				out = "她站在门槛上，接了%s三剑，一步没退。天亮时%s收了剑，走了；她吐出一口血。\n（强保两边，伤了经脉：闭关炼化减半 5 个月）" % [a3["name"], a3["name"]]
 				chron(p, "%s与%s为%s结仇，%s寻上青庐。她拼着受伤，两边都保了下来。" % [a3["name"], b3["name"], cause, a3["name"]])
 			else:
@@ -3069,7 +3390,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				var y2: Dictionary = b3 if oid == "a" else a3
 				fav(x2, 12, "那夜%s站在我这边" % pn(), 15)
 				fav(y2, -30, "那夜%s选了%s" % [pn(), x2["name"]], -25)
-				R(y2, p)["g"] = int(R(y2, p)["g"]) + 25
+				radd(y2, p, 0, 25)
 				if oid == "a":
 					b3["inj"] = 20
 					out = "她让开了门。%s进去时没有看她。屋里没传出什么声音，只是第二日，%s已经不在了——人是被抬走的，活着。临走那一眼，她记了很久。" % [a3["name"], b3["name"]]
@@ -3138,7 +3459,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 			if oid == "hide":
 				var healed := _use("pill_quzhang")
 				fav(n, 25 if not healed else 30, "青庐那七日", 25)
-				R(h2, p)["g"] = int(_rel(h2, p)["g"]) + 15
+				radd(h2, p, 0, 15)
 				n["inj"] = 0 if healed else maxi(int(n["inj"]), 6)
 				out = "她开了禁制。第三夜，%s在柴门外站了很久，到底没进来。第七日，%s走时，在门槛上叩了一个头。" % [h2["name"], nm] + ("\n（喂了一粒驱瘴丹，伤好得快）" if healed else "") + _swap_ks(n)
 				chron(p, "%s被%s追杀，借青庐躲了七日。" % [nm, h2["name"]])
@@ -3146,7 +3467,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 				schedule(rng.randi_range(12, 25), "报恩", {"B": int(n["id"])}, {"where": "青庐的禁制里"})
 				if ctx.get("foe", false):
 					remember(n, p, "%s不计前嫌，收留了我" % pn(), 20, "庇")
-					R(p, n)["g"] = maxi(0, int(_rel(p, n)["g"]) - 20)
+					radd(p, n, 0, -20)
 					out += "\n旧账她没提。%s也没提，只是走时多看了她一眼。" % nm
 					chron(p, "收留了伤过自己的%s，旧账没提。" % nm)
 			elif oid == "seize":
@@ -3156,7 +3477,7 @@ func resolve(tid: String, roles: Dictionary, ctx: Dictionary, oid: String) -> St
 					die(n, "被%s所斩" % pn())
 				else:
 					_inj(2)
-					R(n, p)["g"] = int(_rel(n, p)["g"]) + 25
+					radd(n, p, 0, 25)
 					out = "她拔了剑。%s伤成那样，还是硬接了一招，翻出篱笆不见了。\n（受了点伤：闭关炼化减半两个月）" % nm
 					chron(p, "%s来借庐，她想了结旧账，被对方逃了。" % nm)
 			elif oid == "path":
