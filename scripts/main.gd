@@ -9,7 +9,7 @@ const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.15.0 试玩版"
+const VERSION = "v0.15.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 

@@ -394,8 +394,8 @@ func se_op(op: Dictionary, inst, e) -> void:
 					var gn: String = W.Gear.grade_name(it2)
 					var pr := Econ.consign(W, src, it2)
 					inst["ctx"]["it"] = ""
-					W.chron(src, "把用不上的一件%s托坊市器物铺转给%s。" % [nm, String(W.P().get("name", "她"))])
-					W.g.pchron("%s捎话：手里一件%s（%s）用不上，托坊市器物铺五折转给她，%d 灵石，两年内去取。" % [src["name"], nm, gn, pr])
+					W.chron(src, "把用不上的一件%s托坊市器物铺转给%s。" % [nm, String(W.P().get("name", "她"))], {"托售「%s」" % nm: ""})
+					W.g.pchron("%s捎话：手里一件%s（%s）用不上，托坊市器物铺五折转给她，%d 灵石，两年内去取。" % [src["name"], nm, gn, pr], -1, {"可取「%s」" % nm: "%d 灵石" % pr})
 					W.g.notice("%s托坊市器物铺转一件%s（%s）给她，%d 灵石，两年内去坊市取。" % [src["name"], nm, gn, pr])
 					return
 				Econ.note_gift(W, src, it2)

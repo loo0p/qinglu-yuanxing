@@ -874,7 +874,7 @@ static func _auction_close(gs, A: Dictionary) -> void:
 		give_her(gs, lot.duplicate(true), "她在坊市拍卖会以 %d 灵石拍得。" % pr)
 		A["log"].append("落槌。%s归她，%d 灵石。" % [lot["n"], pr])
 		gs._log("在坊市拍卖会拍下%s（%s，%d 灵石）。" % [lot["n"], grade_name(lot), pr])
-		gs.pchron("在坊市拍卖会上，以 %d 灵石拍下一件%s%s。" % [pr, grade_name(lot), lot["n"]])
+		gs.pchron("在坊市拍卖会上，以 %d 灵石拍下一件%s%s。" % [pr, grade_name(lot), lot["n"]], -1, {"灵石": -pr, "得「%s」" % String(lot["n"]): ""})
 	elif int(A["lead"]) > 0 and gs.world != null:
 		var W = gs.world
 		var c: Dictionary = W.C(int(A["lead"]))
@@ -882,7 +882,7 @@ static func _auction_close(gs, A: Dictionary) -> void:
 			var it: Dictionary = lot.duplicate(true)
 			it["h"].append([int(W.w["day"]), "%s在坊市拍卖会以 %d 灵石拍得。" % [c["name"], pr]])
 			npc_gear(W, c).append(it)
-			W.chron(c, "在坊市拍卖会上拍下一件%s。" % it["n"])
+			W.chron(c, "在坊市拍卖会上拍下一件%s。" % it["n"], {"得「%s」" % String(it["n"]): ""})
 			A["log"].append("落槌。%s归了%s，%d 灵石。" % [lot["n"], c["name"], pr])
 			_auc_echo(gs, A, c, it, pr)
 	else:

@@ -727,7 +727,7 @@ static func fx_text(d) -> String:
 			out.append(key + String(v))
 		elif int(v) != 0:
 			out.append("%s%s%d%s" % [key, "+" if int(v) > 0 else "", int(v), unit])
-	return "　".join(out)
+	return "  ".join(out)   # U+3000 不在字体子集里
 
 const PLOG_CAP := 900   # v0.15：她一辈子的履历（几十上百年，每年七八条）都留着；v0.14 是 300
 const NLOG_CAP := 160   # 别人的生平；v0.14 是 120
