@@ -7,8 +7,9 @@ const GS = preload("res://scripts/game_state.gd")
 const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
+const Econ = preload("res://scripts/econ.gd")
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.14.3 试玩版"
+const VERSION = "v0.15.0 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1034,6 +1035,7 @@ func refresh() -> void:
 	_refresh()
 	for n in [hud, body, footer, sheet_layer]:
 		_fix_wraps(n)
+	_bottom_pad.call_deferred()
 	_set_bgm(_bgm_for_scene())
 	if changed and not key.contains("|ending|"):
 		_clear(fx_layer)   # 离开结局页时把还在飘的灵气粒子收掉
@@ -1047,6 +1049,21 @@ func refresh() -> void:
 		var w = JavaScriptBridge.get_interface("window")
 		if w:
 			w.qinglu_state = JSON.stringify({"screen": screen, "tab": tab, "modal": modal.get("kind", ""), "sheet": sheet, "loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "lingshi": g.s.get("lingshi", 0), "stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""), "rev": store.rev, "persistent": OS.is_userfs_persistent(), "conflict": store.conflict, "bgm": cur_bgm, "bgm_on": bgm_on, "muted": muted, "unlocked": audio_unlocked})
+
+## v0.15（Gemini v7 P1）：正文滚得动、底下又压着常驻按钮时，正文末尾补 48px 留白，最后一行不被按钮挡住
+func _bottom_pad() -> void:
+	if body == null or footer == null or footer.get_child_count() == 0 or body.get_child_count() == 0:
+		return
+	var last := body.get_child(body.get_child_count() - 1)
+	if last.has_meta("bottom_pad"):
+		return
+	if body.get_combined_minimum_size().y <= scroll.size.y + 1.0:
+		return
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(0, 48)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.set_meta("bottom_pad", true)
+	body.add_child(pad)
 
 func _bgm_for_scene() -> String:
 	if screen != "game":
@@ -1299,7 +1316,7 @@ func _hud() -> void:
 	pb.custom_minimum_size = Vector2(0, 7)
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mid.add_child(pb)
-	var lim := g.age_y() + int(g.shou_years())
+	var lim: int = g.shou_limit_y()   # v0.15：寿元上限按“出生月 + 寿元月”整除，不再用两次取整相加（99/100 横跳）
 	L("%s · %d/%d岁" % [World.season(int(s["day"])), g.age_y(), lim], 11, C_WARN if int(g.shou_years()) * 5 < lim else C_DIM, mid)
 	for it in [["ico_ration", "ration", int(s["ration"])], ["ico_lingshi", "lingshi", int(s["lingshi"])]]:
 		var h = row(r, 1)
@@ -1374,7 +1391,7 @@ func _sheet() -> void:
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会"}.get(sheet, "")
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺"}.get(sheet, "")
 	var ht = H(tl, 24, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
@@ -1392,10 +1409,32 @@ func _sheet() -> void:
 		"item": _sheet_item(v)
 		"shop": _sheet_shop(v)
 		"auc": _sheet_auc(v)
+		"yao": _sheet_yao(v)
 	var vs = get_viewport_rect().size
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
 	var h = max(p.get_combined_minimum_size().y, 120)
+	# v0.15：抽屉比屏幕高（器物铺两行货、药铺）就改成能滚，标题和“收起”不滚
+	var hmax: float = vs.y * 0.88
+	if h > hmax:
+		var sc = ScrollContainer.new()
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		var inner = VBoxContainer.new()
+		inner.add_theme_constant_override("separation", 8)
+		inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var kids: Array = v.get_children()
+		for k in range(1, kids.size()):
+			v.remove_child(kids[k])
+			inner.add_child(kids[k])
+		var pad = Control.new()
+		pad.custom_minimum_size = Vector2(0, 24)
+		inner.add_child(pad)
+		sc.add_child(inner)
+		sc.custom_minimum_size = Vector2(0, hmax - top.get_combined_minimum_size().y - 40)
+		v.add_child(sc)
+		p.size = Vector2(vs.x, 0)
+		p.reset_size()
+		h = p.get_combined_minimum_size().y
 	p.position = Vector2(0, vs.y - h)
 	p.size = Vector2(vs.x, h)
 	var tw: Tween = null
@@ -1629,7 +1668,7 @@ func _sheet_pack(v: Node) -> void:
 	if s["pack"].size() > 0:
 		# v0.14 修：原先一排“◎1 ◎2”没有说明；改成带字的一行
 		var rr3 = row(v, 4)
-		var kl = L("◎ 留着不吃：", 12, C_DIM, rr3)
+		var kl = L("◎ 留到最后才用：", 12, C_DIM, rr3)
 		kl.autowrap_mode = TextServer.AUTOWRAP_OFF
 		for i in s["pack"].size():
 			var idx = i
@@ -1637,6 +1676,7 @@ func _sheet_pack(v: Node) -> void:
 			b3.custom_minimum_size.x = 44
 			b3.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			b3.add_theme_font_size_override("font_size", 12)
+	L("随身预设（出门前一键换装）", 12, C_DIM, v)
 	var pr = row(v, 4)
 	var presets: Array = s.get("presets", [{}, {}, {}])
 	for k in 3:
@@ -1647,7 +1687,7 @@ func _sheet_pack(v: Node) -> void:
 		var pb = B(lab, func(): _preset(kk), true, pr, 34)
 		pb.autowrap_mode = TextServer.AUTOWRAP_OFF
 		pb.add_theme_font_size_override("font_size", 13)
-	var sm = B("不存了" if preset_save_mode else "存方案", func(): preset_save_mode = not preset_save_mode, presets.any(func(x): return not x.is_empty()), pr, 34)
+	var sm = B("不存了" if preset_save_mode else "保存当前", func(): preset_save_mode = not preset_save_mode, presets.any(func(x): return not x.is_empty()), pr, 34)
 	sm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	sm.add_theme_font_size_override("font_size", 13)
 
@@ -1655,11 +1695,16 @@ func _sheet_pack(v: Node) -> void:
 func _sheet_item(v: Node) -> void:
 	var it = null
 	var where := ""
+	var csg := {}
 	if item_shop:
 		for x in Gear.shop(g):
 			if int(x["u"]) == item_u:
 				it = x
 		where = "shop"
+		csg = Econ.consign_find(g, item_u)
+		if it == null and not csg.is_empty():
+			it = csg["it"]
+			where = "consign"
 	else:
 		var f: Array = Gear.find(g, item_u)
 		if not f.is_empty():
@@ -1702,6 +1747,12 @@ func _sheet_item(v: Node) -> void:
 		var msg: String = fn.call()
 		if msg != "":
 			g.notice(msg)
+	if where == "consign":
+		var cp := int(csg["price"])
+		LW("%s托售，两年内有效（到%s）。" % [String(csg["from"]), World.cal_text(int(csg["until"]))], 12, C_DIM, v)
+		B("接下（%d 灵石）" % cp, func(): act.call(func(): return Econ.consign_buy(g, uu)); sheet = "shop", int(g.s["lingshi"]) >= cp, r, 42)
+		B("回铺子", func(): sheet = "shop", true, r, 42)
+		return
 	if where == "shop":
 		var pr: int = Gear.buy_price(it, day)
 		B("买下（%d 灵石）" % pr, func(): act.call(func(): return Gear.shop_buy(g, uu)); sheet = "shop", int(g.s["lingshi"]) >= pr, r, 42)
@@ -1728,13 +1779,27 @@ func _sheet_shop(v: Node) -> void:
 	var st: Array = Gear.shop(g)
 	if st.is_empty():
 		L("货架空了，开春再来。", 13, C_DIM, v)
+	# v0.15（Gemini v7 P1）：两行——名字 · 品阶（部位） · 价；下一行小灰字写数值，买之前看得见
 	for it in st:
 		var uu := int(it["u"])
-		var b = BI("%s · %s · %d 灵石" % [Gear.full_name(it), Gear.grade_name(it), Gear.buy_price(it, day)], gear_icon(it), func(): item_u = uu; item_shop = true; sheet = "item", true, v, 40)
+		var b = BI("%s · %s（%s） · %d 灵石" % [Gear.full_name(it), Gear.grade_name(it), Gear.SLOT_NAME.get(Gear.slot_of(it), "灵材"), Gear.buy_price(it, day)], gear_icon(it), func(): item_u = uu; item_shop = true; sheet = "item", true, v, 40)
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_theme_font_size_override("font_size", 13)
 		b.add_theme_color_override("font_color", Color(Gear.GCOL[int(it["g"])]))
+		_stat_line(it, v)
+	var cs: Array = Econ.consign_list(g)
+	if not cs.is_empty():
+		L("托售（熟人用不上的，五折）", 13, C_ACCENT, v)
+		for x in cs:
+			var it2: Dictionary = x["it"]
+			var u2 := int(it2["u"])
+			var b3 = BI("%s · %s（%s） · %d 灵石" % [Gear.full_name(it2), Gear.grade_name(it2), String(x["from"]), int(x["price"])], gear_icon(it2), func(): item_u = u2; item_shop = true; sheet = "item", true, v, 40)
+			b3.autowrap_mode = TextServer.AUTOWRAP_OFF
+			b3.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			b3.add_theme_font_size_override("font_size", 13)
+			b3.add_theme_color_override("font_color", Color(Gear.GCOL[int(it2["g"])]))
+			_stat_line(it2, v)
 	var mine: Array = Gear.equipped(g).filter(func(x): return Gear.slot_of(x) != "dai")
 	mine.append_array(g.s["gear"]["bag"])
 	if not mine.is_empty():
@@ -1751,6 +1816,54 @@ func _sheet_shop(v: Node) -> void:
 	if Gear.auction_month(day):
 		B("这个月有拍卖会 →", func(): sheet = "auc", true, v, 40)
 
+func _stat_line(it: Dictionary, v: Node) -> void:
+	var stx: String = Gear.stat_text(it)
+	if not Gear.usable(g, it):
+		stx += ("（" if stx != "" else "") + "境界不够，祭不动" + ("）" if stx != "" else "")
+	if stx == "":
+		return
+	var sl = L("　　" + stx, 11, C_DIM, v)
+	sl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	sl.custom_minimum_size.x = 1
+
+## v0.15（Gemini v7 专项 1）：坊市药铺——卖青芝、卖丹、卖灵谷；主药保底（晒干赤阳果、冰鉴寒潭莲、旧货摊莲子）
+func _sheet_yao(v: Node) -> void:
+	var day := int(g.s["day"])
+	L("这个月行情：%s · 手里 %d 灵石" % [Gear.idx_text(day), int(g.s["lingshi"])], 12, C_DIM, v)
+	L("卖", 13, C_ACCENT, v)
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	var sells := []
+	sells.append(["青芝 10 株（%d 灵石）· 仓 %d" % [g.qz_sell_price(), g.store_n("herb_qingzhi")], "ico_qingzhi", func(): g.sell_qingzhi(), g.store_n("herb_qingzhi") >= 10])
+	for id in ["pill_juqi", "pill_quzhang"]:
+		var iid: String = id
+		sells.append(["%s 1 颗（%d 灵石）· 仓 %d" % [N(iid), Econ.pill_price(g, iid), g.store_n(iid)], ICON.get(iid, "ico_fu"), func(): Econ.sell_pill(g, iid), g.store_n(iid) > 0])
+	sells.append(["灵谷 %d 斗（%d 灵石）· 仓 %d" % [Econ.LINGGU_BATCH, Econ.linggu_price(g), g.store_n("crop_linggu")], ICON.get("crop_linggu", "ico_fu"), func(): Econ.sell_linggu(g), g.store_n("crop_linggu") >= Econ.LINGGU_BATCH])
+	for x in sells:
+		var b = BI(x[0], x[1], x[2], x[3], grid, 40)
+		b.autowrap_mode = TextServer.AUTOWRAP_OFF
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.add_theme_font_size_override("font_size", 12)
+	L("聚气丹一年收六颗按价，再多减半。仓里青芝、灵谷过了两百，多出来的每年陈掉一成。", 11, C_DIM, v)
+	var buys := []
+	if g.dry_chiyang_available():
+		buys.append(["晒干的赤阳果（%d 灵石）" % g.DRY_CHIYANG_PRICE, "ico_guo", func(): g.buy_dry_chiyang(), int(g.s["lingshi"]) >= g.DRY_CHIYANG_PRICE])
+	if Econ.ice_lian_available(g):
+		buys.append(["冰鉴寒潭莲（%d 灵石）" % Econ.ICE_LIAN_PRICE, "ico_lian", func(): Econ.buy_ice_lian(g), int(g.s["lingshi"]) >= Econ.ICE_LIAN_PRICE])
+	if g.junk_lianzi_available():
+		buys.append(["旧货摊：寒潭莲子（%d 灵石，要水田）" % g.JUNK_LIANZI_PRICE, "ico_lian", func(): g.buy_junk_lianzi(), int(g.s["lingshi"]) >= g.JUNK_LIANZI_PRICE])
+	if not buys.is_empty():
+		L("买（筑基主药，一年各一回）", 13, C_ACCENT, v)
+		for x in buys:
+			var b2 = BI(x[0], x[1], x[2], x[3], v, 40)
+			b2.autowrap_mode = TextServer.AUTOWRAP_OFF
+			b2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			b2.add_theme_font_size_override("font_size", 13)
+
 func _auc_bid() -> void:
 	var m: String = Gear.auction_bid(g)
 	if m != "":
@@ -1763,7 +1876,7 @@ func _sheet_auc(v: Node) -> void:
 		return
 	var lot: Dictionary = A["lot"]
 	if A.has("n"):
-		L("第 %d / %d 件%s" % [int(A["i"]), int(A["n"]), "（压轴）" if not Gear.auction_more(A) else ""], 12, C_DIM, v)
+		L("%s · 第 %d / %d 件%s" % ["春拍 · 小拍" if Gear.auction_spring(int(g.s["day"])) else "秋拍 · 大拍", int(A["i"]), int(A["n"]), "（压轴）" if not Gear.auction_more(A) else ""], 12, C_DIM, v)
 	var hl = L("%s · %s" % [lot["n"], Gear.grade_name(lot)], 20, Color(Gear.GCOL[int(lot["g"])]), v)
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	LW(Gear.stat_text(lot) + "（%s）" % String(lot["h"][0][1]), 13, C_TEXT, v)
@@ -2282,9 +2395,30 @@ func _cult() -> void:
 	var why: String = g.can_breakthrough()
 	if why != "":
 		L("冲关：" + why, 12, C_DIM, c)
+	if g.world != null:
+		_cult_econ()
 	var bb = B(_gate_label(), func(): g.start_breakthrough(), why == "", footer, 50)
 	if why == "":
 		bb.add_theme_color_override("font_color", C_WARN)
+
+## v0.15（Gemini v7 专项 2 / 4c）：静室布置——聚灵阵（布阵 + 每年正月年费）、服丹闭关、蒙尘
+func _cult_econ() -> void:
+	var c = card()
+	L(Econ.arr_text(g), 13, C_INK, c)
+	var r = row(c)
+	var nx: Dictionary = Econ.arr_next(g)
+	if not nx.is_empty():
+		var why: String = Econ.can_build(g)
+		var bb = B("%s %s（%d 灵石，年费 %d）" % ["升" if int(Econ.E(g)["arr"]) > 0 else "布", nx["n"], int(nx["build"]), int(nx["fee"])], func(): Econ.build(g), why == "", r, 42)
+		bb.add_theme_font_size_override("font_size", 13)
+	var e: Dictionary = Econ.E(g)
+	var fd: bool = bool(e["fudan"])
+	var need: int = Econ.fudan_need(g)
+	var fb = B("服丹闭关：%s" % ("开着" if fd else "关着"), func(): Econ.set_fudan(g, not fd), fd or g.store_n("pill_juqi") >= need, r, 42)
+	fb.add_theme_font_size_override("font_size", 13)
+	LW("服丹：每半年服 %d 颗聚气丹，这半年闭关修为 +%d%%（仓里 %d 颗）。连着闭关满三年心境蒙尘、所得减半，满五年坐不住要出关；出门走两个月就好。" % [need, Econ.FUDAN_PCT, g.store_n("pill_juqi")], 11, C_DIM, c)
+	if Econ.dusty(g):
+		L("心境蒙尘：闭关所得减半，出门走走。", 12, C_WARN, c)
 
 ## v0.13：冲关按钮上写清是哪一关、几成把握
 func _gate_label() -> String:
@@ -2751,7 +2885,7 @@ func _roam() -> void:
 	# 今天在这一带的人：熟人在前，再添一两个生面孔
 	var pc = card()
 	var can: bool = TV.can_approach(W)
-	L("这一带的人" + ("" if can else "（今天已上前搭过话）"), 14, C_INK, pc)
+	L("这一带的人" + ("" if can else "（这个月已上前搭过话）"), 14, C_INK, pc)
 	var here: Array = TV.present_at(W, p)
 	var show := []
 	for c in here:
@@ -2761,7 +2895,7 @@ func _roam() -> void:
 		if not W.known(c) and show.size() < 5:
 			show.append(c)
 	if show.is_empty():
-		L("今天没碰见什么人。", 13, C_DIM, pc)
+		L("这个月没碰见什么人。", 13, C_DIM, pc)
 	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
 	# v0.11.1：画像卡（点卡 = 看看；下面“上前”）。生面孔也是 TA 自己的画像和名字，日后认得了还是这张脸
 	if not show.is_empty():
@@ -2806,21 +2940,12 @@ func _roam() -> void:
 		var gr = row(footer, 6)
 		var sb = B("器物铺 · 卖修", func(): sheet = "shop", true, gr, 40)
 		sb.add_theme_font_size_override("font_size", 13)
+		# v0.15：卖青芝 / 卖丹 / 主药保底都收进“药铺”抽屉，底栏不再挤三排
+		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr, 40)
+		yb.add_theme_font_size_override("font_size", 13)
 		if Gear.auction_month(int(g.s["day"])):
 			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr, 40)
 			ab.add_theme_font_size_override("font_size", 13)
-	if p == "坊市" and (g.dry_chiyang_available() or g.store_n("herb_qingzhi") >= 10):
-		var yr = row(footer, 6)
-		if g.store_n("herb_qingzhi") >= 10:
-			var qb = B("批售青芝 10 株（%d 灵石）" % g.qz_sell_price(), func(): g.sell_qingzhi(), true, yr, 40)
-			qb.add_theme_font_size_override("font_size", 13)
-		if g.dry_chiyang_available():
-			var cb2 = B("药铺：晒干的赤阳果（%d 灵石）" % g.DRY_CHIYANG_PRICE, func(): g.buy_dry_chiyang(), int(g.s["lingshi"]) >= g.DRY_CHIYANG_PRICE, yr, 40)
-			cb2.add_theme_font_size_override("font_size", 13)
-	if p == "坊市" and g.junk_lianzi_available():
-		var jb = B("旧货摊：寒潭莲子（%d灵石）" % g.JUNK_LIANZI_PRICE, func(): g.buy_junk_lianzi(), int(g.s["lingshi"]) >= g.JUNK_LIANZI_PRICE, xr, 40)
-		jb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		jb.add_theme_font_size_override("font_size", 13)
 
 ## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
 func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
