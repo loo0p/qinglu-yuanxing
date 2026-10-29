@@ -660,6 +660,8 @@ func run(inst: Dictionary) -> String:
 		_depth -= 1
 		_err("连锁太深，停在 " + String(inst["sid"]))
 		return ""
+	if _depth == 1 and adapter.has_method("se_begin"):
+		adapter.se_begin()   # v0.15：一件事一个范围，游戏把这件事改动的东西挂在它写的那条记载下
 	_each_role(s, inst, func(): _do(s.get("effects", []), inst))
 	var box := [""]   # lambda 里改不了外层局部变量，用数组带出来
 	if s.has("choices"):
@@ -675,6 +677,8 @@ func run(inst: Dictionary) -> String:
 				_stat(inst, String(box[0])))
 	else:
 		_stat(inst, "")
+	if _depth == 1 and adapter.has_method("se_end"):
+		adapter.se_end()
 	_depth -= 1
 	return String(box[0])
 
