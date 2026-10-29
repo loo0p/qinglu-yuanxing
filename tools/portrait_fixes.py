@@ -338,3 +338,34 @@ def fix_cloth(rel, im):
         a[..., :3] = bgr[..., ::-1]
         a[..., 3] = np.maximum(a[..., 3], (fillm * silf * 255.0).astype(np.uint8))
     return Image.fromarray(a, "RGBA")
+
+
+# ---------------------------------------------------------------- v0.14.3：抠边去白（衣袍/外披/头发/饰品）
+# 根因：部件是“重绘图 − 人台”差分抠出来的，半透明边缘像素的 RGB 仍是合成色（≈ 纸色 235,231,224），
+# alpha=0 处也是纸色。游戏里按直通 alpha 双线性放大、再做袍色 tint（亮于 ref 的往白里推），
+# 这一圈纸色就成了衣服外缘的白边，头发边缘发灰。
+# 做法：① 用 pymatting 的多级前景估计（Germer et al. 2020，MIT）把半透明像素的颜色还原成布料/墨色本身，
+#       并把前景色平滑地延伸进透明区（等于 Godot 导入时的 fix_alpha_border，运行期 put() 没有这一步）；
+#       ② 布料（袍/披，纱披 outer_f1 除外）把墨线外那圈很淡的差分噪声收掉一点（alpha 收边）。
+# 保存 WebP 时用 exact=True，透明区的颜色不被编码器改回去。
+def defringe(rel, im):
+    if im.mode != "RGBA":
+        return im
+    from pymatting import estimate_foreground_ml
+    a = np.array(im).astype(np.float64) / 255.0
+    al = a[..., 3].copy()
+    cloth = rel.startswith(("parts/robe_", "parts/outer_")) and "outer_f1-" not in rel
+    if cloth:
+        al = np.clip((al - 0.12) / 0.76, 0.0, 1.0)
+    if al.max() <= 0:
+        return im
+    fg = estimate_foreground_ml(a[..., :3], al)
+    out = np.dstack([np.clip(fg, 0, 1), al])
+    return Image.fromarray((out * 255.0 + 0.5).astype(np.uint8), "RGBA")
+
+
+def needs_defringe(rel):
+    if rel.endswith((".mask.png", ".aux.png", ".paper.png")) or ".jpg" in rel:
+        return False
+    # 胡须、花钿/痣/疤画在脸上（底下是皮肤不是纸），不做
+    return rel.startswith(("parts/robe_", "parts/outer_", "parts/hair_", "parts/acc_"))

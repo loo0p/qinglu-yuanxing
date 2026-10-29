@@ -3841,6 +3841,36 @@ func _dev(cmd: String) -> String:
 					o["robe_tint"] = g.world.SECT_TINT[sect]
 				specs2.append(PLib.roll((base * 7919 + k * 104729) % 1000000000, o))
 			return _dev("psheet:" + JSON.stringify(specs2))
+		_ when cmd.begins_with("artsheet"):
+			# 调试（v0.14.3）：16 个随机人物大图（纸底画框，同生平页），半数强制带外披，看衣袍/头发抠边
+			var b0 := int(cmd.substr(9)) if cmd.length() > 9 else 1
+			var old_a = get_node_or_null("DevSheet")
+			if old_a != null:
+				old_a.free()
+			var bga := ColorRect.new()
+			bga.name = "DevSheet"
+			bga.color = Color(0.93, 0.91, 0.86)
+			bga.set_anchors_preset(Control.PRESET_FULL_RECT)
+			add_child(bga)
+			var ga := GridContainer.new()
+			ga.columns = 4
+			ga.set_anchors_preset(Control.PRESET_FULL_RECT)
+			bga.add_child(ga)
+			for k in 16:
+				var sexa := "m" if k % 4 == 3 else "f"
+				var spa: Dictionary = PLib.roll((b0 * 7919 + k * 104729) % 1000000000, {"sex": sexa, "elder": false, "demonic": false, "robe_v": 10})
+				if k % 2 == 0 and spa.get("outer") == null and not (spa.robe in PLib.lib.pools.fixed):
+					var po: Array = PLib.lib.pools.outers[sexa]
+					spa.outer = po[(b0 + k) % po.size()]
+				var pfa = PanelContainer.new()
+				pfa.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.7), 6, 1, 2))
+				ga.add_child(pfa)
+				var pba = PBox.new()
+				pba.custom_minimum_size = Vector2(84, 112)
+				pba.no_bake = true   # 和生平页大立绘一样逐层画，不烘焙
+				pfa.add_child(pba)
+				pba.setup(spa, PBox.BUST, 0.0)
+			return "ok"
 		_ when cmd.begins_with("psheet:"):
 			# 调试：一屏摆一组立绘（静止，可指定 eye_state），验部件和闭眼帧
 			var specs = JSON.parse_string(cmd.substr(7))
