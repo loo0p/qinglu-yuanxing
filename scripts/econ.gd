@@ -5,6 +5,7 @@ extends RefCounted
 ##   arr 聚灵阵阶（0 无）· arr_off 欠了年费停着 · fee_y 交过年费的年 · fudan 服丹闭关开着 · fd_left 这一轮丹力还剩几个月
 ##   sec_run 连着闭关几个月（蒙尘）· pill_y/pill_n 这一年卖给药铺几颗丹 · consign 托售的器物 · gave 送过她重宝的人
 const Gear = preload("res://scripts/gear.gd")
+const Jobs = preload("res://scripts/jobs.gd")
 
 ## 聚灵阵（洞府升级）：布阵一次性灵石、每年正月的年费、闭关修为加成、要到的境界（plv）
 const ARR := [
@@ -146,6 +147,7 @@ static func monthly(gs, mode: String) -> void:
 				e["stale"] = int(e.get("stale", 0)) + lose
 				gs.notice("仓里%s堆了 %d，陈了 %d。去坊市药铺兑成灵石，或炼成丹。" % [gs.NAMES.get(id, id), have, lose])
 	_echo_due(gs)
+	Jobs.monthly(gs)
 	var day := int(gs.s.get("day", 0))
 	var cs: Array = e["consign"]
 	for i in range(cs.size() - 1, -1, -1):

@@ -8,6 +8,7 @@ const TV = preload("res://scripts/travel.gd")
 const World = preload("res://scripts/world.gd")
 const Gear = preload("res://scripts/gear.gd")
 const Econ = preload("res://scripts/econ.gd")
+const Jobs = preload("res://scripts/jobs.gd")
 const Store = preload("res://scripts/save_store.gd")
 const VERSION = "v0.15.1 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
@@ -1391,7 +1392,7 @@ func _sheet() -> void:
 	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺"}.get(sheet, "")
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜"}.get(sheet, "")
 	var ht = H(tl, 24, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
@@ -1410,6 +1411,7 @@ func _sheet() -> void:
 		"shop": _sheet_shop(v)
 		"auc": _sheet_auc(v)
 		"yao": _sheet_yao(v)
+		"jobs": _sheet_jobs(v)
 	var vs = get_viewport_rect().size
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
@@ -1492,6 +1494,8 @@ func _sheet_field(v: Node) -> void:
 
 func _sheet_furnace(v: Node) -> void:
 	var s = g.s
+	if Jobs.furnace_busy(g):
+		LW(Jobs.comm_text(g), 12, C_WARN, v)
 	var qr = row(v, 6)
 	if s["queue"].is_empty():
 		L("炉火未起。", 14, C_DIM, qr)
@@ -1863,6 +1867,30 @@ func _sheet_yao(v: Node) -> void:
 			b2.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b2.add_theme_font_size_override("font_size", 13)
+
+## v0.15.2：坊市差事榜——代炼（占丹炉）、客卿（隔三年回来坐镇）、悬赏（离家两个月，有伤）
+func _sheet_jobs(v: Node) -> void:
+	var e: Dictionary = Jobs.E(g)
+	L("坊市名声 %d · 手里 %d 灵石" % [int(e["rep"]), int(g.s["lingshi"])], 12, C_DIM, v)
+	var c1 = card(v)
+	L("代炼", 14, C_ACCENT, c1)
+	LW("药铺出主料，她搭 %d 株青芝；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
+	if Jobs.furnace_busy(g):
+		LW(Jobs.comm_text(g), 11, C_WARN, c1)
+	var w1: String = Jobs.can_comm(g)
+	B("接一单代炼（成了 %d 灵石）" % Jobs.comm_pay(g) if w1 == "" else "接一单代炼：%s" % w1, func(): Jobs.take_comm(g), w1 == "", c1, 40)
+	var c2 = card(v)
+	L("客卿", 14, C_ACCENT, c2)
+	LW(Jobs.kq_text(g), 11, C_DIM, c2)
+	var w2: String = Jobs.can_kq(g)
+	var kt := "应下客卿（坐镇一个月）" if int(e["kq"]) < 0 else "回来坐镇一个月（领 %d 灵石）" % (Jobs.kq_due(g) * Jobs.kq_pay(g))
+	B(kt if w2 == "" else "客卿：%s" % w2, func(): sheet = ""; Jobs.sit_kq(g), w2 == "", c2, 40)
+	var c3 = card(v)
+	L("悬赏", 14, C_ACCENT, c3)
+	var rg: Array = Jobs.bty_range(g)
+	LW("离家两个月：除妖、护镖、拿贼。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(rg[0]), int(rg[1])], 11, C_DIM, c3)
+	var w3: String = Jobs.can_bty(g)
+	B("揭一张悬赏（离开两个月）" if w3 == "" else "悬赏：%s" % w3, func(): sheet = ""; Jobs.take_bty(g), w3 == "", c3, 40)
 
 func _auc_bid() -> void:
 	var m: String = Gear.auction_bid(g)
@@ -2943,8 +2971,11 @@ func _roam() -> void:
 		# v0.15：卖青芝 / 卖丹 / 主药保底都收进“药铺”抽屉，底栏不再挤三排
 		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr, 40)
 		yb.add_theme_font_size_override("font_size", 13)
+		var gr2 = row(footer, 6)
+		var jb = B("差事榜 · 代炼 客卿 悬赏", func(): sheet = "jobs", true, gr2, 40)
+		jb.add_theme_font_size_override("font_size", 13)
 		if Gear.auction_month(int(g.s["day"])):
-			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr, 40)
+			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr2, 40)
 			ab.add_theme_font_size_override("font_size", 13)
 
 ## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
