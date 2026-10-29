@@ -2629,7 +2629,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -2741,7 +2742,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -2804,7 +2806,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -2822,7 +2825,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     },
     {
      "name": "B",
@@ -2946,7 +2950,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3046,7 +3051,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3130,7 +3136,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3192,7 +3199,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3266,7 +3274,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3327,7 +3336,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3391,7 +3401,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3473,7 +3484,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3530,7 +3542,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3591,7 +3604,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3632,7 +3646,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
@@ -3707,7 +3722,8 @@
    "roles": [
     {
      "name": "P",
-     "fixed": "g.player()"
+     "fixed": "g.player()",
+     "allow_same": true
     }
    ]
   },
