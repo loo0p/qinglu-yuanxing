@@ -56,9 +56,7 @@ static func _at_market(gs) -> bool:
 static func chron(gs, t: String, fx: Dictionary) -> void:
 	if not on(gs):
 		return
-	var lg: Array = gs.world.P()["log"]
-	lg.append([int(gs.world.w["day"]), t, fx] if not fx.is_empty() else [int(gs.world.w["day"]), t])
-	World.trim_log(lg, World.PLOG_CAP)
+	gs.pchron(t, -1, fx)   # v0.15.1 起 pchron 带效果小字
 
 static func _pay(gs, n: int) -> void:
 	var e := E(gs)
