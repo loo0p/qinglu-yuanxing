@@ -145,6 +145,9 @@ func _init() -> void:
 		var tg := String(eng0.defs[sid].get("trigger", ""))
 		if tg == "bio":
 			continue
+		# v0.15：她的月度小事（on:pmonth）和它们的回响链要有她的游戏状态才会触发，这里只跑江湖，不计；century_test 里查
+		if tg == "on:pmonth" or String(sid).begins_with("echo_"):
+			continue
 		n_s += 1
 		if int(hit.get(sid, 0)) == 0:
 			miss.append(sid)
