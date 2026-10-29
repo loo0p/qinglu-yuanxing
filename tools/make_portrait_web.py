@@ -26,10 +26,11 @@ for f in sorted(glob.glob(src + '/*/*')):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     im = Image.open(f)
     if FX: im = FX.fix(rel, im)
+    if FX and hasattr(FX, 'defringe') and FX.needs_defringe(rel): im = FX.defringe(rel, im)   # v0.14.3：去纸色白边
     if rel.endswith('.mask.png') or rel.endswith('.aux.png'):
         im.save(out, 'WEBP', lossless=True, quality=100, method=6)
     else:
-        im.save(out, 'WEBP', quality=80, method=6)
+        im.save(out, 'WEBP', quality=80, method=6, exact=True)   # exact：透明区的前景延伸色不被编码器抹掉
 if FX and hasattr(FX, 'fix_lib'): lib = FX.fix_lib(lib)
 json.dump(lib, open(os.path.join(R, 'data/lib5.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 json.dump(rels, open(os.path.join(R, 'data/portrait_files.json'), 'w'), ensure_ascii=False)
