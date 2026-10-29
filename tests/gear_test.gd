@@ -62,8 +62,12 @@ func t_seclude() -> void:
 			sorted = false
 	ok(sorted, "履历按年月先后")
 	ok(txt.contains("入静室闭关") and txt.contains("出关"), "有入关、出关两笔")
-	ok(txt.contains("闭关第四年") and txt.contains("坐不下去了"), "每年一笔心得；五年蒙尘出关写进履历")
-	ok(txt.contains("心境蒙尘"), "满三年蒙尘写进履历")
+	# v0.15：不再每年写一笔空心得；关中的事（顿悟、走岔、心魔、灵脉涨潮…）每条都带效果，出关那条带修为/境界
+	var with_fx := add.filter(func(e): return e.size() > 2 and not (e[2] as Dictionary).is_empty()).size()
+	ok(with_fx * 10 >= add.size() * 8, "闭关期间写的 %d 条里 %d 条带效果（≥八成）" % [add.size(), with_fx])
+	var sumi := add.filter(func(e): return String(e[1]).begins_with("入静室闭关"))
+	ok(sumi.size() == 1 and String(sumi[0][1]).contains("出关时") and sumi[0].size() > 2, "合并的闭关条：入关几年、出关时境界，带效果")
+	ok(txt.contains("心境蒙尘") and txt.contains("坐不下去了"), "满三年蒙尘、五年蒙尘出关写进履历")
 
 ## v0.14.1：修为满了还闭关——履历里“关口”只记一回，连着几回并成一行，不再“入关/关口/出关”三笔一组地重复
 func t_stalled() -> void:
@@ -113,10 +117,11 @@ func t_trim() -> void:
 	g.new_game("苏青禾", "sect", 3, true)
 	var lg: Array = g.world.P()["log"]
 	var first := String(lg[0][1])
-	for i in 400:
+	var cap: int = g.world.PLOG_CAP   # v0.15：900 条（v0.14 是 300）
+	for i in cap + 100:
 		g.pchron("（出关后才听说）有人在后山夺了一件宝物（%d）。" % i)
-	ok(lg.size() == 300 and String(lg[0][1]) == first, "满 300 条：开局那条还在（%s）" % String(lg[0][1]).left(12))
-	for i in 400:
+	ok(lg.size() == cap and String(lg[0][1]) == first, "满 %d 条：开局那条还在（%s）" % [cap, String(lg[0][1]).left(12)])
+	for i in cap + 100:
 		g.pchron("在静室里坐了一个月（%d）。" % i)
 	ok(String(lg[0][1]) == first and lg.filter(func(e): return String(e[1]).begins_with("（出关后才听说）")).is_empty(), "传闻先被挤光，大事仍在")
 
@@ -381,9 +386,10 @@ func t_lq1800() -> void:
 			i9 = i
 		if texts[i].contains("修为到了筑基的关口") and ig < 0:
 			ig = i
-		if texts[i].begins_with("出关") and io < 0 and ig >= 0:
+		if texts[i].begins_with("入静室闭关") and texts[i].contains("出关时"):
 			io = i
-	ok(i9 >= 0 and ig > i9 and io > ig, "顺序：入炼气九层（%d）→ 到了关口（%d）→ 出关（%d）" % [i9, ig, io])
+	# v0.15：每回长闭关只写一条合并的（在入关那个月，含“出关时…”）
+	ok(i9 >= 0 and ig > i9 and io >= 0, "顺序：入炼气九层（%d）→ 到了关口（%d）；合并的闭关条在（%d）" % [i9, ig, io])
 	ok(txt.count("修为到了筑基的关口") == 1, "关口只记一次")
 	var sorted := true
 	var lg: Array = g.world.P()["log"]

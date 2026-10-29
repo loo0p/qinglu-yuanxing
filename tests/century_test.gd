@@ -82,6 +82,10 @@ func _init() -> void:
 		if hit.has("结丹"):
 			ok(yz >= 15 and yz <= 120, "种子 %d：筑基→结丹用了 %.1f 年（应在 15–120 年之间，修仙的跨度）" % [seed, yz])
 		ok(ages_ok, "种子 %d：年龄始终 = 开局年龄 + 月数/12" % seed)
+		# v0.15：筑基以后她写下的履历，绝大多数都带效果小字（关中的顿悟、走岔、心魔、灵脉涨潮…）
+		var own: Array = g.world.P()["log"].filter(func(e): return int(e[0]) >= m_zhuji)
+		var wfx := own.filter(func(e): return e.size() > 2 and not (e[2] as Dictionary).is_empty()).size()
+		ok(own.size() >= 20 and wfx * 100 >= own.size() * 85, "种子 %d：筑基后她的履历 %d 条，带效果 %d 条（≥85%%）" % [seed, own.size(), wfx])
 		ok(int(g.world.w["day"]) == int(g.s["day"]), "种子 %d：江湖与她同一本历（%d / %d 月）" % [seed, int(g.world.w["day"]), int(g.s["day"])])
 		# 存档往返
 		var js := JSON.stringify(g.to_dict())
