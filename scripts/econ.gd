@@ -11,7 +11,7 @@ const Jobs = preload("res://scripts/jobs.gd")
 const ARR := [
 	{},
 	{"n": "一阶聚灵阵", "build": 30, "fee": 4, "pct": 20, "plv": 0},
-	{"n": "二阶聚灵阵", "build": 150, "fee": 12, "pct": 45, "plv": 9},
+	{"n": "二阶聚灵阵", "build": 150, "fee": 24, "pct": 45, "plv": 9},
 	{"n": "三阶聚灵阵", "build": 500, "fee": 40, "pct": 75, "plv": 12},
 ]
 ## 服丹闭关：每六个月服一轮聚气丹（炼气一颗、筑基两颗、金丹以上三颗），这六个月闭关修为 +50%
