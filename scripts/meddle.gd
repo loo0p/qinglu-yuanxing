@@ -315,7 +315,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 	if tid == "风声" and int(ctx.get("ov", 0)) == 0 and int(roles["B"]) != int(a["id"]):
 		var inf: Dictionary = W.C(roles["B"])
 		if not inf.is_empty() and oid != "ignore":
-			W.R(inf, p)["f"] = int(W.R(inf, p)["f"]) + 2   # 报信的人看她肯管事
+			W.radd(inf, p, 2)   # 报信的人看她肯管事
 	match oid:
 		"ignore":
 			pt["ig"] = 1
@@ -360,7 +360,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				_m(W, a, "%s多管闲事" % pn, -8, "怨", aid)
 				W.chron(b, "%s寻上门来，%s拼着受伤护住了自己。" % [f["a"], pn])
 				W.chron(a, "去找%s，%s挡在前头，没能得手。" % [f["b"], pn])
-			W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 5)
+			W.radd(a, b, 0, -5)
 			W.chron(p, "赶去%s身边，挡下了%s。" % [f["b"], f["a"]] if win else "赶去护着%s，与%s斗了一场。" % [f["b"], f["a"]])
 			if not win:
 				W._away(-1)   # 打输了早一个月回来养伤（伤另算）
@@ -373,7 +373,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			var balive: bool = b["alive"]
 			if v == "造谣":
 				for o in W._sample(W.npcs().filter(func(x): return x != a and x != b), 4):
-					W.R(o, b)["f"] = int(W.R(o, b)["f"]) - 4
+					W.radd(o, b, -4)
 				W.AG.npc_resolve(W, a, v, b, aid)
 			else:
 				W.AG.npc_resolve(W, a, v, b, aid)
@@ -382,7 +382,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			_m(W, a, "%s帮我对付过%s" % [pn, f["b"]], 12, "助", aid)
 			if b["alive"] and (_found_out(W, b, 0.45) or v != "造谣"):
 				_m(W, b, "%s帮着%s对付我" % [pn, f["a"]], -18, "伤" if v in ["寻仇", "截杀"] else "怨", aid)
-				W.R(b, p)["g"] = int(W.R(b, p)["g"]) + 15
+				W.radd(b, p, 0, 15)
 			if won and v in ["截杀", "夺宝"]:
 				var cut: int = W._ling(4 + W.rng.randi_range(0, 4))
 				out = W.pv("插手助劫", ["她从侧里截住{b}的退路。事成后{a}分了她一份：“爽快。下回还找你。”", "{b}没料到会多一个人。{a}把东西掂了掂，丢给她一份。"]).format(f) + "（+%d 灵石）" % cut
@@ -406,7 +406,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				pt["p"] = 2
 				match v:
 					"寻仇":
-						W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 30)
+						W.radd(a, b, 0, -30)
 						W.AG._settle(a, int(b["id"]), [])
 						out = W.pv("插手和仇", ["她陪{a}坐了一个下午，没劝，只听。日头落山时，{a}把剑放回了鞘里。", "她把两边的话都说了一遍。{a}半晌才道：“……看在你的面上。”"]).format(f)
 						_m(W, b, "%s替我化解了与%s的旧怨" % [pn, f["a"]], 12, "恩", aid)
@@ -445,7 +445,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				_m(W, a, "%s到%s告发了我" % [pn, sect], -22, "辱", aid)
 				for o in W.npcs():
 					if o != a and String(o["sect"]) == sect and W.rng.randf() < 0.5:
-						W.R(o, p)["f"] = int(W.R(o, p)["f"]) + 4
+						W.radd(o, p, 4)
 				W.chron(a, "想离开%s，被人告发，罚了面壁。" % sect)
 			else:
 				a["inj"] = maxi(int(a["inj"]), 8)
@@ -465,7 +465,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			if W._roll(pl + 1.0, float(a["lv"]), 5, 4):
 				out = W.pv("插手捉贼", ["第二夜，一只手伸进了{b}的灵石匣。她按住那只手，{a}的脸白了。", "{a}刚翻过墙头，就看见她坐在院里喝茶。"]).format(f)
 				_m(W, b, "%s替我拿住了%s" % [pn, f["a"]], 12, "助", aid)
-				W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 12
+				W.radd(b, a, 0, 12)
 				W.remember(b, a, "%s想偷我的东西" % f["a"], -10, "窃", aid)
 				_m(W, a, "%s当场拿住了我" % pn, -12, "辱", aid)
 				W.AG.drift(a, "慎", 0.04)
@@ -507,7 +507,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 		"match":
 			pt["p"] = 1
 			W.meet(b)
-			W.R(b, a)["f"] = int(W.R(b, a)["f"]) + 10
+			W.radd(b, a, 10)
 			pt["e"] = 0
 			_m(W, a, "%s替我在%s面前说过好话" % [pn, f["b"]], 10, "助", aid)
 			out = W.pv("插手撮合", ["她同{b}喝茶时，状似无意地说起{a}：“那人倒是个实心眼的。”{b}低头笑了笑。", "她只说了一句{a}的好。{b}没接话，耳根却红了。"]).format(f)
@@ -515,7 +515,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 		"spoil":
 			pt["p"] = 1
 			W.meet(b)
-			W.R(b, a)["f"] = int(W.R(b, a)["f"]) - 10
+			W.radd(b, a, -10)
 			_m(W, b, "%s提醒过我当心%s" % [pn, f["a"]], 4, "恩", aid)
 			out = W.pv("插手拆", ["她提了一句{a}从前的事。{b}没说什么，只是把茶盏放下了。", "“{a}么，”她顿了一顿，“你自己当心些。”{b}点了点头。"]).format(f)
 			if _found_out(W, a, 0.25):
@@ -548,7 +548,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 				for o in W.npcs():
 					if o != a and String(o["sect"]) == String(pt.get("sect", "")) and W.rng.randf() < 0.5:
 						W.remember(o, p, "%s放走了叛门的%s" % [pn, f["a"]], -8, "怨", aid)
-						W.R(o, p)["g"] = int(W.R(o, p)["g"]) + 6
+						W.radd(o, p, 0, 6)
 				out = W.pv("插手助叛露", ["她引着巡山的人绕了半座山。{a}下了山，她却被认了出来。", "{a}走了。第二天{sect}的人找到青庐，问她那夜在哪。"]).format(f)
 			else:
 				out = W.pv("插手助叛", ["她在后山点了一把火。巡山的人都往那边去了，{a}从另一头下了山。", "那夜很黑。她在山门外学了三声鸟叫，{a}的影子就消失在了石阶尽头。"]).format(f)
@@ -569,7 +569,7 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			var ch3: float = 0.45 + 0.25 * W.AG.px(a, "善") - 0.3 * W.AG.px(a, "仇") + 0.2
 			if W.rng.randf() < ch3:
 				W.AG._settle(a, int(b["id"]), [])
-				W.R(a, b)["g"] = maxi(0, int(W.R(a, b)["g"]) - 15)
+				W.radd(a, b, 0, -15)
 				_m(W, a, "%s拦着我，没让我做错事" % pn, 8, "恩", aid)
 				out = W.pv("插手拦友", ["她按住{a}的手腕：“不值得。”{a}的手抖了一下，慢慢松开了。", "她一句话没说，只是挡在门口。{a}看了她很久，转身回屋了。"]).format(f)
 				W.chron(a, "本要对%s下手，被%s拦下了。" % [f["b"], pn])
@@ -616,7 +616,7 @@ static func _fire(W, pt: Dictionary) -> void:
 	if warned and v in ["偷窃", "造谣"]:
 		if v == "偷窃":
 			W.remember(b, a, "%s想偷我的东西" % f["a"], -10, "窃", aid)
-			W.R(b, a)["g"] = int(W.R(b, a)["g"]) + 10
+			W.radd(b, a, 0, 10)
 			W.chron(b, "灵石匣上了锁，夜里%s来摸，扑了个空。" % f["a"])
 			W.chron(a, "去%s那里顺东西，扑了个空。" % f["b"])
 			pt["r"] = "空"
