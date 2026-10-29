@@ -971,7 +971,7 @@ func _btn_table() -> String:
 			var tx := String((n as Button).text) if n is Button else ""
 			out.append([tx, r.position.x + r.size.x / 2.0, r.position.y + r.size.y / 2.0])
 		elif n is Label and (n as Label).is_visible_in_tree() and labs.size() < 200:
-			labs.append(String((n as Label).text).left(24))   # v0.15.2：只读，给 release_check 认小标题（托售、聚灵阵……）
+			labs.append(String((n as Label).text).replace(ZW, "").left(24))   # v0.15.2：只读，给 release_check 认小标题（托售、聚灵阵……）
 	return JSON.stringify({"w": vs.x, "h": vs.y, "b": out, "l": labs})
 
 func _continue(from_legacy: bool = false) -> void:
