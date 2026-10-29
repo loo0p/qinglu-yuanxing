@@ -110,14 +110,14 @@
       },
       {
        "op": "chance",
-       "p": 0.35,
+       "p": 0.5,
        "then": [
         {
          "op": "schedule",
          "id": "echo_wound",
          "in": [
-          120,
-          360
+          72,
+          240
          ],
          "keep": [
           "y0",
@@ -196,7 +196,18 @@
    "when": "ctx.sec == 1 and ctx.maj >= 1",
    "weight": 0.7,
    "cooldown": 48,
-   "effects": [],
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
    "outcomes": [
     {
      "id": "win",
@@ -240,6 +251,27 @@
          "op": "chron",
          "who": "A",
          "text": "#q_xm_in##q_xm_who##q_xm_lose#"
+        },
+        {
+         "op": "chance",
+         "p": 0.5,
+         "then": [
+          {
+           "op": "schedule",
+           "id": "echo_xm",
+           "in": [
+            120,
+            360
+           ],
+           "keep": [
+            "y0",
+            "m0"
+           ],
+           "cast": {
+            "B": "B"
+           }
+          }
+         ]
         }
        ],
        "else": [
@@ -929,14 +961,14 @@
       },
       {
        "op": "chance",
-       "p": 0.3,
+       "p": 0.5,
        "then": [
         {
          "op": "schedule",
          "id": "echo_qi",
          "in": [
-          120,
-          300
+          72,
+          200
          ],
          "keep": [
           "y0",
@@ -1015,14 +1047,14 @@
       },
       {
        "op": "chance",
-       "p": 0.5,
+       "p": 0.7,
        "then": [
         {
          "op": "schedule",
          "id": "echo_jiang",
          "in": [
-          120,
-          360
+          96,
+          240
          ],
          "keep": [
           "y0",
@@ -1880,8 +1912,8 @@
        "op": "schedule",
        "id": "echo_gf",
        "in": [
-        120,
-        360
+        72,
+        240
        ],
        "keep": [
         "y0",
@@ -1969,8 +2001,8 @@
        "op": "schedule",
        "id": "echo_tu",
        "in": [
-        120,
-        300
+        72,
+        200
        ],
        "keep": [
         "y0",
@@ -2153,6 +2185,359 @@
     }
    ],
    "doc": "元婴：故人凋零"
+  },
+  {
+   "id": "map",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj <= 1",
+   "weight": "0.3 + 0.05 * g.at(A, 'yun')",
+   "cooldown": 9999,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    },
+    {
+     "op": "set",
+     "name": "bp",
+     "value": "g.near()"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_map#",
+       "vars": {
+        "bp": "=g.near()"
+       }
+      },
+      {
+       "op": "mark",
+       "key": "map"
+      },
+      {
+       "op": "wu",
+       "n": 1
+      },
+      {
+       "op": "schedule",
+       "id": "echo_map",
+       "in": [
+        120,
+        360
+       ],
+       "keep": [
+        "y0",
+        "m0",
+        "bp"
+       ]
+      }
+     ]
+    }
+   ],
+   "doc": "伏笔：半张残图（十到三十年后，悟性够才拼得上）"
+  },
+  {
+   "id": "dan_en",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and g.pinjd()",
+   "weight": 1.0,
+   "cooldown": 240,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_dan_en#"
+      },
+      {
+       "op": "pinj",
+       "days": -2
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 12
+      },
+      {
+       "op": "mem",
+       "who": "P",
+       "about": "B",
+       "text": "{B}在我受伤时送过丹",
+       "wt": 12,
+       "kind": "恩"
+      },
+      {
+       "op": "schedule",
+       "id": "echo_en",
+       "in": [
+        96,
+        300
+       ],
+       "keep": [
+        "y0",
+        "m0"
+       ],
+       "cast": {
+        "B": "B"
+       }
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lv(SELF) > g.plv() and g.pf(SELF) >= 10"
+    }
+   ],
+   "doc": "伏笔：受伤时得人送丹（八到二十五年后她去还）"
+  },
+  {
+   "id": "home",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 1",
+   "weight": 0.3,
+   "cooldown": 9999,
+   "effects": [
+    {
+     "op": "set",
+     "name": "y0",
+     "value": "g.cy()"
+    },
+    {
+     "op": "set",
+     "name": "m0",
+     "value": "g.now_m()"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_home#"
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      },
+      {
+       "op": "schedule",
+       "id": "echo_home",
+       "in": [
+        360,
+        600
+       ],
+       "keep": [
+        "y0",
+        "m0"
+       ]
+      }
+     ]
+    }
+   ],
+   "doc": "伏笔：回凡间故里（三五十年后，那孩子已老）"
+  },
+  {
+   "id": "benming",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.road == 0 and ctx.maj >= 2 and g.eqn('fabao') != ''",
+   "weight": 0.6,
+   "cooldown": 9999,
+   "effects": [
+    {
+     "op": "set",
+     "name": "it",
+     "value": "g.eqn('fabao')"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "0.5 + 0.08 * g.at(A, 'wu')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_benming##q_benming_ok#"
+      },
+      {
+       "op": "pxw",
+       "n": 40
+      },
+      {
+       "op": "wu",
+       "n": 4
+      },
+      {
+       "op": "mark",
+       "key": "benming"
+      }
+     ]
+    },
+    {
+     "id": "bad",
+     "weight": 0.4,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_benming##q_benming_bad#"
+      },
+      {
+       "op": "pinj",
+       "days": 3
+      },
+      {
+       "op": "pxw",
+       "n": -20
+      },
+      {
+       "op": "attr",
+       "who": "A",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "doc": "金丹：炼本命法宝（器物锚点；悟性定成败）"
+  },
+  {
+   "id": "guanjie",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 2",
+   "weight": 0.5,
+   "cooldown": 120,
+   "effects": [],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_guanjie##q_guanjie_t#",
+       "vars": {
+        "bp": "=B.place"
+       }
+      },
+      {
+       "op": "wu",
+       "n": 5
+      },
+      {
+       "op": "pxw",
+       "n": 20
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 4
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and g.maj(SELF) >= 2 and g.lv(SELF) >= g.plv()"
+    }
+   ],
+   "doc": "金丹：观人渡劫"
+  },
+  {
+   "id": "xuming",
+   "trigger": "on:pmonth",
+   "family": "pm",
+   "when": "ctx.sec == 0 and ctx.maj >= 3",
+   "weight": 1.0,
+   "cooldown": 240,
+   "effects": [],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "A",
+       "text": "#q_xuming##q_xuming_t#"
+      },
+      {
+       "op": "life",
+       "who": "B",
+       "y": 10
+      },
+      {
+       "op": "life",
+       "who": "A",
+       "y": -3
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 20
+      },
+      {
+       "op": "mem",
+       "who": "B",
+       "about": "P",
+       "text": "{pn}替我续了命",
+       "wt": 20,
+       "kind": "恩"
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "B",
+     "where": "g.known(SELF) and SELF.alive and not g.busy(SELF) and g.lf(SELF) > 0.9 and g.pf(SELF) >= 30"
+    }
+   ],
+   "doc": "元婴：替将尽的故人续命（她折寿）"
   },
   {
    "id": "echo_save",
@@ -3080,6 +3465,240 @@
        "who": "P",
        "k": "xin",
        "d": 1
+      }
+     ],
+     "first": true
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
+   ]
+  },
+  {
+   "id": "echo_map",
+   "trigger": "chain",
+   "doc": "残图的回响（悟性定）",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": "0.2 + 0.08 * g.at(g.player(), 'wu')",
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_map##q_echo_map_ok#"
+      },
+      {
+       "op": "pitem",
+       "origin": "{pn}凭{y0}收的半张残图寻得。",
+       "grade": 0
+      },
+      {
+       "op": "wu",
+       "n": 3
+      }
+     ]
+    },
+    {
+     "id": "no",
+     "weight": 0.6,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_map##q_echo_map_no#"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
+   ]
+  },
+  {
+   "id": "echo_en",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "when": "B.alive",
+   "doc": "丹恩的回响：她去还",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_en##q_echo_en_t#"
+      },
+      {
+       "op": "ling",
+       "n": -15
+      },
+      {
+       "op": "life",
+       "who": "B",
+       "y": 3
+      },
+      {
+       "op": "rel",
+       "a": "B",
+       "b": "P",
+       "f": 15
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 5
+      },
+      {
+       "op": "ptag",
+       "k": "善",
+       "d": 1
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
+   ]
+  },
+  {
+   "id": "echo_home",
+   "trigger": "chain",
+   "doc": "故里的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "ok",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_echo_home##q_echo_home_t#"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      },
+      {
+       "op": "ling",
+       "n": -3
+      }
+     ]
+    }
+   ],
+   "roles": [
+    {
+     "name": "P",
+     "fixed": "g.player()"
+    }
+   ]
+  },
+  {
+   "id": "echo_xm",
+   "trigger": "chain",
+   "in": [
+    "B"
+   ],
+   "dead_ok": [
+    "B"
+   ],
+   "doc": "心魔旧人的回响",
+   "effects": [
+    {
+     "op": "set",
+     "name": "yago",
+     "value": "g.yago(int(ctx.m0))"
+    },
+    {
+     "op": "set",
+     "name": "br",
+     "value": "g.realm(B)"
+    }
+   ],
+   "outcomes": [
+    {
+     "id": "meet",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_xm_echo#今年真在坊市遇上了，{B}已是{br}。两人站着说了几句，那口气就散了。"
+      },
+      {
+       "op": "rel",
+       "a": "P",
+       "b": "B",
+       "f": 8,
+       "g": -10
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 1
+      }
+     ],
+     "when": "B.alive",
+     "first": true
+    },
+    {
+     "id": "gone",
+     "weight": 1.0,
+     "effects": [
+      {
+       "op": "chron",
+       "who": "P",
+       "text": "#t_lead##q_xm_echo#如今人已不在。她在灯下坐了一夜，心里那块石头放下了。"
+      },
+      {
+       "op": "attr",
+       "who": "P",
+       "k": "xin",
+       "d": 2
       }
      ],
      "first": true
