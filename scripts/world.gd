@@ -738,7 +738,46 @@ const MILESTONE_WORDS := ["入了", "筑基", "结丹", "金丹", "元婴", "化
 static func is_hearsay(text: String) -> bool:
 	return text.begins_with("（出关后才听说）") or text.begins_with("（出关方知）") or text.begins_with("故人这些年")
 
+## v0.15（Gemini v7）：履历满了，先把最早一个十年里的日常并成一条“十年纪要”（效果小字合在一起），不再整条删掉
+static func _fold_decade(lg: Array) -> bool:
+	var by := {}
+	for i in lg.size() - 1:
+		var t := String(lg[i][1])
+		if is_milestone(t) or is_hearsay(t):
+			continue
+		var dk := (maxi(int(lg[i][0]), 1) - 1) / 120
+		if not by.has(dk):
+			by[dk] = []
+		by[dk].append(i)
+	var keys := by.keys()
+	keys.sort()
+	for dk in keys:
+		var idx: Array = by[dk]
+		if idx.size() < 3:
+			continue
+		var parts := []
+		var fxm := {}
+		for i in idx:
+			var t := String(lg[i][1]).trim_suffix("。")
+			if parts.size() < 4:
+				parts.append(t.left(16))
+			if lg[i].size() > 2 and lg[i][2] is Dictionary:
+				for k in lg[i][2]:
+					_fx_put(fxm, String(k), lg[i][2][k])
+		var y0 := int(dk) * 10
+		var txt := "十年纪要（青庐%s至%s）：%s%s。" % [year_name(y0), year_name(y0 + 9), "；".join(parts), ("，等%s件小事" % cn_num(idx.size())) if idx.size() > parts.size() else ""]
+		var e := [int(lg[idx[0]][0]), txt]
+		if not fxm.is_empty():
+			e.append(fxm)
+		for j in range(idx.size() - 1, -1, -1):
+			lg.remove_at(int(idx[j]))
+		lg.insert(int(idx[0]), e)
+		return true
+	return false
+
 static func is_milestone(text: String) -> bool:
+	if text.begins_with("十年纪要"):
+		return true
 	# v0.14.1：出关后补记的传闻、故人近况是“听来的”，里面有“夺/截/救”也不算她的大事——
 	# 不然百年后 300 条全是传闻，最早的入境、拜师反倒被挤掉（sim100 种子 31 履历从二十三年开始）
 	if is_hearsay(text) or text.begins_with("闭关第"):
@@ -784,6 +823,8 @@ static func trim_log(lg: Array, cap: int) -> void:
 			if is_hearsay(t0):
 				drop = i
 				break
+		if drop < 0 and _fold_decade(lg):
+			continue
 		if drop < 0:
 			drop = 0
 			for i in lg.size() - 1:

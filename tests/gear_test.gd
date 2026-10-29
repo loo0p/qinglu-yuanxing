@@ -118,6 +118,9 @@ func t_trim() -> void:
 	for i in cap + 100:
 		g.pchron("在静室里坐了一个月（%d）。" % i)
 	ok(String(lg[0][1]) == first and lg.filter(func(e): return String(e[1]).begins_with("（出关后才听说）")).is_empty(), "传闻先被挤光，大事仍在")
+	# v0.15：日常不再整条删掉，同一个十年里的并成一条“十年纪要”
+	var jy := lg.filter(func(e): return String(e[1]).begins_with("十年纪要"))
+	ok(jy.size() >= 1 and lg.size() <= cap and String(jy[0][1]).contains("在静室里坐了一个月"), "满了把一个十年的日常并成“十年纪要”（%d 条；%s）" % [jy.size(), String(jy[0][1]).left(40) if jy.size() > 0 else ""])
 
 func t_proto() -> void:
 	ok(Gear.prop("飞剑", "slot") == "fabao" and is_equal_approx(float(Gear.prop("飞剑", "weight")), 2.0), "prototree：飞剑继承法宝的槽、覆盖重量")
