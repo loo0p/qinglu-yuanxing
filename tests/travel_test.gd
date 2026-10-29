@@ -151,9 +151,9 @@ func play(seed: int, days: int, log_snip: bool = false) -> Dictionary:
 		if log_snip and roaming and not rec.is_empty() and snips.size() < 12:
 			snips.append("第%d日·%s：%s【%s】%s" % [int(g.s["day"]), String(g.s.get("roam", {}).get("pl", "路上")), rec[0][1], rec[0][2], rec[0][3]])
 		var d := int(g.s["day"])
-		if d <= 30:
+		if d <= 60:   # v0.14.2：炼气慢了三倍、地点门槛降一层，检查点 30/60/100 → 60/120/200 个月
 			r["unl30"] = TV.places(g.world).size()
-		if d <= 60:
+		if d <= 120:
 			r["unl60"] = TV.places(g.world).size()
 		r["unl100"] = TV.places(g.world).size()
 
@@ -183,7 +183,7 @@ func _init() -> void:
 	var tid_at := {}
 	var n := 16
 	for sd in range(900, 900 + n):
-		var r := play(sd, 100, sd < 903)
+		var r := play(sd, 200, sd < 903)
 		u1 += r["unl1"] / float(n)
 		u30 += r["unl30"] / float(n)
 		u60 += r["unl60"] / float(n)
@@ -206,10 +206,10 @@ func _init() -> void:
 				tid_at[p] = {}
 			for t in r["tid_at"][p]:
 				tid_at[p][t] = 1
-	lines.append("解锁：开局 %.1f 处，第 30 日 %.1f，第 60 日 %.1f，第 100 日 %.1f；理由 %s" % [u1, u30, u60, u100, JSON.stringify(whys)])
+	lines.append("解锁：开局 %.1f 处，第 60 月 %.1f，第 120 月 %.1f，第 200 月 %.1f；理由 %s" % [u1, u30, u60, u100, JSON.stringify(whys)])
 	ok(u1 >= 2.0 and u1 <= 3.0, "开局只认得 2–3 处（%.1f）" % u1)
-	ok(u30 >= 3.0 and u30 <= 7.0, "第 30 日 3–7 处（%.1f）" % u30)
-	ok(u100 >= 7.0 and u100 > u60 and u60 > u30, "地点一路展开：100 日 ≥7 处且逐段增多（%.1f > %.1f > %.1f）" % [u100, u60, u30])
+	ok(u30 >= 3.0 and u30 <= 7.0, "第 60 月 3–7 处（%.1f）" % u30)
+	ok(u100 >= 7.0 and u100 > u60 and u60 > u30, "地点一路展开：200 月 ≥7 处且逐段增多（%.1f > %.1f > %.1f）" % [u100, u60, u30])
 	var miss := []
 	for p in TV.ORDER:
 		if not ever.has(p) and p != "血煞门":
@@ -310,14 +310,14 @@ func _init() -> void:
 	# 旧档：没有 unl 键
 	var o = GS.new()
 	o.new_game("苏青禾", "sect", 99, true)
-	o.s["xiuwei"] = 750   # 炼气四层（v0.14.2：炼气 1800，以前是 250）
+	o.s["xiuwei"] = 450   # 炼气三层（v0.14.2：炼气 1800、药王谷降到三层、云梦泽降到四层；以前是 250＝四层）
 	o.s["flags"]["hantan_visited"] = true
 	var od: Dictionary = JSON.parse_string(JSON.stringify(o.to_dict()))
 	for kk in ["unl", "uwhy", "heard", "yl", "appr"]:
 		od["world"].erase(kk)
 	var o2 = GS.new()
 	ok(o2.from_dict(od), "没有去处数据的旧档照常读入")
-	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气四层：寒潭、药王谷认得；云梦泽要五层，v0.12.1）")
+	ok(TV.unlocked(o2.world, "寒潭") and TV.unlocked(o2.world, "药王谷") and TV.unlocked(o2.world, "后山") and not TV.unlocked(o2.world, "云梦泽"), "旧档按进度补齐（去过寒潭、炼气三层：寒潭、药王谷认得；云梦泽要四层，v0.14.2）")
 	o2.biguan_day()
 	ok(int(o2.s["day"]) == 1 and int(o2.s["v"]) == GS.SAVE_VERSION, "旧档补齐后照常过日子，存档升到当前版本 v%d（读旧档不报错；v0.14 起为 v4）" % GS.SAVE_VERSION)
 	# ⑥ 每个选项都过一遍
