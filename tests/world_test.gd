@@ -579,7 +579,7 @@ func _init() -> void:
 	var rq: String = hw.choose("qz"); hw.close()
 	ok(hh.store_n("herb_qingzhi") == 2 and rq.contains("青芝"), "赠礼：送自家灵田的青芝")
 	# 境界差重逢（要青庐的修为）：初见时对方高三层以上，如今她追平了
-	hh.s["xiuwei"] = 400
+	hh.s["xiuwei"] = 1200   # 炼气七层（v0.14.2：炼气 1800，以前是 400）
 	var up: Dictionary = hw.npcs()[4]
 	up["lv"] = 3
 	hw.R(hw.P(), up)["m"] = 1; hw.R(up, hw.P())["m"] = 1

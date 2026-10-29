@@ -9,13 +9,13 @@ import sys, math, json, os
 # ---------- 常量（对应 design-v3 8.2 初始条件） ----------
 FIELD_DAYS = 6          # 青芝 6 日一熟
 FIELD_YIELD = 2         # 每茬 2 株（v3 下调：基础种不再消耗）
-JUQI_COST, JUQI_DAYS, JUQI_XW = 2, 2, 30
+JUQI_COST, JUQI_DAYS, JUQI_XW = 2, 2, 60   # v0.14.2：30 → 60
 JUQI_SOFTCAP = 8        # 本境界第 9 颗起收益减半
 QUZHANG_COST, QUZHANG_DAYS = 1, 1
 ZHUJI_QZ, ZHUJI_DAYS = 3, 6
-BIGUAN_XW = 10          # 闭关基础修为/日
+BIGUAN_XW = 12          # 闭关基础修为/日（v0.14.2：10 → 12）
 REFINE_CAP = 20         # 每日炼化感悟上限（蒲团 30）
-XW_GOAL = 600
+XW_GOAL = 1800          # v0.14.2（制作人 2026-10-29 同意）：600 → 1800
 YUYUN_CAP = 120         # 圆满余韵上限
 RATION_TOPUP, RATION_CAP = 8, 12
 VILLAGE_DEADLINE = 30

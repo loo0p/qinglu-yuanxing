@@ -101,6 +101,9 @@ func pass_xinmo(g) -> void:
 		g.answer_xinmo(pick)
 
 # ------------------------------------------------------------ #1
+## v0.14.2（制作人 2026-10-29 同意改锁定基线）：炼气修为 600 → 1800、闭关 10 → 12、聚气丹 30 → 60。
+## docs/design/sim/sim.py 同步改了这三个常量，trace_grey.json / out_grey.txt / grey_matrix.json 用它重新生成（生成办法与 v3.2 相同：
+## GREY=1 LAOGUI=C EXTRA=field，TRACE 出逐日轨迹；矩阵 5 种老龟 × 2 种灵脉 × 2 种打法）。引擎仍须与 sim 逐日一致。
 func t_replay() -> void:
 	var trace = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/trace_grey.json"))
 	var g = GS.new()
@@ -126,7 +129,7 @@ func t_replay() -> void:
 	home_ops(g, {}, 0)
 	snaps["到家整理后 D%d" % g.I("day")] = g.snapshot()
 	var guard = 0
-	while not (g.I("xiuwei") >= 600 and g.store_n("pill_zhuji") > 0) and guard < 200:
+	while not (g.I("xiuwei") >= GS.XW_GOAL and g.store_n("pill_zhuji") > 0) and guard < 200:
 		home_ops(g, {}, 0)
 		g.biguan_day()
 		guard += 1
@@ -135,7 +138,7 @@ func t_replay() -> void:
 	ok(g.start_breakthrough(), "可以冲关")
 	pass_xinmo(g)
 	ok(g.I("plv") == 9 and g.s["ending"] == "", "筑基功成（v0.13 起不再是结局，接着修）")
-	ok(g.I("day") == 37, "筑基日 = D37（引擎 D%d）" % g.I("day"))
+	ok(g.I("day") == 114, "筑基日 = D114（v0.14.2 炼气 1800 后由 sim.py 重算；v0.14.1 及以前是 D37）（引擎 D%d）" % g.I("day"))
 	# 逐日比对
 	ok(got.size() == trace.size(), "日数一致（引擎 %d 日 / sim %d 日）" % [got.size(), trace.size()])
 	# v0.13：去掉了旧开局的家书加粮，干粮（辟谷丹）一项不再与 v3.2 的 sim 对照；其余逐日一致
@@ -180,7 +183,7 @@ func t_replay() -> void:
 		var act = [str(sn["xiuwei"]), str(sn["yuyun"]), str(sn["ganwu"]), str(sn["qingzhi"]), qs, str(sn["lingshi"])]
 		ok(exp == act, "快照 [%s] 修为/余韵/待炼化/青芝/炉/灵石 一致 期望 %s 实际 %s" % [tag, exp, act])
 	ok(n == 6, "out_grey.txt 快照 6 条（读到 %d）" % n)
-	p("  引擎：D%d 筑基；修为来源 %s；闭关占比 %d%%" % [g.I("day"), g.s["src"], roundi(100.0 * (g.s["src"]["biguan"] + g.s["src"]["ganwu"]) / 600.0)])
+	p("  引擎：D%d 筑基；修为来源 %s；闭关占比 %d%%" % [g.I("day"), g.s["src"], roundi(100.0 * (g.s["src"]["biguan"] + g.s["src"]["ganwu"]) / float(GS.XW_GOAL))])
 
 # ------------------------------------------------------------ #2
 func fresh():
@@ -223,16 +226,16 @@ func t_settlement() -> void:
 	g = fresh()
 	g.s["ganwu"] = 50
 	g.tick("biguan")
-	ok(g.I("xiuwei") == 30 and g.I("ganwu") == 30, "③闭关 +10，炼化 20")
+	ok(g.I("xiuwei") == 32 and g.I("ganwu") == 30, "③闭关 +12，炼化 20（v0.14.2：闭关 10 → 12）")
 	g.s["injured"] = 2
 	g.tick("biguan")
-	ok(g.I("xiuwei") == 50 and g.I("ganwu") == 20 and g.I("injured") == 1, "③受伤时炼化减半")
+	ok(g.I("xiuwei") == 54 and g.I("ganwu") == 20 and g.I("injured") == 1, "③受伤时炼化减半")
 	# 修为溢出到余韵（≤120）
 	g = fresh()
-	g.s["xiuwei"] = 595
+	g.s["xiuwei"] = 1795
 	g.s["ganwu"] = 20
 	g.tick("biguan")
-	ok(g.I("xiuwei") == 600 and g.I("yuyun") == 25, "修为封顶 600，溢出 25 进余韵")
+	ok(g.I("xiuwei") == 1800 and g.I("yuyun") == 27, "修为封顶 1800，溢出 27 进余韵（v0.14.2：炼气 600 → 1800、闭关 +12）")
 	g.s["yuyun"] = 115
 	g.s["ganwu"] = 20
 	g.tick("biguan")
@@ -325,7 +328,7 @@ func t_antifarm() -> void:
 # ------------------------------------------------------------ #4
 func laogui_signature(opt: String) -> Dictionary:
 	var g = fresh()
-	g.s["xiuwei"] = 300   # 炼气五层，A 可选
+	g.s["xiuwei"] = 900   # 炼气五层，A 可选
 	g.s["store"]["pill_juqi"] = 3
 	g.pack_put("pill_juqi")
 	g.start_trip("hantan")
@@ -527,7 +530,7 @@ func t_save() -> void:
 	ok(str(g.snapshot()) == str(h.snapshot()), "读档后继续：状态与未中断时一致")
 	# 随机判定不因刷新而重掷
 	var a = fresh()
-	a.s["xiuwei"] = 300
+	a.s["xiuwei"] = 900
 	a.start_trip("hantan")
 	walk(a, [["T1", "A"], ["T2", "A"], ["T3a", "A"]])
 	a.enter_node("T4")
@@ -544,9 +547,9 @@ func t_save() -> void:
 func t_v32() -> void:
 	var g = fresh()
 	ok(is_equal_approx(g.laogui_a_chance(), 0.40), "老龟 A 成功率：炼气一层 40%")
-	g.s["xiuwei"] = 300
+	g.s["xiuwei"] = 900
 	ok(is_equal_approx(g.laogui_a_chance(), 0.60), "炼气五层 60%")
-	g.s["xiuwei"] = 600
+	g.s["xiuwei"] = 1800
 	ok(g.laogui_a_chance() <= 0.8 + 0.0001, "封顶 80%")
 	# A 不再卡境界；潭雾只拖下一个节点
 	g = fresh()

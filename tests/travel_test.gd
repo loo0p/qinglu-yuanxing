@@ -310,7 +310,7 @@ func _init() -> void:
 	# 旧档：没有 unl 键
 	var o = GS.new()
 	o.new_game("苏青禾", "sect", 99, true)
-	o.s["xiuwei"] = 250
+	o.s["xiuwei"] = 750   # 炼气四层（v0.14.2：炼气 1800，以前是 250）
 	o.s["flags"]["hantan_visited"] = true
 	var od: Dictionary = JSON.parse_string(JSON.stringify(o.to_dict()))
 	for kk in ["unl", "uwhy", "heard", "yl", "appr"]:

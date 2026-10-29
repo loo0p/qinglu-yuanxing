@@ -5,7 +5,7 @@ extends RefCounted
 ## 纯规则层：design-v3.1 §2 时间与结算规则、§4 经营、§6 心魔、§8.3 批量操作。
 ## 不依赖 UI，可被无头测试直接驱动；全部状态在字典 s 里，可整体存读档。
 
-const SAVE_VERSION := 4      # v0.14 v4：行囊装备（s.gear；v3 读入时补一只布囊，原物不动）； v0.6 v2：江湖与立绘；v0.13 v3：回合=月、境界往后、去掉旧开局的亲戚设定（v1/v2 读入时迁移）
+const SAVE_VERSION := 5      # v0.14.2 v5：炼气修为 600 → 1800（v4 及以前读入时炼气修为 ×3，层数不变）；v0.14 v4：行囊装备（s.gear；v3 读入时补一只布囊，原物不动）； v0.6 v2：江湖与立绘；v0.13 v3：回合=月、境界往后、去掉旧开局的亲戚设定（v1/v2 读入时迁移）
 const World = preload("res://scripts/world.gd")
 const TV = preload("res://scripts/travel.gd")
 const Gear = preload("res://scripts/gear.gd")
@@ -17,11 +17,11 @@ const RECIPES := {
 	"zhuji": {"qz": 3, "days": 6, "out": "pill_zhuji", "name": "筑基丹",
 		"main": {"herb_hantanlian": 1, "herb_chiyangguo": 1}},
 }
-const JUQI_XW := 30
+const JUQI_XW := 60          # v0.14.2：炼气 600 → 1800，聚气丹 30 → 60（八颗约占炼气修为的四分之一）
 const JUQI_SOFTCAP := 8
-const BIGUAN_XW := 10
+const BIGUAN_XW := 12        # v0.14.2：闭关每月 10 → 12
 const REFINE_CAP := 20
-const XW_GOAL := 600
+const XW_GOAL := 1800         # v0.14.2（制作人 2026-10-29 同意）：炼气 600 → 1800，每层 200
 const YUYUN_CAP := 120
 const WU_SOFTCAP := 140
 const RATION_TOPUP := 8
@@ -37,8 +37,8 @@ const ZHAJI_YUYUN := 20
 const AGE0 := 16              # v0.13：十六岁开局
 const SHOUYUAN_START := 100 * 12 - AGE0 * 12   # v0.13：炼气寿元 100 年（按月计），开局余 84 年
 ## v0.13：筑基以后（lv 9–18，与江湖人物同一张境界表）：每月闭关所得、每个小境界所需修为
-const XW_BIGUAN_BY_MAJOR := [10, 14, 20, 28, 36]   # 炼气 / 筑基 / 金丹 / 元婴 / 化神
-const XW_STAGE_BY_MAJOR := [600, 2000, 6000, 18000, 30000]
+const XW_BIGUAN_BY_MAJOR := [12, 14, 20, 28, 36]   # 炼气 / 筑基 / 金丹 / 元婴 / 化神
+const XW_STAGE_BY_MAJOR := [1800, 2000, 6000, 18000, 30000]
 const GATES := {11: 0.55, 14: 0.45, 17: 0.35, 18: 0.40}   # 大关成功率：→金丹 / →元婴 / →化神 / 渡劫
 const GATE_FAIL_INJ := 12
 const GATE_FAIL_SHOU := 60
@@ -125,11 +125,14 @@ func to_dict() -> Dictionary:
 	return s.duplicate(true)
 
 func from_dict(d: Dictionary) -> bool:
-	if not d.has("v") or not (int(d["v"]) in [1, 2, 3, SAVE_VERSION]):
+	if not d.has("v") or not (int(d["v"]) in [1, 2, 3, 4, SAVE_VERSION]):
 		return false
 	s = d.duplicate(true)
-	if int(s["v"]) < 3:
+	var v0 := int(s["v"])
+	if v0 < 3:
 		_migrate_v3()
+	if v0 < 5:
+		_migrate_v5()
 	Gear.ensure(self)   # v3 → v4：只补字段，原有行囊、仓库、灵石都不动
 	s["v"] = SAVE_VERSION   # v1 → v2：字段只增不减；江湖由界面层决定是否补开（migrate_world）
 	world = null
@@ -168,6 +171,13 @@ func _migrate_v3() -> void:
 	if not bool(s.get("ended", false)):
 		s["shouyuan"] = maxi(12, lifespan_m() - age_m_of(int(s.get("day", 0))))
 	s["flags"]["migr_v3"] = true
+
+## v0.14.2 迁移（v4 及以前 → v5）：炼气修为上限 600 → 1800。还在炼气的，修为 ×3（层数、圆满与否都不变，谁也不掉层）；
+## 筑基以后（plv ≥ 9）各境界的修为表没动，原样
+func _migrate_v5() -> void:
+	if int(s.get("plv", 0)) < 9:
+		s["xiuwei"] = int(s.get("xiuwei", 0)) * 3
+	s["flags"]["migr_v5"] = true
 
 # ---------------------------------------------------------------- 年月 / 境界 / 寿元（v0.13）
 static func age_m_of(day: int) -> int:
@@ -216,7 +226,7 @@ func _stage_up() -> void:
 		s["xiuwei"] = I("xiuwei") - xw_goal()
 		s["plv"] = I("plv") + 1
 		_log("修为渐深，入%s。" % realm_text())
-		pchron(("闭关中，修为渐深，入%s。" if bool(s.get("seclude", false)) else "修为渐深，入%s。") % realm_text())
+		pchron(("闭关中，修为渐深，入%s。" if bool(s.get("seclude", false)) else "修为渐深，入%s。") % realm_text(), I("day"))
 		notice("境界：%s" % realm_text())
 
 func shou_years() -> int:
@@ -399,12 +409,26 @@ func resolve_overflow(slot: int) -> void:
 
 # ---------------------------------------------------------------- 日结算（§2.3）
 func gain(v: int, k: String) -> void:
+	var lay0 := layer()
+	var full0 := I("xiuwei") >= xw_goal()
 	var room := xw_goal() - I("xiuwei")
 	var a := mini(v, maxi(room, 0))
 	s["xiuwei"] = I("xiuwei") + a
 	s["src"][k] = int(s["src"][k]) + a
 	s["yuyun"] = mini(YUYUN_CAP, I("yuyun") + (v - a))
+	if I("plv") < 9:
+		_lq_chron(lay0, full0)
 	_stage_up()
+
+## v0.14.2：炼气每过一层、修满到关口，当月记进她的履历（以前要等出关后界面补记，长闭关里过的几层会漏掉、顺序也颠倒）
+func _lq_chron(lay0: int, full0: bool) -> void:
+	var sec := "闭关中，" if bool(s.get("seclude", false)) else ""
+	if I("xiuwei") >= xw_goal() and not full0:
+		if int(s["flags"].get("gate_noted", -1)) != I("plv"):
+			s["flags"]["gate_noted"] = I("plv")
+			pchron("%s修为到了筑基的关口。" % sec, I("day"))
+	elif layer() > lay0:
+		pchron("%s修为精进，入%s。" % [sec, realm_text()], I("day"))
 
 func add_wu(v: int) -> void:
 	if v <= 0:
@@ -483,7 +507,7 @@ func tick(mode: String) -> void:
 	if int(cm[1]) == 5 and I("plv") < 9 and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress():
 		notice("世事：入夏了，后山向阳坡的赤阳果又要熟了（五到八月，去后山游历时碰得上）。")
 	# v0.13.1（Gemini v6 P0-1）：修到炼气七层，旧主手记里那页筑基丹方自己翻出来——三样主药各在哪、缺了去哪补
-	if I("plv") >= 6 and I("plv") < 9 and not s["flags"].get("zhuji_hint", false):
+	if plv_now() >= 6 and I("plv") < 9 and not s["flags"].get("zhuji_hint", false):   # v0.14.2：炼气时 s.plv 一直是 0，要看 plv_now()（以前这条永远不触发）
 		s["flags"]["zhuji_hint"] = true
 		var have := []
 		for it in [["herb_hantanlian", "寒潭莲"], ["herb_chiyangguo", "赤阳果"]]:
@@ -1501,7 +1525,7 @@ func junk_lianzi_available() -> bool:
 ## v0.13.1（Gemini v6 P0-1）：炼气七层以后还缺赤阳果，坊市药铺一年能收到一颗晒干的——比后山贵，但不必干等五到八月
 const DRY_CHIYANG_PRICE := 60
 func dry_chiyang_available() -> bool:
-	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and I("plv") >= 6 and I("plv") < 9 \
+	return s["loc"] == "roam" and String(s["roam"].get("pl", "")) == "坊市" and plv_now() >= 6 and I("plv") < 9 \
 		and total_n("herb_chiyangguo") == 0 and total_n("pill_zhuji") == 0 and not zhuji_in_progress() \
 		and int(s["flags"].get("dry_cy_year", -1)) != int(World.cal(I("day"))[0])
 
