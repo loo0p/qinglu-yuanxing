@@ -48,3 +48,5 @@
 ## v0.14 行囊与装备（`scripts/gear.gd`、`data/items.json`）
 - **GLoot** — Peter Kish — MIT — https://github.com/peter-kish/gloot （v3.0.2）。`scripts/vendor/gloot/prototype.gd`、`proto_tree.gd` 由其 `addons/gloot/core/` 拷入并改动（去掉 class_name、自引用改无类型、deserialize 直接读 Dictionary 并支持多层后置 inherits，改动写在文件头）；许可证全文：`scripts/vendor/gloot/LICENSE`。物品模板用它的 prototree 格式（子原型继承父属性）。GLoot 的背包 / UI 控件没有引入。
 - 只借思路、未拷代码：Diablo / Path of Exile 的“品阶 + 前后缀词缀（同组互斥）”；鬼谷八荒、了不起的修仙模拟器的法宝 / 储物袋分级。
+- 器物图标 `assets/img/ico_g_*.webp`（剑、飞剑、伞、铃、印、道袍、软甲、玉佩、簪、戒、镯、布囊、储物袋、储物戒、护身符/静心符/旧符/残符、陨铁、雷击木、妖丹、药葫芦）：为本项目用 AI 图像生成工具生成白底水墨图（`art_src/icons_gear_a.jpg`、`icons_gear_b.jpg`，以现有物品图标为风格参考），由 `tools/make_item_icons.py` 抠成透明小图，v0.14.3。未使用第三方图片素材。
+- 抠图去白边用 pymatting（MIT，Germer 等 2020 多级前景估计），只在出图脚本 `tools/portrait_fixes.py`、`tools/make_item_icons.py` 里离线用，不进游戏包。
