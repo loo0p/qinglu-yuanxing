@@ -3679,7 +3679,7 @@ func _story() -> void:
 				var b = B(lab, func(): _story_pick(oid), true, rr, opt_h)
 				b.add_theme_font_size_override("font_size", 15)
 				_reveal(rr, k)
-		elif not its.is_empty():
+			elif not its.is_empty():
 				var b2 = BI(lab, item_icon(String(its[0])), func(): _story_pick(oid), true, footer, opt_h)
 				b2.add_theme_font_size_override("font_size", 15)
 				b2.add_theme_constant_override("icon_max_width", 26)
