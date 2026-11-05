@@ -11,13 +11,13 @@ const ZIZHI := "herb_zizhi"
 ## 青庐营建：k 键、名字、造价、每年用度、要到的境界（plv：9 筑基、12 金丹）
 const BUILD := {
 	"pu1": {"n": "灵圃", "build": 80, "fee": 8, "plv": 9},
-	"pu2": {"n": "二阶灵圃", "build": 260, "fee": 20, "plv": 12},
+	"pu2": {"n": "二阶灵圃", "build": 260, "fee": 14, "plv": 12},
 	"ke": {"n": "客舍", "build": 60, "fee": 6, "plv": 9},
 }
-const PU_MONTHS := [0, 9, 5]        # 灵圃几个月出一株紫芝（一阶九个月、二阶五个月）
-const ZIZHI_PRICE := 18             # 坊市药铺收紫芝（按行情浮动）
+const PU_MONTHS := [0, 9, 6]        # 灵圃几个月出一株紫芝（一阶九个月、二阶六个月；v0.16.0 由五个月放慢）
+const ZIZHI_PRICE := 15             # 坊市药铺收紫芝（按行情浮动；v0.16.0 由 18 降）
 const TU_FEE := 6                   # 徒弟的月例（每年正月和用度一起交）
-const TU_QZ := 6                    # 徒弟帮着侍弄阳田：每年正月多收的青芝
+const TU_QZ := 3                    # 徒弟帮着侍弄阳田：每年正月多收的青芝
 const TEACH_CD := 12                # 指点后辈：一年一回
 const TEACH_GAP := 3                # 指点的人比她低三个小境界以上
 const TU_GAP := 4                   # 收的徒弟比她低四个小境界以上
@@ -27,8 +27,8 @@ const BARTER := [
 	{"give": {"herb_qingzhi": 30}, "get": {ZIZHI: 1}},
 	{"give": {ZIZHI: 1}, "get": {"pill_juqi": 4}},
 	{"give": {"pill_quzhang": 4}, "get": {"herb_xugucao": 1}},
-	{"give": {"herb_xugucao": 1}, "get": {"herb_qingzhi": 20}},
-	{"give": {ZIZHI: 1}, "get": {"herb_qingzhi": 40}},
+	{"give": {"herb_xugucao": 1}, "get": {"herb_qingzhi": 10}},
+	{"give": {ZIZHI: 1}, "get": {"herb_qingzhi": 20}},
 ]
 const BARTER_N := 3
 

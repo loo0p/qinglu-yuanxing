@@ -8,14 +8,14 @@ extends RefCounted
 const Gear = preload("res://scripts/gear.gd")
 const World = preload("res://scripts/world.gd")
 
-const COMM_PAY := [0, 75, 150, 420, 1200]    # 按大境界（炼气接不到）
+const COMM_PAY := [0, 75, 135, 420, 1200]    # 按大境界（炼气接不到）；v0.16.0 金丹 150→135
 const COMM_QZ := 10
 const COMM_FUEL := [0, 16, 30, 85, 240]       # 地火钱，接单时先付（坊市租地火炉的钱，她自己出）
 const COMM_MONTHS := 4
 const COMM_FAIL := 15                         # 炸炉百分比；二阶聚灵阵以上（丹炉成丹率 +10%）减到 5
 const COMM_MAX := 3                           # 手上同时最多三单
 const COMM_YEAR := 6                          # 一年最多接六单
-const KQ_PAY := [0, 70, 140, 380, 1100]       # 客卿年俸
+const KQ_PAY := [0, 70, 125, 380, 1100]       # 客卿年俸；v0.16.0 金丹 140→125
 const KQ_REP := 2                             # 名声到 2（办成两件差事）坊市才请她做客卿
 const KQ_TERM := 36                           # 隔三年没回来坐镇，客卿之位另请了人；俸最多攒三年
 const BTY := [[0, 0], [70, 130], [140, 260], [400, 700], [1200, 2000]]
