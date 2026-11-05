@@ -5,6 +5,7 @@
 - **马善政毛笔楷书 Ma Shan Zheng** — https://github.com/google/fonts/tree/main/ofl/mashanzheng — 标题。子集。许可：`fonts/OFL-MaShanZheng.txt`
 
 ## 美术
+- v0.15.8 新增物品图标（紫芝 / 续骨草 / 驱瘴丹 / 客舍）：AI 生成白底图，再由本项目脚本抠透明为 `assets/img/ico_{zizhi,xugucao,quzhang,keshe}.webp`。
 - `art_src/` 与 `assets/img/` 里的标题图、场景背景（青庐、后山、寒潭、静室/心魔、结局）、青庐庭院、后山/寒潭路线图、立绘（主角三种神情、老龟、葛老三；另有一张 v0.13 起不再使用的旧开局人物立绘）、行路小人、物品图标：为本项目用 AI 图像生成工具生成，再由 `tools/make_assets.py` 缩放压缩；纸纹由脚本程序生成。未使用第三方图片素材。
 
 ## 音频

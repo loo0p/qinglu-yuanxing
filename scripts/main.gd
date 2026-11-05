@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.15.7 试玩版"
+const VERSION = "v0.15.8 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -25,8 +25,10 @@ const C_GOLD := Color("#C9973B")
 const NAMES_PRESET = ["苏青禾", "林晚照", "沈知微", "温小满"]
 const SPEAKER = {"turtle": "老龟", "gelaosan": "葛老三", "heroine": ""}
 const ICON = {"herb_qingzhi": "ico_qingzhi", "herb_hantanlian": "ico_lian", "seed_lianzi": "ico_lian", "herb_chiyangguo": "ico_guo",
-	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_g_hulu", "fu_bishui": "ico_fu", "fu_jingshui": "ico_g_fu_jiu",
-	"fu_dingfeng_can": "ico_g_fu_can", "herb_xugucao": "ico_qingzhi", "herb_zizhi": "ico_qingzhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
+	"pill_juqi": "ico_juqi", "pill_zhuji": "ico_zhuji", "pill_quzhang": "ico_quzhang", "fu_bishui": "ico_fu", "fu_jingshui": "ico_g_fu_jiu",
+	"fu_dingfeng_can": "ico_g_fu_can", "herb_xugucao": "ico_xugucao", "herb_zizhi": "ico_zizhi", "crop_linggu": "ico_ration", "lingshi": "ico_lingshi", "ration": "ico_ration"}
+## v0.15.8：营建 / 差事用的抽象图标（不是背包 id）
+const UI_ICON = {"pu1": "ico_zizhi", "pu2": "ico_zizhi", "ke": "ico_keshe", "comm": "ico_juqi", "kq": "ico_g_pei", "bty": "ico_g_jian"}
 # v0.14.3 器物图标（按原型；没有的按 items.json 里的 icon 键）
 const GICON = {"剑": "ico_g_jian", "飞剑": "ico_g_feijian", "伞": "ico_g_san", "铃": "ico_g_ling", "印": "ico_g_yin",
 	"道袍": "ico_g_pao", "软甲": "ico_g_jia", "玉佩": "ico_g_pei", "簪": "ico_g_zan", "戒": "ico_g_jie",
@@ -713,6 +715,35 @@ func gear_icon(it: Dictionary) -> String:
 	if ICON.has(pid):
 		return ICON[pid]
 	return GICON_KEY.get(String(Gear.prop(pid, "icon", "")), "ico_fu")
+
+## v0.15.8：任意物品 id → 图标资源名（消耗品 / 器物 / 回落符）
+func item_icon(id: String) -> String:
+	if ICON.has(id):
+		return ICON[id]
+	if GICON.has(id):
+		return GICON[id]
+	if UI_ICON.has(id):
+		return UI_ICON[id]
+	return GICON_KEY.get(String(Gear.prop(id, "icon", "")), "ico_fu")
+
+## v0.15.8：履历句子里提到的物品 id（按 NAMES 中文名匹配，最长优先，最多 2 个）
+func _life_items(text: String) -> Array:
+	var hits := []
+	var pairs := []
+	for id in GS.NAMES:
+		var nm := String(GS.NAMES[id])
+		if nm.length() < 2 or String(id).begins_with("res_"):
+			continue
+		pairs.append([nm, String(id)])
+	pairs.sort_custom(func(a, b): return String(a[0]).length() > String(b[0]).length())
+	var used := text
+	for pr in pairs:
+		if used.contains(String(pr[0])):
+			hits.append(String(pr[1]))
+			used = used.replace(String(pr[0]), "")
+			if hits.size() >= 2:
+				break
+	return hits
 
 func IC(name: String, size: int, parent: Node) -> TextureRect:
 	var tr = TextureRect.new()
@@ -1880,7 +1911,12 @@ func _sheet_yao(v: Node) -> void:
 		for i0 in ofs:
 			var i: int = i0
 			var why: String = Estate.can_barter(g, i)
-			var b3 = B(Estate.offer_text(g, i) + ("" if why == "" else "（%s）" % why), func(): _est_msg(Estate.barter(g, i)), why == "", v, 40)
+			var oico := "ico_fu"
+			var give: Dictionary = Estate.BARTER[i]["give"]
+			for gid in give:
+				oico = item_icon(String(gid))
+				break
+			var b3 = BI(Estate.offer_text(g, i) + ("" if why == "" else "（%s）" % why), oico, func(): _est_msg(Estate.barter(g, i)), why == "", v, 40)
 			b3.autowrap_mode = TextServer.AUTOWRAP_OFF
 			b3.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b3.add_theme_font_size_override("font_size", 13)
@@ -1890,24 +1926,30 @@ func _sheet_jobs(v: Node) -> void:
 	var e: Dictionary = Jobs.E(g)
 	L("坊市名声 %d · 手里 %d 灵石" % [int(e["rep"]), int(g.s["lingshi"])], 12, C_DIM, v)
 	var c1 = card(v)
-	L("代炼", 14, C_ACCENT, c1)
+	var h1 = row(c1)
+	IC(UI_ICON["comm"], 28, h1)
+	L("代炼", 14, C_ACCENT, h1)
 	LW("药铺出主料，她搭 %d 株青芝、先付 %d 灵石地火钱；丹炉一单占 %d 个月，这期间自家的丹停炉。约 %d%% 炸炉，要赔三成料钱。" % [Jobs.COMM_QZ, int(Jobs.COMM_FUEL[clampi(g.major(), 1, 4)]), Jobs.COMM_MONTHS, Jobs.comm_fail_pct(g)], 11, C_DIM, c1)
 	if Jobs.furnace_busy(g):
 		LW(Jobs.comm_text(g), 11, C_WARN, c1)
 	var w1: String = Jobs.can_comm(g)
-	B("接一单代炼（成了 %d 灵石）" % Jobs.comm_pay(g) if w1 == "" else "接一单代炼：%s" % w1, func(): Jobs.take_comm(g), w1 == "", c1, 40)
+	BI("接一单代炼（成了 %d 灵石）" % Jobs.comm_pay(g) if w1 == "" else "接一单代炼：%s" % w1, UI_ICON["comm"], func(): Jobs.take_comm(g), w1 == "", c1, 40)
 	var c2 = card(v)
-	L("客卿", 14, C_ACCENT, c2)
+	var h2 = row(c2)
+	IC(UI_ICON["kq"], 28, h2)
+	L("客卿", 14, C_ACCENT, h2)
 	LW(Jobs.kq_text(g), 11, C_DIM, c2)
 	var w2: String = Jobs.can_kq(g)
 	var kq_lb := "应下客卿（坐镇一个月）" if int(e["kq"]) < 0 else "回来坐镇一个月（领 %d 灵石）" % (Jobs.kq_due(g) * Jobs.kq_pay(g))
-	B(kq_lb if w2 == "" else "客卿：%s" % w2, func(): sheet = ""; Jobs.sit_kq(g), w2 == "", c2, 40)
+	BI(kq_lb if w2 == "" else "客卿：%s" % w2, UI_ICON["kq"], func(): sheet = ""; Jobs.sit_kq(g), w2 == "", c2, 40)
 	var c3 = card(v)
-	L("悬赏", 14, C_ACCENT, c3)
+	var h3 = row(c3)
+	IC(UI_ICON["bty"], 28, h3)
+	L("悬赏", 14, C_ACCENT, h3)
 	var rg: Array = Jobs.bty_range(g) if g.major() >= 1 else Jobs.BTY[1]
 	LW("离家两个月：除妖、护镖、拿贼，先花 %d 灵石备符箓干粮。赏 %d–%d 灵石（名声越高给得越多）；约四分之一带伤回来，偶尔重伤只拿一半。" % [int(Jobs.BTY_KIT[clampi(g.major(), 1, 4)]), int(rg[0]), int(rg[1])], 11, C_DIM, c3)
 	var w3: String = Jobs.can_bty(g)
-	B("揭一张悬赏（离开两个月）" if w3 == "" else "悬赏：%s" % w3, func(): sheet = ""; Jobs.take_bty(g), w3 == "", c3, 40)
+	BI("揭一张悬赏（离开两个月）" if w3 == "" else "悬赏：%s" % w3, UI_ICON["bty"], func(): sheet = ""; Jobs.take_bty(g), w3 == "", c3, 40)
 
 func _auc_bid() -> void:
 	var m: String = Gear.auction_bid(g)
@@ -1922,9 +1964,15 @@ func _sheet_auc(v: Node) -> void:
 	var lot: Dictionary = A["lot"]
 	if A.has("n"):
 		L("%s · 第 %d / %d 件%s" % ["春拍 · 小拍" if Gear.auction_spring(int(g.s["day"])) else "秋拍 · 大拍", int(A["i"]), int(A["n"]), "（压轴）" if not Gear.auction_more(A) else ""], 12, C_DIM, v)
-	var hl = L("%s · %s" % [lot["n"], Gear.grade_name(lot)], 20, Color(Gear.GCOL[int(lot["g"])]), v)
+	var hr_lot = row(v, 8)
+	IC(gear_icon(lot), 56, hr_lot)
+	var hv = VBoxContainer.new()
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_theme_constant_override("separation", 2)
+	hr_lot.add_child(hv)
+	var hl = L("%s · %s" % [lot["n"], Gear.grade_name(lot)], 20, Color(Gear.GCOL[int(lot["g"])]), hv)
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	LW(Gear.stat_text(lot) + "（%s）" % String(lot["h"][0][1]), 13, C_TEXT, v)
+	LW(Gear.stat_text(lot) + "（%s）" % String(lot["h"][0][1]), 13, C_TEXT, hv)
 	for t in A["log"].slice(maxi(0, A["log"].size() - 5)):
 		LW(String(t), 13, C_DIM, v)
 	var r = row(v, 6)
@@ -2302,6 +2350,20 @@ func _modal() -> void:
 			if not sq.get("people", []).is_empty():
 				var pc2 = card()
 				H("故人", 18, C_ACCENT, pc2)
+				var faces = HFlowContainer.new()
+				faces.add_theme_constant_override("h_separation", 6)
+				faces.add_theme_constant_override("v_separation", 4)
+				pc2.add_child(faces)
+				var matched := {}
+				if g.world != null:
+					for ln0 in sq["people"]:
+						var ln := String(ln0)
+						for o in g.world.w["C"].values():
+							var nm := String(o["name"])
+							if nm.length() >= 2 and ln.contains(nm) and not matched.has(int(o["id"])):
+								matched[int(o["id"])] = true
+								_mini_face(o, 56.0, faces)
+								break
 				LW("；".join(sq["people"]) + "。", 13, C_TEXT, pc2)
 				L("（都记进了她的履历：生平 → 她在江湖里的生平）", 12, C_DIM, pc2)
 			B("推开静室的门", func(): modal = {}, true, footer, 52)
@@ -2482,16 +2544,16 @@ func _estate_card() -> void:
 		var kk: String = k
 		var bd: Dictionary = Estate.BUILD[kk]
 		var why: String = Estate.can_build(g, kk)
-		var bb = B("%s %s（%d 灵石，年 %d）" % ["建" if kk == "ke" else "辟", bd["n"], int(bd["build"]), int(bd["fee"])], func(): Estate.build(g, kk), why == "", r, 42)
+		var bb = BI("%s %s（%d 灵石，年 %d）" % ["建" if kk == "ke" else "辟", bd["n"], int(bd["build"]), int(bd["fee"])], UI_ICON.get(kk, "ico_zizhi"), func(): Estate.build(g, kk), why == "", r, 42)
 		bb.add_theme_font_size_override("font_size", 13)
 	LW("紫芝是高阶灵草：坊市药铺收（约 %d 灵石一株），也能跟货郎换丹。用度欠着灵圃就停。" % Estate.zizhi_price(g), 11, C_DIM, c)
 	L(Estate.tu_text(g), 13, C_INK, c)
 	var r2 = row(c)
 	var w1: String = Estate.can_teach(g)
-	var tb = B("指点后辈（一个月）" if w1 == "" else "指点：%s" % w1, func(): sheet = "men", w1 == "", r2, 42)
+	var tb = BI("指点后辈（一个月）" if w1 == "" else "指点：%s" % w1, "ico_zhuji", func(): sheet = "men", w1 == "", r2, 42)
 	tb.add_theme_font_size_override("font_size", 13)
 	var w2: String = Estate.can_take_tu(g)
-	var ub = B("收徒" if w2 == "" else "收徒：%s" % w2, func(): sheet = "men", w2 == "", r2, 42)
+	var ub = BI("收徒" if w2 == "" else "收徒：%s" % w2, UI_ICON["ke"], func(): sheet = "men", w2 == "", r2, 42)
 	ub.add_theme_font_size_override("font_size", 13)
 
 func _est_msg(m: String) -> void:
@@ -2512,8 +2574,23 @@ func _sheet_men(v: Node) -> void:
 			continue
 		seen[cid] = true
 		var cc = card(v)
-		L("%s · %s · 好感 %d" % [c["name"], W.realm(c), int(W.opinion(c, W.P()))], 13, C_INK, cc)
-		var rr = row(cc)
+		var hr = row(cc, 8)
+		var face = Button.new()
+		face.custom_minimum_size = Vector2(52, 58)
+		face.flat = true
+		face.pressed.connect(func(): _press(func(): sheet = ""; person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
+		hr.add_child(face)
+		var pb = PBox.new()
+		pb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.add_child(pb)
+		pb.setup(npc_spec(c), PBox.FACE, 0.0)
+		var info = VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.add_theme_constant_override("separation", 2)
+		hr.add_child(info)
+		L("%s · %s · 好感 %d" % [c["name"], W.realm(c), int(W.opinion(c, W.P()))], 13, C_INK, info)
+		var rr = row(info)
 		var tb = B("指点%s" % c["name"], func(): sheet = ""; _est_msg(Estate.teach(g, cid)), w1 == "", rr, 40)
 		tb.add_theme_font_size_override("font_size", 13)
 		var gap_ok: bool = int(c["lv"]) + Estate.TU_GAP <= int(W.plv())
@@ -3827,6 +3904,10 @@ func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:
 			var fxs: String = w.fx_text(e[2]) if e.size() > 2 else ""
 			if fxs != "":
 				L(fxs.replace(pname, "她"), 12, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.8), tv)
+			# v0.15.8：履历正文/效果里点到的物品，右侧加小图标（最多 2 个，不挤）
+			var its := _life_items(String(e[1]) + " " + fxs)
+			for iid in its:
+				IC(item_icon(iid), 18, er)
 			var who := []
 			for o in ppl:
 				if String(e[1]).contains(String(o["name"])):
