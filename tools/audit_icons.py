@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v0.15.8：物品图标 + 关键 UI 行必须带图。
+"""v0.15.8/v0.15.9：物品图标 + 关键 UI 行必须带图。
 用法：python3 tools/audit_icons.py [--list] [--strict]
 --strict：缺图标文件，或关键 UI 仍用纯文字按钮渲染人物/物品 → 退出 1（挂进 run_tests.sh）
 """
@@ -93,6 +93,13 @@ ui_checks.append(("履历条目可挂物品小图标", "_life_items" in bl and "
 # seclude 故人
 ui_checks.append(("出关故人可挂小头像", "_mini_face" in body("_modal") or ("故人" in main and "_mini_face(o" in main)))
 ui_checks.append(("存在 item_icon 助手", "func item_icon(" in main))
+# v0.15.9
+bjh = body("_jianghu")
+bst = body("_story")
+ui_checks.append(("传闻行可挂熟人小头像", "_news_face" in bjh and "PBox" in bjh))
+ui_checks.append(("事件选项可挂人名/物品图", "_named_known" in bst and "_life_items" in bst and "BI(" in bst))
+ui_checks.append(("事件结果奖励可挂物品图标", "rits" in bst and "IC(" in bst and 'get("result"' in bst))
+ui_checks.append(("存在 _news_face / _named_known", "func _news_face(" in main and "func _named_known(" in main))
 
 print("物品 id %d：缺映射 %d，缺文件 %d，禁止套用 %d" % (len(ids), len(missing_map), len(missing_file), len(proxy)))
 if "--list" in sys.argv or missing_map or missing_file or proxy:

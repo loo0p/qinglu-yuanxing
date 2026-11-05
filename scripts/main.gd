@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.15.8 试玩版"
+const VERSION = "v0.15.9 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -726,7 +726,7 @@ func item_icon(id: String) -> String:
 		return UI_ICON[id]
 	return GICON_KEY.get(String(Gear.prop(id, "icon", "")), "ico_fu")
 
-## v0.15.8：履历句子里提到的物品 id（按 NAMES 中文名匹配，最长优先，最多 2 个）
+## v0.15.8 / v0.15.9：句子里提到的物品 id（NAMES + 灵石 + 器物原型名；最长优先，最多 2 个）
 func _life_items(text: String) -> Array:
 	var hits := []
 	var pairs := []
@@ -735,6 +735,9 @@ func _life_items(text: String) -> Array:
 		if nm.length() < 2 or String(id).begins_with("res_"):
 			continue
 		pairs.append([nm, String(id)])
+	pairs.append(["灵石", "lingshi"])
+	for pid in GICON:
+		pairs.append([String(pid), String(pid)])
 	pairs.sort_custom(func(a, b): return String(a[0]).length() > String(b[0]).length())
 	var used := text
 	for pr in pairs:
@@ -744,6 +747,49 @@ func _life_items(text: String) -> Array:
 			if hits.size() >= 2:
 				break
 	return hits
+
+## v0.15.9：句子里第一个认得的熟人（按名字最长优先）；没有就空字典
+func _named_known(text: String) -> Dictionary:
+	if g.world == null or text == "":
+		return {}
+	var best := {}
+	var blen := 0
+	for o in g.world.w["C"].values():
+		if o.get("player", false) or not g.world.known(o):
+			continue
+		var nm := String(o["name"])
+		if nm.length() >= 2 and text.contains(nm) and nm.length() > blen:
+			best = o
+			blen = nm.length()
+	return best
+
+## v0.15.9：传闻条目里优先的熟人小头像对象（ids 里认得的；谋划优先主谋）
+func _news_face(it: Array) -> Dictionary:
+	if g.world == null or it.size() < 3:
+		return {}
+	var ids: Array = it[2] if it[2] is Array else []
+	# it[4] 是谋划 id（有“插手”时）；主谋若认得就用他
+	if it.size() >= 5 and String(it[3]) == "谋":
+		var pt: Dictionary = g.world.MD.get_plot(g.world, int(it[4]))
+		if not pt.is_empty():
+			var a: Dictionary = g.world.C(pt["a"])
+			if not a.is_empty() and g.world.known(a):
+				return a
+	for id0 in ids:
+		var c: Dictionary = g.world.C(int(id0))
+		if not c.is_empty() and not c.get("player", false) and g.world.known(c):
+			return c
+	return _named_known(String(it[1]))
+
+## v0.15.9：行内小头像（传闻 / 选项用；比 _mini_face 更扁，不占整卡）
+func _row_face(c: Dictionary, side: float, parent: Node) -> void:
+	var pb = PBox.new()
+	pb.custom_minimum_size = Vector2(side, side * 1.08)
+	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(pb)
+	pb.setup(npc_spec(c), PBox.FACE, 0.0)
+	if not c.get("alive", true):
+		pb.modulate = Color(0.75, 0.75, 0.75, 0.85)
 
 func IC(name: String, size: int, parent: Node) -> TextureRect:
 	var tr = TextureRect.new()
@@ -3623,11 +3669,34 @@ func _story() -> void:
 		var k = 0
 		for o in ev["opts"]:
 			var oid = String(o[0])
-			var b = B(String(o[1]), func(): _story_pick(oid), true, footer, opt_h)
-			b.add_theme_font_size_override("font_size", 15)
-			_reveal(b, k)
+			var lab := String(o[1])
+			# v0.15.9：选项点到熟人 → 左侧小头像；点到物品 → 左侧图标；都没有就纯文字
+			var who: Dictionary = _named_known(lab)
+			var its: Array = _life_items(lab)
+			if not who.is_empty():
+				var rr = row(footer, 6)
+				_row_face(who, 34.0 if opt_h >= 50 else 30.0, rr)
+				var b = B(lab, func(): _story_pick(oid), true, rr, opt_h)
+				b.add_theme_font_size_override("font_size", 15)
+				_reveal(rr, k)
+		elif not its.is_empty():
+				var b2 = BI(lab, item_icon(String(its[0])), func(): _story_pick(oid), true, footer, opt_h)
+				b2.add_theme_font_size_override("font_size", 15)
+				b2.add_theme_constant_override("icon_max_width", 26)
+				_reveal(b2, k)
+			else:
+				var b3 = B(lab, func(): _story_pick(oid), true, footer, opt_h)
+				b3.add_theme_font_size_override("font_size", 15)
+				_reveal(b3, k)
 			k += 1
 	else:
+		# v0.15.9：结果文案里点到的得/失物品，在“知道了”上方挂小图标
+		var rits: Array = _life_items(String(ev.get("result", "")))
+		if not rits.is_empty():
+			var rr2 = row(footer, 6)
+			rr2.alignment = BoxContainer.ALIGNMENT_CENTER
+			for iid0 in rits:
+				IC(item_icon(String(iid0)), 28, rr2)
 		B("知道了", func(): g.world.close(); modal = {}, true, footer, 50)
 
 func _story_pick(oid: String) -> void:
@@ -3704,16 +3773,29 @@ func _jianghu() -> void:
 		L("山里很静，没听见什么。", 13, C_DIM, nc)
 	for i in range(news.size() - 1, maxi(-1, news.size() - 13), -1):
 		# v0.10：“听说某某要……”的传闻，日子没到之前可以插手
-		var pid: int = w.MD.news_pid(w, news[i])
+		# v0.15.9：认得的人在行首挂小头像（不认得就省略，避免挤）
+		var itn: Array = news[i]
+		var pid: int = w.MD.news_pid(w, itn)
+		var nr = row(nc, 6)
+		var face: Dictionary = _news_face(itn)
+		if not face.is_empty():
+			var fid := int(face["id"])
+			var fb = Button.new()
+			fb.custom_minimum_size = Vector2(36, 40)
+			fb.flat = true
+			fb.pressed.connect(func(): _press(func(): person_id = fid; person_tab = "life"; modal = {"kind": "person"}))
+			nr.add_child(fb)
+			var pb = PBox.new()
+			pb.set_anchors_preset(Control.PRESET_FULL_RECT)
+			pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			fb.add_child(pb)
+			pb.setup(npc_spec(face), PBox.FACE, 0.0)
+		LW("%s  %s" % [World.cal_short(int(itn[0])), itn[1]], 13, C_TEXT, nr)
 		if pid >= 0:
-			var nr = row(nc, 6)
-			LW("%s  %s" % [World.cal_short(int(news[i][0])), news[i][1]], 13, C_TEXT, nr)
 			var mb = B("插手", func(): _meddle(pid), true, nr, 40)
 			mb.size_flags_horizontal = Control.SIZE_SHRINK_END
 			mb.custom_minimum_size.x = 64
 			mb.add_theme_font_size_override("font_size", 14)
-		else:
-			L("%s  %s" % [World.cal_short(int(news[i][0])), news[i][1]], 13, C_TEXT, nc)
 
 func _person() -> void:
 	var w = g.world
