@@ -290,7 +290,53 @@ def fix_head(rel, im):
     rs = np.random.RandomState(7)
     paper = bg[None, None, :] + rs.normal(0, 1.0, rgb.shape)
     out = rgb * (1 - body[..., None]) + paper * body[..., None]
-    return Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGB")
+    im = Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGB")
+    return fix_chin_neck(im, float(A["mouth"][1]), m)
+
+
+def fix_chin_neck(im, mouth_y, mask_rgba=None):
+    """下巴接到脖子上。
+
+    底头在下颌有一道横着的暗线，像下巴是贴上去的；掩模外一圈又被抹成纸色，
+    衣领羽化时就露出一道白缝。这里只动嘴以下、锁骨以上：把那道暗线顺着皮肤抹开，
+    掩模外 5px 里发白的像素补成邻近的肤色。五官、发际、刘海不动。
+    """
+    import cv2
+    rgb = np.array(im.convert("RGB")).astype(np.float32)
+    h, w = rgb.shape[:2]
+    if mask_rgba is None:
+        return im
+    skin = np.array(mask_rgba)[..., 0] > 120
+    if skin.shape != (h, w):
+        return im
+    L = rgb @ np.array([0.299, 0.587, 0.114], np.float32)
+    blur = cv2.GaussianBlur(rgb, (1, 11), 0)
+    y0 = int(mouth_y + 16)
+    y1 = int(mouth_y + 46)
+    band = np.zeros(h, np.float32)
+    band[max(0, y0):min(h, y1)] = 1
+    band = cv2.GaussianBlur(band.reshape(-1, 1), (31, 1), 0).ravel()
+    for y in range(max(2, y0 - 4), min(h - 2, y1 + 4)):
+        if band[y] < 0.02:
+            continue
+        msk = skin[y]
+        if not msk.any():
+            continue
+        dip = np.clip((L[y - 2] - L[y]) / 40.0, 0, 1)
+        wgt = np.clip(band[y] * 0.85 * np.maximum(dip, 0.35), 0, 0.85)
+        rgb[y, msk] = rgb[y, msk] * (1 - wgt[msk, None]) + blur[y, msk] * wgt[msk, None]
+    L2 = rgb @ np.array([0.299, 0.587, 0.114], np.float32)
+    dist = cv2.distanceTransform((~skin).astype(np.uint8), cv2.DIST_L2, 3)
+    yy = np.arange(h)[:, None]
+    rim = (dist > 0) & (dist <= 5) & (yy > mouth_y + 8) & (yy < mouth_y + 70)
+    hole = rim.astype(np.uint8)
+    if hole.any():
+        bgr = cv2.cvtColor(np.clip(rgb, 0, 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        painted = cv2.cvtColor(cv2.inpaint(bgr, hole, 5, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB).astype(np.float32)
+        pale = (L2 > 185) & ((rgb.max(-1) - rgb.min(-1)) < 40)
+        use = rim & pale
+        rgb[use] = painted[use]
+    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8), "RGB")
 
 
 def fix_cloth(rel, im):

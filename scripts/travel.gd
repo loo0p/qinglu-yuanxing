@@ -455,14 +455,16 @@ static func present(W, tid: String, roles: Dictionary, ctx: Dictionary) -> Dicti
 			var f := {"sp": sp, "w": _who(W, n), "a": act}
 			var lead: String = "在{sp}，她看见{w}{a}，便走了过去。" if int(ctx.get("me", 0)) == 1 else W.pv("相逢起", ["她到{sp}时，{w}{a}。", "在{sp}，她看见{w}{a}。", "{sp}一带，{w}{a}。"])
 			var text := "%s%s。" % [lead.format(f), W._hint(n)]
-			var opts := [_o("talk", "上前攀谈")]
+			var opts := [_o("talk", "问问修行")]
 			opts.append(_o("ask", "打听风声"))
 			if k in ["求财", "交游"] and W.g != null:
-				opts.append(_o("trade", "看看手里的东西（4灵石）"))
+				opts.append(_o("trade", "换丹药（4灵石）"))
 			elif k in ["扬名", "破境", "压人"] or W.rng.randf() < 0.4:
 				opts.append(_o("spar", "讨教几招"))
 			elif W.known(n) and W.opinion(n, W.P()) > 5:
 				opts.append(_o("join", "结伴走走"))
+			else:
+				opts.append(_o("way", "问去路"))
 			opts.append(_o("bye", "点个头走开"))
 			return {"speaker": int(n["id"]), "text": text, "opts": opts}
 	return {"speaker": 0, "text": "", "opts": [_o("ok", "知道了")]}
@@ -487,43 +489,60 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 			match oid:
 				"talk":
 					W.fav(n, 3 if first else 2, "在%s同她说过一回话" % pl, 2)
-					var t := "%s。" % W.pv("攀谈", ["两人说了好一会儿话", "对方起先有些拘谨，后来话也多了", "一盏茶的工夫，倒像认识了许久"])
+					var gain := 2 if k == "破境" else 1
+					W._wu(gain)
+					var t := ""
+					if k == "破境":
+						t = "%s不谈闲话，只说破境：感悟攒够，就到静室冲关。" % nm
+					elif k == "求财":
+						t = "%s缺灵石，讲的是药铺行情：青芝和聚气丹都能换成灵石。" % nm
+					elif k in ["拜师", "护人"]:
+						t = "%s提起门下：后辈若肯学，青庐里可以指点。" % nm
+					else:
+						t = "%s只谈修行。她眼下是%s，听完把自己的关口又对了一遍。" % [nm, W.realm(p)]
 					if first:
 						t += "对方自称%s。" % nm
-					var why := String(n.get("dr", {}).get("why", ""))
-					t += "%s说起近来%s%s。" % [W.ta(n) if n["sex"] != "女" else "对方", String(W.AG.DRIVE_WORD.get(k, "四处走动")), ("——" + why) if why != "" and why.length() < 24 and not why.contains(W.pn()) and k in ["复仇", "求偶", "护人", "报恩", "赎过", "叛门", "疗伤", "压人", "破境"] else ""]
 					var pid := _reveal_plot(W, n)
 					if pid >= 0:
 						t += "她听出话里有话：%s" % _plot_line(W, pid)
 					var hp := String(W.SECT_HOME.get(n["sect"], ""))
 					if PL.has(hp) and not unlocked(W, hp):
 						W.w["heard"][hp] = heard_n(W, hp) + 1
-					W.chron(p, "在%s同%s攀谈。" % [pl, nm])
-					return t
+						t += "还说了去%s的路。" % hp
+					W.chron(p, "在%s向%s请教修行。" % [pl, nm])
+					return t + "（感悟 +%d）。" % gain
 				"ask":
 					W.fav(n, 1)
 					var lk := locked(W)
 					var t2 := ""
 					var pid2 := _reveal_plot(W, null)
 					if pid2 >= 0:
-						t2 = "%s压低声音说：%s" % [nm, _plot_line(W, pid2)]
+						t2 = "%s压低声音，把谋划说了：%s她可以在江湖页插手。" % [nm, _plot_line(W, pid2)]
 					elif not lk.is_empty():
 						var q: String = W._ch(lk)
 						W.w["heard"][q] = heard_n(W, q) + 2
-						t2 = "%s说起%s：%s" % [nm, q, PL[q]["hint"]]
+						t2 = "%s说起去%s的路：%s（风声 +2）。" % [nm, q, PL[q]["hint"]]
 					else:
 						var ns: Array = W.recent_news(20)
-						t2 = ("%s说：“%s”" % [nm, String(ns[-1][1])]) if not ns.is_empty() else "%s摇摇头：近来太平得很。" % nm
+						t2 = ("%s说起近来听见的事：“%s”（好感 +1）。" % [nm, String(ns[-1][1])]) if not ns.is_empty() else "%s摇头：眼下没有新风声。她仍把这句话记下了（好感 +1）。" % nm
 					return t2
+				"way":
+					W.fav(n, 1, "在%s问过去路" % pl, 1)
+					var lk2 := locked(W)
+					if not lk2.is_empty():
+						var q2: String = W._ch(lk2)
+						W.w["heard"][q2] = heard_n(W, q2) + 2
+						return "%s把去%s的路指给她：%s（风声 +2）。" % [nm, q2, PL[q2]["hint"]]
+					return "%s说：这一带的路她已经走熟，眼下没有新的去处（好感 +1）。" % nm
 				"trade":
 					if W.lingshi() < 4:
-						return "她摸了摸钱袋，只好笑着摆摆手。"
+						return "她摸了摸钱袋，四块灵石不够，这笔换丹只得作罢。"
 					W._ling(-4)
 					var gd: Array = W._ch(W.AG.GOODS)
 					W.g.add_item(String(gd[0]), int(gd[1]))
 					W.AG._add_ls(n, 4)
-					W.fav(n, 2)
-					return "她用四块灵石换了%s。%s收了灵石，又多送了一句吉利话。" % [gd[2], nm]
+					W.fav(n, 2, "在%s换过丹药" % pl, 2)
+					return "她花四块灵石，换得%s（灵石 -4）。" % gd[2]
 				"spar":
 					var win: bool = W._roll(float(W.plv()) + W.Gear.edge(W, n), float(n["lv"]) * 0.8, 5.0, 5.0)   # v0.14：法宝
 					if win:
@@ -543,7 +562,10 @@ static func resolve(W, tid: String, roles: Dictionary, ctx: Dictionary, oid: Str
 					W._wu(2)
 					W.chron(n, "在%s同%s结伴走了一程。" % [pl, W.pn()])
 					W.chron(p, "在%s同%s结伴走了一程。" % [pl, nm])
-					return "两人一道把%s走了一遍，说的话比路还长（感悟 +2）。" % pl
+					return "两人把%s走了一遍，一路对过修行（感悟 +2）。" % pl
+				"bye":
+					W.fav(n, 1, "在%s点头作别" % pl, 1)
+					return "她点了点头，没有多留。%s记住了她（好感 +1）。" % nm
 			return ""
 	return ""
 
