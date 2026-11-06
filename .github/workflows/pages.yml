@@ -62,12 +62,67 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
-  deploy:
+  # 连着推两次时，旧运行里的 deploy-pages 会被 Pages 取消，动作却打出
+  # error「Deployment cancelled.」，整次工作流记成失败并发出红叉通知。
+  # 部署前先看本提交是不是 main 尖端，不是就跳过 deploy（成功，不失败）。
+  # 动作失败后再看一次：被后来的提交顶掉就算成功；仍是尖端才真失败。
+  # 上面的 concurrency 不动：过时的构建仍会被取消，那种结束状态是 cancelled，不发失败通知。
+  tip:
+    name: 确认仍是 main 尖端
     needs: build
+    runs-on: ubuntu-24.04
+    outputs:
+      current: ${{ steps.tip.outputs.current }}
+    steps:
+      - name: 对照 main
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TIP="$(gh api "repos/${REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ -z "${TIP}" ] || [ "${TIP}" = "null" ]; then
+            echo "::error::读不到 main 的尖端提交"
+            exit 1
+          fi
+          echo "tip=${TIP}" >> "$GITHUB_OUTPUT"
+          if [ "${TIP}" = "${HEAD_SHA}" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            echo "本提交 ${HEAD_SHA} 仍是 main 尖端，继续部署。"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "main 已到 ${TIP}，本提交 ${HEAD_SHA} 不再部署。"
+          fi
+  deploy:
+    needs: tip
+    if: success() && needs.tip.outputs.current == 'true'
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
+        name: 发布到 GitHub Pages
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: 被后来的提交顶掉则不算失败
+        if: steps.deployment.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TIP="$(gh api "repos/${REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ -z "${TIP}" ] || [ "${TIP}" = "null" ]; then
+            echo "::error::部署失败，而且读不到 main 的尖端提交"
+            exit 1
+          fi
+          echo "main 尖端=${TIP} 本提交=${HEAD_SHA}"
+          if [ "${TIP}" = "${HEAD_SHA}" ]; then
+            echo "::error::部署失败，且 ${HEAD_SHA} 仍是 main 尖端。"
+            exit 1
+          fi
+          echo "main 已到 ${TIP}。这次部署被后来的提交顶掉，按成功结束。"
