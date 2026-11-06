@@ -5,6 +5,7 @@ extends RefCounted
 ##   bty_d 上回接悬赏的月 · comm_y/comm_n 这一年接了几单
 ## 每样都有代价：代炼占着丹炉（自家的丹停炉）、搭十株青芝、一成多炸炉要赔料钱；客卿要隔三年内回坊市坐镇一个月、
 ## 有时有人闹事受伤；悬赏离家两个月、四分之一会带伤回来，偶尔重伤只拿一半
+## v0.16.1：平静办成的代炼、悬赏按年并成一条纪要，客卿领俸按十年并成一条；炸炉、带伤、闹事、过期另请人仍逐次单记。效果小字按次累加
 const Gear = preload("res://scripts/gear.gd")
 const World = preload("res://scripts/world.gd")
 
@@ -57,6 +58,95 @@ static func chron(gs, t: String, fx: Dictionary) -> void:
 	if not on(gs):
 		return
 	gs.pchron(t, -1, fx)   # v0.15.1 起 pchron 带效果小字
+
+## 履历落在江湖当月（pchron 用 world.w.day；每月结算时它比 s.day 慢一个月）
+static func _cy(gs) -> int:
+	var d := int(gs.world.w["day"]) if gs.world != null else _day(gs)
+	return (maxi(d, 1) - 1) / 12
+
+static func _tone(gs) -> int:
+	return posmod(_cy(gs), 3)
+
+## v0.16.1：平静的成丹并进当年一条纪要。炸炉仍逐次单记。
+static func _comm_line(n: int, fx: Dictionary) -> String:
+	var cn := World.cn_num(maxi(1, int(n)))
+	match int(fx.get("_tone", 0)) % 3:
+		1:
+			return "这一年药铺托来的丹，她炼成了%s炉。" % cn
+		2:
+			return "这一年丹炉常开，替坊市代炼的%s炉都成了。" % cn
+		_:
+			return "这一年替坊市药铺代炼，成了%s炉。" % cn
+
+static func _boom_line(gs) -> String:
+	match _tone(gs):
+		1:
+			return "替坊市药铺代炼的这一炉炸了，料钱赔了出去。"
+		2:
+			return "替坊市药铺代炼没压住火候，炸了炉，赔了主家料钱。"
+		_:
+			return "替坊市药铺代炼一炉丹，火候没压住，炸了炉，赔了料钱。"
+
+## 客卿：十年里平静的坐镇、领俸并成一条。闹事、带伤、过期另请人仍逐次单记。
+static func _kq_line(n: int, fx: Dictionary) -> String:
+	var cn := World.cn_num(maxi(1, int(n)))
+	var tone := int(fx.get("_tone", 0)) % 3
+	if int(n) <= 1:
+		match tone:
+			1:
+				return "回坊市坐镇一个月，把客卿的俸领了。"
+			2:
+				return "在坊市做了一个月客卿，俸领了回来。"
+			_:
+				return "应坊市之请，去坐镇了一个月，领了客卿的俸。"
+	match tone:
+		1:
+			return "这十年应着坊市的客卿，前后坐镇了%s回。" % cn
+		2:
+			return "这十年客卿的位子她还接着，回去坐镇了%s回。" % cn
+		_:
+			return "这十年里回坊市坐镇了%s回，客卿的俸都领了。" % cn
+
+static func _kq_fight_line(gs, gift: bool) -> String:
+	match _tone(gs):
+		1:
+			return "坐镇坊市的这个月，有人闹事，她压了下去，商户凑了谢礼。" if gift else "坐镇这个月，拦了一场闹事，肩上挂了彩。"
+		2:
+			return "客卿坐镇时遇上闹事，她出手镇住，坊市多给了一份谢礼。" if gift else "客卿坐镇时动了手，人是镇住了，她自己带了伤。"
+		_:
+			return "回坊市坐镇，有散修闹事，她出手镇住了，商户凑了一份谢礼。" if gift else "回坊市坐镇，有人闹事，她拦下了，自己也挂了彩。"
+
+static func _kq_drop_line(gs) -> String:
+	match _tone(gs):
+		1:
+			return "客卿的三年之期过了，坊市另请了人。"
+		2:
+			return "许久没回坊市，客卿之位另请了人。"
+		_:
+			return "三年没回坊市坐镇，客卿之位另请了人。"
+
+static func _bty_tag(what: String) -> String:
+	if "妖" in what:
+		return "追妖"
+	if "商" in what:
+		return "护商"
+	if "贼" in what:
+		return "拿贼"
+	return "清洞"
+
+## 悬赏：当年平静办成的并成一条，点出办的是哪几样。带伤、办砸仍逐次单记。
+static func _bty_line(n: int, fx: Dictionary) -> String:
+	var cn := World.cn_num(maxi(1, int(n)))
+	var what := String(fx.get("_what", ""))
+	var head := ""
+	match int(fx.get("_tone", 0)) % 3:
+		1:
+			head = "这一年揭了%s回坊市的榜，都办成了" % cn
+		2:
+			head = "这一年坊市悬赏，她办成了%s回" % cn
+		_:
+			head = "这一年替坊市办成%s回悬赏" % cn
+	return head + ("。" if what == "" else "：%s。" % what)
 
 static func _pay(gs, n: int) -> void:
 	var e := E(gs)
@@ -136,13 +226,13 @@ static func _comm_month(gs) -> void:
 		gs.s["lingshi"] = int(gs.s["lingshi"]) - loss
 		e["comm_fail"] = int(e.get("comm_fail", 0)) + 1
 		gs.notice("替药铺代炼的一炉炸了，赔了主家 %d 灵石料钱。" % loss)
-		chron(gs, "替坊市药铺代炼一炉丹，火候没压住，炸了炉，赔了料钱。", {"灵石": -loss})
+		chron(gs, _boom_line(gs), {"灵石": -loss})
 	else:
 		_pay(gs, int(job[1]))
 		e["rep"] = int(e["rep"]) + 1
 		e["jobs_n"] = int(e["jobs_n"]) + 1
 		gs.notice("代炼的丹成了，药铺来人取走，付了 %d 灵石。" % int(job[1]))
-		chron(gs, "替坊市药铺代炼一炉丹，成了。", {"灵石": int(job[1]), "名声": 1})
+		gs.fold_chron("comm", "year", {"灵石": int(job[1]), "名声": 1}, func(n, f): return _comm_line(int(n), f))
 
 # ---------------------------------------------------------------- 客卿坐镇
 static func kq_pay(gs) -> int:
@@ -184,29 +274,35 @@ static func sit_kq(gs) -> bool:
 	var fx := {}
 	var t := ""
 	if first:
-		t = "应了坊市的客卿，坐镇一个月。往后三年内回来坐镇一回，每年 %d 灵石的俸。" % pay
 		_pay(gs, pay / 2)
 		fx["灵石"] = pay / 2
 	else:
-		t = "回坊市坐镇一个月，领了 %d 年的客卿俸。" % due
 		_pay(gs, due * pay)
 		fx["灵石"] = due * pay
 	var r := Gear._rng_for(gs, 9300 + _day(gs))
+	var incident := false
 	if r.randi_range(1, 100) <= 20:
+		incident = true
 		if r.randi_range(1, 100) <= 70:
 			var bonus := pay / 4
 			_pay(gs, bonus)
 			e["rep"] = int(e["rep"]) + 1
 			fx["灵石"] = int(fx["灵石"]) + bonus
 			fx["名声"] = 1
-			t += "有散修在坊市闹事，她出手镇住了，商户凑了一份谢礼。"
+			t = _kq_fight_line(gs, true)
 		else:
 			var d := _hurt(gs, 2)
 			fx["伤|月"] = d
-			t += "有人在坊市闹事，她拦下了，自己也挂了彩。"
+			t = _kq_fight_line(gs, false)
+		if first:
+			t = ("应了坊市的客卿，坐镇一个月。往后三年内回来坐镇一回，每年 %d 灵石的俸。" % pay) + t
 	e["kq_n"] = int(e.get("kq_n", 0)) + 1
-	gs._log(t)
-	chron(gs, t, fx)
+	if incident:
+		gs._log(t)
+		chron(gs, t, fx)
+	else:
+		gs._log("应了坊市的客卿，坐镇一个月。" if first else "回坊市坐镇一个月，领了客卿俸。")
+		gs.fold_chron("kq", "decade", fx, func(n, f): return _kq_line(int(n), f))
 	return true
 
 static func kq_text(gs) -> String:
@@ -253,6 +349,7 @@ static func take_bty(gs) -> bool:
 	if gs.s["ended"]:
 		return true
 	var fx := {}
+	var calm := roll > BTY_HURT
 	var t := "揭了坊市的悬赏，去%s。" % what
 	if roll <= BTY_BAD:
 		pay = pay / 2
@@ -261,16 +358,19 @@ static func take_bty(gs) -> bool:
 	elif roll <= BTY_HURT:
 		fx["伤|月"] = _hurt(gs, 3)
 		t += "办成了，带了伤回来。"
-	else:
-		t += "办成了。"
 	_pay(gs, pay)
 	fx["灵石"] = pay
 	e["rep"] = int(e["rep"]) + 1
 	e["jobs_n"] = int(e["jobs_n"]) + 1
 	e["bty_n"] = int(e.get("bty_n", 0)) + 1
 	fx["名声"] = 1
-	gs._log(t + "（+%d 灵石）" % pay)
-	chron(gs, t, fx)
+	if calm:
+		fx["_what"] = _bty_tag(what)
+		gs._log("揭了坊市的悬赏，去%s。办成了。（+%d 灵石）" % [what, pay])
+		gs.fold_chron("bty", "year", fx, func(n, f): return _bty_line(int(n), f))
+	else:
+		gs._log(t + "（+%d 灵石）" % pay)
+		chron(gs, t, fx)
 	return true
 
 # ---------------------------------------------------------------- 每月
@@ -283,7 +383,7 @@ static func monthly(gs) -> void:
 		e["kq"] = -1
 		e["rep"] = maxi(0, int(e["rep"]) - 2)
 		gs.notice("三年没回坊市坐镇，客卿之位另请了人。")
-		chron(gs, "三年没回坊市坐镇，客卿之位另请了人。", {"名声": -2})
+		chron(gs, _kq_drop_line(gs), {"名声": -2})
 
 static func summary(gs) -> Dictionary:
 	var e := E(gs)
