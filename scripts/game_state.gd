@@ -324,6 +324,70 @@ func pchron(t: String, day: int = -1, fx: Dictionary = {}) -> void:
 	lg.insert(at, e)
 	World.trim_log(lg, World.PLOG_CAP)
 
+## v0.16.1：同一段时间里重复的平静差事并成一条纪要（长闭关、关口枯坐并成一条的先例）。
+## span：year 自然年 / decade 十年。kind 记在效果的 _fold 上，小字不显示（World.fx_text 跳过 _ 开头的键）。
+## text_of(n, fx) 按累计次数重写正文。灵石、名声等数字相加；_what 里相同的短句不重复拼接。
+func fold_chron(kind: String, span: String, add: Dictionary, text_of: Callable) -> void:
+	if world == null:
+		return
+	var day := int(world.w["day"])
+	var lg: Array = world.P()["log"]
+	var cur := _span_key(day, span)
+	var idx := -1
+	for i in range(lg.size() - 1, -1, -1):
+		var bk := _span_key(int(lg[i][0]), span)
+		if bk < cur:
+			break
+		if bk != cur:
+			continue
+		if lg[i].size() >= 3 and lg[i][2] is Dictionary and String(lg[i][2].get("_fold", "")) == kind:
+			idx = i
+			break
+	if idx < 0:
+		var fx := {"_fold": kind, "_n": 1, "_tone": posmod(_span_key(day, "year"), 3)}
+		_fold_add(fx, add)
+		var e := [day, "", fx]
+		world.fx_attach(world.P(), e)
+		e[1] = String(text_of.call(int(fx.get("_n", 1)), fx))
+		var at := lg.size()
+		while at > 0 and int(lg[at - 1][0]) > day:
+			at -= 1
+		lg.insert(at, e)
+		World.trim_log(lg, World.PLOG_CAP)
+		return
+	var e2: Array = lg[idx]
+	if e2.size() < 3:
+		e2.append({})
+	_fold_add(e2[2], add)
+	e2[2]["_n"] = int(e2[2].get("_n", 1)) + 1
+	world.fx_attach(world.P(), e2)
+	e2[1] = String(text_of.call(int(e2[2]["_n"]), e2[2]))
+
+func _span_key(day: int, span: String) -> int:
+	var d := maxi(day, 1) - 1
+	return d / 120 if span == "decade" else d / 12
+
+func _fold_add(dst: Dictionary, add: Dictionary) -> void:
+	for k in add:
+		var ks := String(k)
+		if ks.begins_with("_"):
+			continue
+		World._fx_put(dst, ks, add[k])
+	if add.has("_what"):
+		var bit := String(add["_what"])
+		if bit != "":
+			var prev := String(dst.get("_what", ""))
+			if prev == "":
+				dst["_what"] = bit
+			elif prev.ends_with("等") or prev.contains(bit):
+				pass
+			elif prev.length() > 36:
+				dst["_what"] = prev + "等"
+			else:
+				dst["_what"] = prev + "、" + bit
+	if int(add.get("_new", 0)) != 0:
+		dst["_new"] = 1
+
 ## v0.13.1（Gemini v6 P0-6）：一样的话只留一条（长闭关不再五遍“赤阳果要熟了”）；
 ## 一次解锁好几处新去处，并成一条
 func notice(t: String) -> void:

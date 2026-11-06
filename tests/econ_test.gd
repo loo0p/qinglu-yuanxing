@@ -37,6 +37,8 @@ func _init() -> void:
 	t_teach_tu()
 	t_barter()
 	t_estate_old_save()
+	t_job_fold()
+	t_echo_align()
 	for l in lines:
 		print(l)
 	print("经济测试：%d 失败" % fails)
@@ -398,6 +400,310 @@ func t_barter() -> void:
 	g.s["store"][Estate.ZIZHI] = 2
 	var ls1 := int(g.s["lingshi"])
 	ok(Estate.sell_zizhi(g) and int(g.s["lingshi"]) == ls1 + Estate.zizhi_price(g), "紫芝卖给药铺")
+
+const _NUMS := "0123456789一二三四五六七八九十百千零两"
+
+func _norm(t: String) -> String:
+	var s := ""
+	var prev := false
+	for i in t.length():
+		var ch := t.substr(i, 1)
+		if _NUMS.contains(ch):
+			if not prev:
+				s += "#"
+			prev = true
+		else:
+			prev = false
+			s += ch
+	return s
+
+func _sync(g, d: int) -> void:
+	g.s["day"] = d
+	if g.world != null:
+		g.world.w["day"] = d
+
+func _jobs_month(g) -> void:
+	g.s["day"] = int(g.s["day"]) + 1
+	Jobs.monthly(g)
+	g.world.w["day"] = int(g.s["day"])
+
+func _folds(g, kind: String) -> Array:
+	var out := []
+	for e in g.world.P()["log"]:
+		if e.size() >= 3 and e[2] is Dictionary and String(e[2].get("_fold", "")) == kind:
+			out.append(e)
+	return out
+
+## v0.16.1：平静的代炼 / 客卿 / 悬赏 / 货郎不再逐次占一条；效果小字按次累加。
+## 对照：v0.16.0 每一炉成功都是同一句「替坊市药铺代炼一炉丹，成了。」
+func t_job_fold() -> void:
+	var g = fresh(31)
+	var shown: String = g.world.fx_text({"_fold": "comm", "_n": 3, "_what": "追妖", "灵石": 80, "名声": 2})
+	ok(shown == "灵石+80  名声+2", "纪要内部标记不进效果小字：%s" % shown)
+	ok(g.world.fx_text({"孟微好感": 4, "对孟微好感": 5}) == "与孟微好感+5/+4", "两个方向的好感并成一条")
+	g._raise_to(9)
+	var succ := 0
+	var fail_n := 0
+	var net := 0
+	for y in 4:
+		_sync(g, y * 12 + 1)
+		var ec: Dictionary = Jobs.E(g)
+		ec["comm"] = []
+		ec["comm_n"] = 0
+		ec["comm_y"] = -99
+		for k in 6:
+			g.s["store"]["herb_qingzhi"] = 40
+			g.s["lingshi"] = 800
+			_to_market(g)
+			if not Jobs.take_comm(g):
+				ok(false, "第 %d 年第 %d 炉接不上：%s" % [y + 1, k + 1, Jobs.can_comm(g)])
+				return
+			Jobs.E(g)["comm"][-1][0] = 1
+			var ls0 := int(g.s["lingshi"])
+			_jobs_month(g)
+			var dls := int(g.s["lingshi"]) - ls0
+			net += dls
+			if dls > 0:
+				succ += 1
+			else:
+				fail_n += 1
+	var folds: Array = _folds(g, "comm")
+	var booms := 0
+	var ls_sum := 0
+	var rep_sum := 0
+	var old_exact := 0
+	var norms := {}
+	for e in g.world.P()["log"]:
+		var t := String(e[1])
+		if t == "替坊市药铺代炼一炉丹，成了。":
+			old_exact += 1
+		var is_boom: bool = t.contains("炸") and t.contains("料钱")
+		var is_fold: bool = e.size() >= 3 and e[2] is Dictionary and String(e[2].get("_fold", "")) == "comm"
+		if not is_boom and not is_fold:
+			continue
+		ok(t.length() <= 150, "代炼正文 ≤150 字（%d）%s" % [t.length(), t])
+		if e.size() < 3 or not (e[2] is Dictionary) or g.world.fx_text(e[2]) == "":
+			ok(false, "代炼履历挂了空效果：%s" % t)
+			continue
+		ls_sum += int(e[2].get("灵石", 0))
+		rep_sum += int(e[2].get("名声", 0))
+		if is_boom:
+			booms += 1
+	for e2 in folds:
+		var key := _norm(String(e2[1]))
+		norms[key] = int(norms.get(key, 0)) + 1
+	var maxn := 0
+	var maxk := ""
+	for k2 in norms:
+		if int(norms[k2]) > maxn:
+			maxn = int(norms[k2])
+			maxk = String(k2)
+	lines.append("代炼对照：成 %d 炉、炸 %d 炉；纪要 %d 条；旧句「成了。」%d 次；去数字后最常见纪要「%s」×%d。v0.16.0 逐次落条则同一句 %d 次。" % [succ, fail_n, folds.size(), old_exact, maxk, maxn, succ])
+	ok(succ >= 12, "样本里成丹至少 12 炉（%d）" % succ)
+	ok(old_exact == 0, "不再逐次写「替坊市药铺代炼一炉丹，成了。」")
+	ok(folds.size() >= 1 and folds.size() * 2 <= succ, "纪要条数远少于成丹次数（%d 条 / %d 炉）" % [folds.size(), succ])
+	ok(maxn >= 1 and maxn * 3 <= succ, "去数字后最常见的代炼纪要远少于成丹次数（%d vs %d）" % [maxn, succ])
+	ok(booms == fail_n, "炸炉仍逐次单记（%d 条 / %d 炉）" % [booms, fail_n])
+	ok(ls_sum == net, "代炼效果小字的灵石合计等于实际进出（%d / %d）" % [ls_sum, net])
+	ok(rep_sum == succ, "名声按成丹次数累加（%d / %d）" % [rep_sum, succ])
+	# 客卿：同一十年里只挑平静的坐镇，并成一条
+	_sync(g, 121)
+	Jobs.E(g)["rep"] = 5
+	Jobs.E(g)["kq"] = -1
+	g.s["injured"] = 0
+	g.s["shouyuan"] = 8000
+	var sits := 0
+	var expect := 0
+	var guard := 0
+	while sits < 6 and guard < 40:
+		guard += 1
+		if (maxi(int(g.s["day"]), 1) - 1) / 120 != 1:
+			break
+		_to_market(g)
+		g.s["injured"] = 0
+		g.s["lingshi"] = 500
+		# 坐镇先过一个月，闹事的骰子用的是过完那个月的日子
+		var r := Gear._rng_for(g, 9300 + int(g.s["day"]) + 1)
+		if r.randi_range(1, 100) <= 20:
+			_sync(g, int(g.s["day"]) + 1)
+			continue
+		var due := Jobs.kq_due(g)
+		var pay := Jobs.kq_pay(g)
+		var first := int(Jobs.E(g)["kq"]) < 0
+		if not Jobs.sit_kq(g):
+			ok(false, "坐镇失败：%s" % Jobs.can_kq(g))
+			return
+		expect += pay / 2 if first else due * pay
+		sits += 1
+		var nxt := int(g.s["day"]) + 12
+		if (maxi(nxt, 1) - 1) / 120 != 1:
+			break
+		_sync(g, nxt)
+	var kq: Array = _folds(g, "kq")
+	var old_kq := 0
+	var kq_ls := 0
+	for e3 in g.world.P()["log"]:
+		var t3 := String(e3[1])
+		if t3.begins_with("回坊市坐镇一个月，领了") or t3.begins_with("应了坊市的客卿，坐镇一个月。往后三年内"):
+			old_kq += 1
+		if e3.size() >= 3 and String(e3[2].get("_fold", "")) == "kq":
+			kq_ls += int(e3[2].get("灵石", 0))
+			ok(g.world.fx_text(e3[2]) != "", "客卿纪要有效果：%s" % t3)
+	lines.append("客卿对照：平静坐镇 %d 回并成 %d 条；旧逐次句 %d 次（v0.16.0 是 %d 条）。" % [sits, kq.size(), old_kq, sits])
+	ok(sits >= 4, "样本里平静坐镇至少 4 回（%d）" % sits)
+	ok(kq.size() == 1, "同一十年的平静坐镇并成一条（%d）" % kq.size())
+	ok(old_kq == 0, "平静坐镇不再用旧的逐次句")
+	ok(kq_ls == expect, "客卿纪要的灵石等于这几回领到的（%d / %d）" % [kq_ls, expect])
+	# 悬赏：每年两回平静办成，并成当年一条
+	var bty_n := 0
+	var bty_ls0 := int(Jobs.E(g)["jobs_ls"])
+	for y2 in 3:
+		var cursor := y2 * 12 + 1
+		var placed := 0
+		while placed < 2 and cursor < y2 * 12 + 12:
+			_sync(g, cursor)
+			_to_market(g)
+			g.s["injured"] = 0
+			g.s["lingshi"] = 500
+			Jobs.E(g)["bty_d"] = cursor - 6
+			var rb := Gear._rng_for(g, 9500 + cursor)
+			var rg: Array = Jobs.bty_range(g)
+			rb.randi_range(int(rg[0]), int(rg[1]))
+			if rb.randi_range(1, 100) <= Jobs.BTY_HURT:
+				cursor += 1
+				continue
+			if not Jobs.take_bty(g):
+				ok(false, "揭悬赏失败：%s" % Jobs.can_bty(g))
+				return
+			bty_n += 1
+			placed += 1
+			cursor = int(g.s["day"]) + 1
+	var bty: Array = _folds(g, "bty")
+	var bty_ls := 0
+	var bty_rep := 0
+	var old_bty := 0
+	for e4 in bty:
+		bty_ls += int(e4[2].get("灵石", 0))
+		bty_rep += int(e4[2].get("名声", 0))
+		ok(g.world.fx_text(e4[2]) != "", "悬赏纪要有效果：%s" % e4[1])
+		if String(e4[1]).ends_with("办成了。") and String(e4[1]).begins_with("揭了坊市的悬赏"):
+			old_bty += 1
+	lines.append("悬赏对照：平静办成 %d 回，纪要 %d 条（v0.16.0 是 %d 条逐次「办成了。」）。" % [bty_n, bty.size(), bty_n])
+	ok(bty_n >= 4 and bty.size() < bty_n, "悬赏纪要少于办成次数（%d / %d）" % [bty.size(), bty_n])
+	ok(old_bty == 0, "平静办成不再逐次写「揭了坊市的悬赏…办成了。」")
+	ok(bty_rep == bty_n, "悬赏名声按回累加（%d / %d）" % [bty_rep, bty_n])
+	ok(bty_ls == int(Jobs.E(g)["jobs_ls"]) - bty_ls0, "悬赏纪要的灵石等于这几回赏钱（%d / %d）" % [bty_ls, int(Jobs.E(g)["jobs_ls"]) - bty_ls0])
+	# 货郎：同一年三回并成一条，两年两条；东西按次累加
+	for id in ["crop_linggu", "herb_qingzhi", "herb_zizhi", "pill_quzhang", "herb_xugucao", "pill_juqi"]:
+		g.s["store"][id] = 400
+	for y3 in 2:
+		_sync(g, (y3 + 3) * 12 + 2)
+		_to_market(g)
+		var ofs: Array = Estate.offers(g)
+		var exp := {}
+		for i in ofs:
+			for id2 in Estate.BARTER[i]["give"]:
+				g.s["store"][id2] = int(g.s["store"].get(id2, 0)) + int(Estate.BARTER[i]["give"][id2])
+			ok(Estate.barter(g, i) == "", "换物 %s" % Estate.offer_text(g, i))
+			for id3 in Estate.BARTER[i]["give"]:
+				var nm := String(g.NAMES.get(id3, id3))
+				exp[nm] = int(exp.get(nm, 0)) - int(Estate.BARTER[i]["give"][id3])
+			for id4 in Estate.BARTER[i]["get"]:
+				var nm2 := String(g.NAMES.get(id4, id4))
+				exp[nm2] = int(exp.get(nm2, 0)) + int(Estate.BARTER[i]["get"][id4])
+		var hit: Array = []
+		for e5 in _folds(g, "bar"):
+			if (maxi(int(e5[0]), 1) - 1) / 12 == y3 + 3:
+				hit = e5
+		ok(not hit.is_empty() and int(hit[2].get("_n", 0)) == ofs.size(), "第 %d 年货郎 %d 回并成一条（%s）" % [y3 + 1, ofs.size(), hit[1] if not hit.is_empty() else ""])
+		if hit.is_empty():
+			continue
+		ok(g.world.fx_text(hit[2]) != "" and not g.world.fx_text(hit[2]).contains("_fold"), "货郎纪要小字不空：%s" % g.world.fx_text(hit[2]))
+		for nm3 in exp:
+			ok(int(hit[2].get(nm3, 0)) == int(exp[nm3]), "货郎 %s 合计 %s，记了 %s" % [nm3, str(exp[nm3]), str(hit[2].get(nm3, 0))])
+	ok(_folds(g, "bar").size() == 2, "两年货郎两条纪要，不是六条（%d）" % _folds(g, "bar").size())
+
+## 结怨回响说的药，就是当初争的那一株；指点的正文点到被指点的人，好感不挂到旁的句子上。
+func t_echo_align() -> void:
+	var herbs := ["百年黄精", "雪莲", "血灵芝", "龙涎草", "紫金藤", "寒铁"]
+	var g0 = fresh(5)
+	var gram: Dictionary = g0.world.saga().eng.grammar
+	for k in ["q_jiang_0", "q_jiang_1", "q_jiang_2", "q_jiang_3"]:
+		for line in gram[k]:
+			ok(String(line).contains("{B}"), "%s 每句都点到被指点的人：%s" % [k, line])
+	for line2 in gram["q_feud"]:
+		ok(String(line2).contains("{herb}") and not String(line2).contains("#q_herb#"), "结怨正文用已经定下的那株药：%s" % line2)
+	for line3 in gram["q_echo_jiang"]:
+		ok(String(line3).contains("{B}") and String(line3).contains("点拨"), "指点回响点到人：%s" % line3)
+	g0._raise_to(12)
+	var W0 = g0.world
+	var b0 := {}
+	for c0 in W0.npcs():
+		if bool(c0.get("alive", false)):
+			W0.R(W0.P(), c0)["m"] = 1
+			b0 = c0
+			break
+	var n0: int = W0.P()["log"].size()
+	ok(W0.saga().eng.fire("jiang", {"A": W0.P(), "B": b0}, {"sec": 0, "road": 0, "maj": 2}), "指点发出")
+	var named := false
+	var orphan := false
+	for i in range(n0, W0.P()["log"].size()):
+		var e0: Array = W0.P()["log"][i]
+		var tx := String(e0[1])
+		var fx0: Dictionary = e0[2] if e0.size() >= 3 and e0[2] is Dictionary else {}
+		var rel := false
+		for kk in fx0:
+			var ks := String(kk)
+			if ks.contains(String(b0["name"])) and (ks.contains("好感") or ks.contains("印象")):
+				rel = true
+		if rel and String(b0["name"]) in tx:
+			named = true
+		if rel and String(b0["name"]) not in tx:
+			orphan = true
+	ok(named and not orphan, "指点的好感挂在点了%s名字的那一条上" % b0["name"])
+	var matched := 0
+	for sd in [3, 11, 23, 31, 47, 58]:
+		var g = fresh(int(sd))
+		g._raise_to(9)
+		var W = g.world
+		var b := {}
+		for c in W.npcs():
+			if bool(c.get("alive", false)) and int(c["lv"]) <= int(g.plv_now()):
+				b = c
+				break
+		if b.is_empty():
+			ok(false, "种子 %d 没有可结怨的人" % sd)
+			continue
+		var n1: int = W.P()["log"].size()
+		ok(W.saga().eng.fire("feud", {"A": W.P(), "B": b}, {"sec": 0, "road": 1, "maj": 1}), "种子 %d 结怨发出" % sd)
+		var told := ""
+		for j in range(n1, W.P()["log"].size()):
+			var tj := String(W.P()["log"][j][1])
+			if tj.contains(String(b["name"])):
+				told = tj
+		var herb := ""
+		for h in herbs:
+			if h in told:
+				herb = h
+		var saved := ""
+		var slot: Array = []
+		for it in W.saga().eng.st["q"]:
+			if String(it[1]) == "echo_feud":
+				saved = String(it[3].get("herb", ""))
+				slot = it
+		ok(herb != "" and herb == saved, "种子 %d 结怨正文与回响是同一株（%s / %s）%s" % [sd, herb, saved, told])
+		if herb == "" or herb != saved or slot.is_empty():
+			continue
+		matched += 1
+		slot[0] = W.saga().eng.now()
+		var n2: int = W.P()["log"].size()
+		W.saga().daily()
+		var echo := ""
+		for j2 in range(n2, W.P()["log"].size()):
+			if herb in String(W.P()["log"][j2][1]):
+				echo = String(W.P()["log"][j2][1])
+		ok(echo != "", "种子 %d 回响里还是%s：%s" % [sd, herb, echo])
+	ok(matched == 6, "六个种子的结怨药名前后一致（%d）" % matched)
 
 ## 旧档（没有 v0.16 字段）读进来照常
 func t_estate_old_save() -> void:

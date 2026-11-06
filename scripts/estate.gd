@@ -6,6 +6,7 @@ extends RefCounted
 ##   tu 徒弟的人物 id（-1 没有）· tu_d 收徒的月 · teach_d 上回指点后辈的月 · bar_y / bar_done 这一年和货郎换过哪几样
 ## 每件事都写进她的履历，带效果小字（灵石 / 紫芝 / 青芝 / 好感……）
 const Gear = preload("res://scripts/gear.gd")
+const World = preload("res://scripts/world.gd")
 
 const ZIZHI := "herb_zizhi"
 ## 青庐营建：k 键、名字、造价、每年用度、要到的境界（plv：9 筑基、12 金丹）
@@ -376,10 +377,25 @@ static func barter(gs, i: int) -> String:
 	for id in o["get"]:
 		gs._store_add(String(id), int(o["get"][id]))
 		fx[_nm(gs, String(id))] = int(fx.get(_nm(gs, String(id)), 0)) + int(o["get"][id])
-	var t := "在坊市跟挑担的货郎以物易物：%s换了%s。" % [_goods(gs, o["give"]), _goods(gs, o["get"])]
-	gs.roam_note(t)
-	gs.pchron(t, -1, fx)
+	var what := "%s换%s" % [_goods(gs, o["give"]), _goods(gs, o["get"])]
+	fx["_what"] = what
+	gs.roam_note("在坊市跟挑担的货郎以物易物：%s。" % what)
+	gs.fold_chron("bar", "year", fx, func(n, f): return _bar_line(int(n), f))
 	return ""
+
+## v0.16.1：同一年里平静的换物并成一条，东西的进出记在效果小字上（按次累加）。
+static func _bar_line(n: int, fx: Dictionary) -> String:
+	var cn := World.cn_num(maxi(1, int(n)))
+	var what := String(fx.get("_what", ""))
+	var head := ""
+	match int(fx.get("_tone", 0)) % 3:
+		1:
+			head = "这一年跟挑担的货郎以物易物，换了%s回" % cn
+		2:
+			head = "这一年货郎来坊市，她以物易物换了%s回" % cn
+		_:
+			head = "这一年在坊市跟货郎以物易物%s回" % cn
+	return head + ("。" if what == "" else "：%s。" % what)
 
 static func summary(gs) -> Dictionary:
 	if gs == null or not gs.s.has("econ"):
