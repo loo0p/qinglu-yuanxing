@@ -963,11 +963,15 @@ func portrait_fix(c: Dictionary, sp: Dictionary, o: Dictionary = {}) -> Dictiona
 	if o.is_empty():
 		o = portrait_opts(c)
 	var h := absi(int(c["pseed"]) * 2654435761) % 997
-	if not o["elder"] and float(c["age"]) < 36.0:
-		if str(sp.get("base")) == "base_m5":
-			sp["base"] = YOUNG_BASE_TO[h % YOUNG_BASE_TO.size()]
-		if sp.get("beard") != null and (not tag(c, "嗜战") or str(sp["beard"]) == "beard_m5@base_m5"):
-			sp["beard"] = null
+	if not o["elder"] and float(c["age"]) < 36.0 and str(sp.get("base")) == "base_m5":
+		sp["base"] = YOUNG_BASE_TO[h % YOUNG_BASE_TO.size()]
+	# v0.16.2：男修要一眼看出是男的。非老者一律短须（山羊胡 / 络腮的浅一档），不留长髯，也不光下巴。
+	# 女修不长须。老者仍用抽到的须（白须），不在这里改。只改画法，存档里的种子不动。
+	if c["sex"] == "男" and not o.get("elder", false):
+		var light := ["beard_m1@base_m", "beard_m2@base_m"]
+		sp["beard"] = light[h % light.size()]
+	elif c["sex"] != "男":
+		sp["beard"] = null
 	var pal: Array = SECT_PAL.get(String(c["sect"]), [])
 	if not pal.is_empty():
 		sp["robe_tint"] = pal[h % pal.size()]
@@ -2075,12 +2079,13 @@ func _shidi_ok(c: Dictionary) -> bool:
 		return false
 	return not looks_old(c)
 
-## 立绘看着老：老者底模或带胡子（v0.7.7：17 岁带山羊胡的人不该被叫“小师弟”）
+## 立绘看着老：老者底模，或长髯（v0.16.2 青年男修的短须不算老，仍可称小师弟）
 func looks_old(c: Dictionary) -> bool:
 	var o := portrait_opts(c)
 	if o["elder"]:
 		return true
-	return portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), o), o)["beard"] != null
+	var b := str(portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), o), o).get("beard", ""))
+	return b.begins_with("beard_m3") or b.begins_with("beard_m5") or b.begins_with("beard_me")
 
 ## 没有合适的熟人时，现生一个年轻、境界不高于她的后辈（早就认识，总喊她“姐姐”）
 func _spawn_shidi() -> Dictionary:

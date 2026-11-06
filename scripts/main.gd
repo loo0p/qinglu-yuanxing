@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.1 试玩版"
+const VERSION = "v0.16.2 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -163,7 +163,7 @@ func _ready() -> void:
 	add_child(ui)
 	var v = VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 12)
 	ui.add_child(v)
 	hud = VBoxContainer.new()
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -175,7 +175,7 @@ func _ready() -> void:
 	var tsb = StyleBoxFlat.new()
 	tsb.bg_color = C_PAPER
 	tsb.set_corner_radius_all(4)
-	tsb.set_content_margin_all(6)
+	tsb.set_content_margin_all(8)
 	toast.add_theme_stylebox_override("normal", tsb)
 	toast.visible = false
 	v.add_child(toast)
@@ -2199,6 +2199,7 @@ func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = 
 	var p = PanelContainer.new()
 	p.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.7), 6, 1, 2))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.clip_contents = true
 	parent.add_child(p)
 	var pb = PBox.new()
 	pb.custom_minimum_size = sz
@@ -2257,20 +2258,28 @@ func _beats(text: String) -> Array:
 func dialog(speaker: String, portrait: String, text: String, dark: bool = true, spec: Dictionary = {}) -> bool:
 	var bs = _beats(text)
 	var done = beat_i >= bs.size() - 1
-	# 矮屏（360×640）上选项多时，读完后把立绘缩小些，免得最后一个选项被挤出屏
-	var ps = 0.68 if done and dlg_opts >= 4 and get_viewport_rect().size.y < 700 else 1.0
+	# 选项还没画进底栏。按即将占掉的高度先把立绘缩小，名字和正文留在按钮上面，不被挡住。
+	var vsz := get_viewport_rect().size
+	var nopt := maxi(dlg_opts, 1)
+	var ph := 210.0
+	if nopt >= 4:
+		ph = 120.0 if vsz.y < 760.0 else 140.0
+	elif nopt >= 3:
+		ph = 136.0 if vsz.y < 700.0 else 168.0
+	if vsz.y < 700.0:
+		ph = minf(ph, 128.0)
 	dlg_opts = 0
 	if spec.is_empty() and portrait.begins_with("vn_heroine") and g.s.get("portrait", {}) is Dictionary and not g.s.get("portrait", {}).is_empty():
 		spec = g.s["portrait"]
 	if not spec.is_empty():
-		var pf = _portrait_frame(spec, Vector2(168, 224) * ps, body)
+		var pf = _portrait_frame(spec, Vector2(ph * 0.75, ph), body)
 		pf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	elif portrait != "" and tex(portrait):
 		var pr = TextureRect.new()
 		pr.texture = tex(portrait)
 		pr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-		pr.custom_minimum_size = Vector2(180, 204) * ps
+		pr.custom_minimum_size = Vector2(ph * 0.78, ph)
 		pr.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(pr)
@@ -2288,6 +2297,12 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 		shown.append(bs[k])
 	var tl = L("".join(shown) if shown.size() <= 2 else "".join(shown.slice(shown.size() - 2)), 16, Color("#F3EEE2") if dark else C_TEXT, v)
 	tl.visible_ratio = 1.0
+	# 换行标签在还没分到宽度时最小高度是一行，名字条会压住正文。先按屏宽把高度留出来。
+	# 按偏窄的行宽多留一行，免得换行后最后几个字画到深色框外面（浅字落在浅底上，像被挡住）。
+	var text_w := clampf(vsz.x - 88.0, 180.0, 300.0)
+	var per := maxi(6, int(text_w / 18.0))
+	var lines_n := ceili(float(maxi(tl.text.length(), 1)) / float(per)) + 1
+	tl.custom_minimum_size = Vector2(text_w, lines_n * 30.0)
 	if bs.size() > 0:
 		# 新的一段：逐字显出
 		var total = tl.text.length()
@@ -3122,58 +3137,51 @@ func _roam() -> void:
 	if show.is_empty():
 		L("这个月没碰见什么人。", 13, C_DIM, pc)
 	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
-	# v0.11.1：画像卡（点卡 = 看看；下面“上前”）。生面孔也是 TA 自己的画像和名字，日后认得了还是这张脸
+	# v0.16.2：两列大卡，头像要看得出五官。不再横滑把最后一个人切出屏幕。
 	if not show.is_empty():
 		var vw: float = get_viewport_rect().size.x
-		var cw: float = floorf(clampf((vw - 44.0) / 3.4, 92.0, 116.0))
-		if get_viewport_rect().size.y < 700:
-			cw = 80.0   # 矮屏：卡小一点，上前按钮不被底栏压住
-		var sc2 = ScrollContainer.new()
-		sc2.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		sc2.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if show.size() * (cw + 6) > vw - 40 else ScrollContainer.SCROLL_MODE_DISABLED
-		sc2.custom_minimum_size = Vector2(0, cw * 1.08 + 36 + 44 + 6)
-		pc.add_child(sc2)
-		var hb2 = HBoxContainer.new()
-		hb2.add_theme_constant_override("separation", 6)
-		sc2.add_child(hb2)
+		var cw: float = floorf((vw - 52.0) / 2.0)
+		cw = clampf(cw, 132.0, 180.0)
+		var grid = GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		pc.add_child(grid)
 		for c in show:
-			_roam_card(W, c, cw, can, p, spn, hb2)
+			_roam_card(W, c, cw, can, p, spn, grid)
 	var lg: Array = rm.get("log", [])
 	if not lg.is_empty():
 		var lc = card()
-		for it in lg.slice(-1 if short_scr else -2):
-			if short_scr:
-				# 矮屏只留最近一行，放不下用省略号（点小去处时整段在提示里看过了）
-				var ll = L("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
-				ll.autowrap_mode = TextServer.AUTOWRAP_OFF
-				ll.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-				ll.custom_minimum_size.x = 1
-			else:
-				_wl("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
-	_spacer()
+		for it in lg.slice(-2):
+			_wl("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
+	# 铺子、差事、买丹收成次要一组，不和「去哪儿」抢同一排大按钮
+	if p == "坊市":
+		var shopc = card()
+		L("坊市杂务", 13, C_DIM, shopc)
+		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, shopc, 40)
+		bb.add_theme_font_size_override("font_size", 13)
+		bb.add_theme_color_override("font_color", C_INK)
+		var gr = row(shopc, 6)
+		var sb = B("器物铺 · 卖修", func(): sheet = "shop", true, gr, 40)
+		sb.add_theme_font_size_override("font_size", 13)
+		sb.add_theme_color_override("font_color", C_INK)
+		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr, 40)
+		yb.add_theme_font_size_override("font_size", 13)
+		yb.add_theme_color_override("font_color", C_INK)
+		var gr2 = row(shopc, 6)
+		var jb = B("差事榜 · 代炼 客卿 悬赏", func(): sheet = "jobs", true, gr2, 40)
+		jb.add_theme_font_size_override("font_size", 13)
+		jb.add_theme_color_override("font_color", C_INK)
+		if Gear.auction_month(int(g.s["day"])):
+			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr2, 40)
+			ab.add_theme_font_size_override("font_size", 13)
+			ab.add_theme_color_override("font_color", C_INK)
+	# 走动固定在底栏，不和店铺排在一起
 	var fr = row(footer, 6)
 	var hb = B("回青庐（%d月）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 46)
 	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var xr = row(footer, 6)
-	if p == "坊市":
-		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, xr, 40)
-		bb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bb.add_theme_font_size_override("font_size", 13)
-	if p == "坊市":
-		var gr = row(footer, 6)
-		var sb = B("器物铺 · 卖修", func(): sheet = "shop", true, gr, 40)
-		sb.add_theme_font_size_override("font_size", 13)
-		# v0.15：卖青芝 / 卖丹 / 主药保底都收进“药铺”抽屉，底栏不再挤三排
-		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr, 40)
-		yb.add_theme_font_size_override("font_size", 13)
-		var gr2 = row(footer, 6)
-		var jb = B("差事榜 · 代炼 客卿 悬赏", func(): sheet = "jobs", true, gr2, 40)
-		jb.add_theme_font_size_override("font_size", 13)
-		if Gear.auction_month(int(g.s["day"])):
-			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr2, 40)
-			ab.add_theme_font_size_override("font_size", 13)
 
 ## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
 func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
@@ -3663,6 +3671,7 @@ func _story() -> void:
 		spec = npc_spec(c)
 		spk = g.world.speaker_title(ev)
 	var text = String(ev["text"]) if ev["stage"] == "ask" else String(ev.get("result", ""))
+	dlg_opts = n_opt
 	if not dialog(spk, "", text, true, spec):
 		return
 	if ev["stage"] == "ask":
@@ -3732,7 +3741,7 @@ func _jianghu() -> void:
 	if ppl.is_empty():
 		L("还没有认识谁。日子长了，山外的人自会找上门来。", 13, C_DIM)
 	var gw = get_viewport_rect().size.x - 16
-	var cols = 3 if gw < 380 else 4
+	var cols = 2 if gw < 520 else 3
 	var grid = GridContainer.new()
 	grid.columns = cols
 	grid.add_theme_constant_override("h_separation", 6)
@@ -3843,7 +3852,8 @@ func _person() -> void:
 		info.add_child(bar)
 		L("好感", 11, C_DIM, info)
 	var tr = row()
-	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["why", "心事"], ["mem", "记得她"]])):
+	var mem_word := "记得她" if String(c.get("sex", "")) == "女" else "记得他"
+	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["why", "心事"], ["mem", mem_word]])):
 		var k = String(t[0])
 		var b = B(("● " if person_tab == k else "") + String(t[1]), func(): person_tab = k, true, tr, 38)
 		b.add_theme_font_size_override("font_size", 14)

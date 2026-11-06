@@ -143,9 +143,16 @@ func _init() -> void:
 			if ev != null and not ev.is_empty() and ev.get("tid", "") == "师弟惹祸":
 				bd_n += 1
 				var c: Dictionary = x.C(ev["roles"]["B"])
-				var spc = x.portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c)))   # 按玩家看到的立绘（v0.12.1 portrait_fix）
-				if spc["beard"] != null or float(c["age"]) >= 36.0:
-					bd_bad.append("%s %.0f岁 %s" % [c["name"], float(c["age"]), spc["beard"]])
+				var spc = x.portrait_fix(c, Portrait5Lib.roll(int(c["pseed"]), x.portrait_opts(c)))   # 按玩家看到的立绘
+				var raw_b = spc.get("beard", null)
+				var bd := "" if raw_b == null else str(raw_b)
+				var beard_bad := false
+				if c["sex"] == "女":
+					beard_bad = raw_b != null
+				else:
+					beard_bad = not (bd.begins_with("beard_m1") or bd.begins_with("beard_m2"))
+				if beard_bad or float(c["age"]) >= 36.0:
+					bd_bad.append("%s %.0f岁 %s %s" % [c["name"], float(c["age"]), c["sex"], bd])
 			x.auto_choose()
 	var same_pv := true
 	var nb_any := 0
@@ -159,7 +166,7 @@ func _init() -> void:
 		r1["beard"] = null
 		same_pv = same_pv and JSON.stringify(r1) == JSON.stringify(r2)
 	lines.append("师弟惹祸（胡子）：40 局 100 日 %d 次" % bd_n)
-	ok(bd_bad.is_empty() and bd_n >= 10, "小师弟/小师妹立绘不带胡子（%d 次，不合：%s）" % [bd_n, "、".join(bd_bad)])
+	ok(bd_bad.is_empty() and bd_n >= 10, "小师弟短须、小师妹无须，都不到 36 岁（%d 次，不合：%s）" % [bd_n, "、".join(bd_bad)])
 	ok(same_pv and nb_any > 20, "no_beard 只去掉胡子，其余部件与原抽签逐项相同（200 个里原本带胡子 %d 个）" % nb_any)
 	var oc := {"sex": "男", "age": 20.0, "sect": "散修", "pv": 8, "traits": ["冷淡", "温和"]}
 	ok(not a_opts_has_nb(oc), "没有 young 键的人物（旧档/普通 NPC）不加 no_beard")

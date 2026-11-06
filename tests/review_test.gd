@@ -233,14 +233,20 @@ func _units() -> void:
 		if o["elder"]:
 			continue
 		tot += 1
-		if sp["base"] == "base_m5" or sp.get("beard") != null:
+		var raw_b = sp.get("beard", null)
+		var bd := "" if raw_b == null else str(raw_b)
+		if sp["base"] == "base_m5":
+			young_bad += 1
+		elif c["sex"] == "女" and raw_b != null:
+			young_bad += 1
+		elif c["sex"] == "男" and not (bd.begins_with("beard_m1") or bd.begins_with("beard_m2")):
 			young_bad += 1
 		if c["sect"] == "散修" and Color8(int(sp["robe_tint"][0]), int(sp["robe_tint"][1]), int(sp["robe_tint"][2])).s > 0.35:
 			san_bad += 1
 		var raw: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
 		if raw.get("feats") != sp.get("feats") or raw.get("hair") != sp.get("hair") or raw.get("marks") != sp.get("marks"):
 			young_bad += 1000
-	ok(tot > 100 and young_bad == 0, "36 岁以下不用 base_m5、不长胡子，五官发型不动（%d 人）" % tot)
+	ok(tot > 100 and young_bad == 0, "36 岁以下不用 base_m5；男修短须、女修无须；五官发型不动（%d 人）" % tot)
 	ok(san_bad == 0, "散修袍色都是低饱和色")
 	ok(Portrait5View.render_spec({"base": "base_f", "robe": "robe_f8@base_f", "feats": {}}).robe == "robe_f9@base_f", "阴阳鱼补子袍改画素袍")
 	var cq := {"pseed": 5, "age": 20.0, "sex": "女", "sect": "青云宗", "lv": 2, "pv": 10, "player": false, "traits": []}

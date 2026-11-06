@@ -88,6 +88,14 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 		if v == null: continue
 		if FEAT_SWAP.has(v): feats[reg] = FEAT_SWAP[v]
 		if feats[reg] == "eyes:fx_f2@base_f" and out.base == "base_f3": feats[reg] = "eyes:fx_f4@base_f"
+	# v0.16.2：底头自己已经有鼻子。再叠一张鼻片（尤其换了脸型的鼻）会错开一截，看起来两组鼻孔。
+	# 鼻片拿掉，只留这张底头上的一个鼻子。眼、眉、嘴仍叠（切线在 portrait_fixes.fix_feat）。
+	feats.erase("nose")
+	# v0.16.2：修仙不出短碎发。hair_m6 是现代短发，画的时候换成束发长发；发饰是给短发定位的，一并拿掉。
+	if str(out.get("hair", "")).begins_with("hair_m6"):
+		var tied := ["hair_m1@base_m", "hair_m2@base_m", "hair_m5@base_m", "hair_m7@base_m"]
+		out.hair = tied[absi(hash(str(out.get("base", "")) + str(feats.get("eyes", "")))) % tied.size()]
+		out.acc = []
 	# v0.9.3：外披与袍色撞色（色相差太大且两者都偏艳，如紫披配绿袍）时，外披改用袍色的深/浅/素灰一档（只改画法）
 	if out.get("outer") != null and out.has("outer_tint") and out.has("robe_tint"):
 		out.outer_tint = _harmonize(out.robe_tint, out.outer_tint, str(out.outer) + str(out.get("hair", "")))

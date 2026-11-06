@@ -213,7 +213,7 @@ func _go() -> void:
 		main.refresh()
 		jh = jh and _find("回江湖") != null and _find("生平") != null
 		click("关系")
-		click("记得她")
+		click("记得她" if _find("记得她") != null else "记得他")
 		var back := click("回江湖")
 		jh = jh and back
 	log_lines.append("江湖页 / 人物卡：" + ("PASS" if jh else "FAIL"))
