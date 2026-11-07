@@ -136,7 +136,7 @@ with sync_playwright() as p:
         clear_dialogs()
         if state().get('loc') == 'roam': break
     gear['at_fangshi'] = state().get('loc') == 'roam'
-    gear['shop_open'] = tap('器物铺', 1200)
+    gear['shop_open'] = tap('器物铺', 1200) or tap_scroll('器物铺', 1200, 6)
     step('v14_shop', gear['shop_open'])
     # v0.15.2：托售一栏总在（没有货也写“眼下没有”）
     gear['consign_hdr'] = [t for t in labels() if t.startswith('托售')][:1]

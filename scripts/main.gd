@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.2 试玩版"
+const VERSION = "v0.16.3 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -480,14 +480,141 @@ func _set_bgm(slot: String) -> void:
 	tw.tween_property(bgm, "volume_db", _bgm_db(), 1.2)
 	bgm_on = st != null
 
+var _block_press := false
+var _block_gen := 0
+var _drag_sc: ScrollContainer = null
+var _drag_from := Vector2.ZERO
+var _drag_scroll := 0
+var _drag_on := false
+var _ignore_mouse_ms := 0
+
 func _input(ev: InputEvent) -> void:
-	if audio_unlocked:
+	if not audio_unlocked:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			audio_unlocked = true
+			var want = cur_bgm
+			cur_bgm = ""
+			_set_bgm(want if want != "" else _bgm_for_scene())
+	_scroll_input(ev)
+
+## 手指可以在按钮上滑。滑过一截才算翻页，轻点仍是点按。
+## 标题栏和底栏在滚动区外面，不跟着走。地图页（滚动区不接鼠标）只在点到卡片时翻。
+func _scroll_limit(sc: ScrollContainer) -> int:
+	var bar := sc.get_v_scroll_bar()
+	if bar == null:
+		return 0
+	return maxi(0, int(round(bar.max_value - bar.page)))
+
+func _blocks_at(n: Node, pos: Vector2) -> bool:
+	for ch in n.get_children():
+		if not (ch is Control):
+			continue
+		var c := ch as Control
+		if not c.visible:
+			continue
+		if c.mouse_filter != Control.MOUSE_FILTER_IGNORE and c.get_global_rect().has_point(pos):
+			return true
+		if _blocks_at(c, pos):
+			return true
+	return false
+
+func _pick_scroll(pos: Vector2) -> ScrollContainer:
+	var root: Node = sheet_layer if sheet != "" else self
+	var best: ScrollContainer = null
+	var best_a := 1.0e20
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for ch in n.get_children():
+			stack.append(ch)
+		if not (n is ScrollContainer):
+			continue
+		var sc := n as ScrollContainer
+		if not sc.is_visible_in_tree() or not sc.get_global_rect().has_point(pos):
+			continue
+		if _scroll_limit(sc) <= 2:
+			continue
+		if sc.mouse_filter == Control.MOUSE_FILTER_IGNORE and not _blocks_at(sc, pos):
+			continue
+		var a := sc.get_global_rect().get_area()
+		if a < best_a:
+			best = sc
+			best_a = a
+	return best
+
+func _scroll_by(sc: ScrollContainer, dy: int) -> void:
+	sc.scroll_vertical = clampi(sc.scroll_vertical + dy, 0, _scroll_limit(sc))
+
+func _scroll_input(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton and ev.pressed and (ev.button_index == MOUSE_BUTTON_WHEEL_DOWN or ev.button_index == MOUSE_BUTTON_WHEEL_UP):
+		var scw := _pick_scroll(ev.position)
+		if scw == null:
+			return
+		var dir := 1 if ev.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+		var lines := clampi(int(round(ev.factor)) if ev.factor > 1.5 else 1, 1, 4)
+		_scroll_by(scw, dir * lines * 72)
+		get_viewport().set_input_as_handled()
 		return
-	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-		audio_unlocked = true
-		var want = cur_bgm
-		cur_bgm = ""
-		_set_bgm(want if want != "" else _bgm_for_scene())
+	var touch := ev is InputEventScreenTouch or ev is InputEventScreenDrag
+	var mouse := ev is InputEventMouseButton or ev is InputEventMouseMotion
+	if not touch and not mouse:
+		return
+	if mouse and Time.get_ticks_msec() < _ignore_mouse_ms:
+		return
+	if touch:
+		_ignore_mouse_ms = Time.get_ticks_msec() + 140
+	var pos := Vector2.ZERO
+	if ev is InputEventScreenTouch:
+		pos = (ev as InputEventScreenTouch).position
+	elif ev is InputEventScreenDrag:
+		pos = (ev as InputEventScreenDrag).position
+	elif ev is InputEventMouse:
+		pos = (ev as InputEventMouse).position
+	var down := false
+	var up := false
+	var move := false
+	if ev is InputEventScreenTouch:
+		down = ev.pressed
+		up = not ev.pressed
+	elif ev is InputEventScreenDrag:
+		move = true
+	elif ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		down = ev.pressed
+		up = not ev.pressed
+	elif ev is InputEventMouseMotion:
+		move = (ev.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0
+	else:
+		return
+	if down:
+		_drag_sc = _pick_scroll(pos)
+		_drag_from = pos
+		_drag_scroll = _drag_sc.scroll_vertical if _drag_sc != null else 0
+		_drag_on = false
+		return
+	if move and _drag_sc != null and is_instance_valid(_drag_sc):
+		get_viewport().set_input_as_handled()
+		var d: Vector2 = pos - _drag_from
+		if not _drag_on:
+			if absf(d.y) < 16.0 or absf(d.y) < absf(d.x):
+				return
+			_drag_on = true
+			_block_press = true
+			_block_gen += 1
+			_drag_from = pos
+			_drag_scroll = _drag_sc.scroll_vertical
+			return
+		_drag_sc.scroll_vertical = clampi(_drag_scroll - int(d.y), 0, _scroll_limit(_drag_sc))
+		return
+	if up:
+		var was := _drag_on
+		_drag_sc = null
+		_drag_on = false
+		if was:
+			var gen := _block_gen
+			get_tree().process_frame.connect(func():
+				if _block_gen == gen:
+					_block_press = false
+			, CONNECT_ONE_SHOT)
 
 func _toggle_mute() -> void:
 	muted = not muted
@@ -612,8 +739,15 @@ func _make_theme() -> Theme:
 	var bgp = _sb(Color(0.29, 0.25, 0.2, 0.25), Color(0, 0, 0, 0), 3, 0, 0)
 	t.set_stylebox("fill", "ProgressBar", fill)
 	t.set_stylebox("background", "ProgressBar", bgp)
-	t.set_stylebox("grabber", "VScrollBar", _sb(Color(0.29, 0.25, 0.2, 0.3), Color(0, 0, 0, 0), 2, 0, 0))
-	t.set_stylebox("scroll", "VScrollBar", StyleBoxEmpty.new())
+	# 能滚的时候留一条看得见的细条，免得只露出半截却像没有下文
+	var grab := _sb(Color(0.29, 0.25, 0.2, 0.72), Color(0, 0, 0, 0), 3, 0, 0)
+	grab.content_margin_left = 3
+	grab.content_margin_right = 3
+	grab.content_margin_top = 6
+	grab.content_margin_bottom = 6
+	for gst in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		t.set_stylebox(gst, "VScrollBar", grab)
+	t.set_stylebox("scroll", "VScrollBar", _sb(Color(0.29, 0.25, 0.2, 0.12), Color(0, 0, 0, 0), 3, 0, 0))
 	return t
 
 
@@ -892,6 +1026,9 @@ func ring(parent: Node, value: float, maxv: float, size: int, col: Color = C_ACC
 
 var last_press_ms := -1000
 func _press(cb: Callable) -> void:
+	# 滑页时手指松开不算点（按钮的 pressed 仍会响）
+	if _block_press:
+		return
 	# 防误触：手机上一次点按可能同时来触摸 + 模拟鼠标，或手抖连点；240ms 内的第二下不算（无头测试不限）
 	var now = Time.get_ticks_msec()
 	if DisplayServer.get_name() != "headless" and now - last_press_ms < 240:
@@ -1461,7 +1598,10 @@ func _sheet() -> void:
 	dsb.bg_color = Color(0.1, 0.08, 0.05, 0.35)
 	for st in ["normal", "hover", "pressed", "focus"]:
 		dim.add_theme_stylebox_override(st, dsb)
-	dim.pressed.connect(func(): sheet = ""; refresh())
+	dim.pressed.connect(func():
+		if _block_press:
+			return
+		sheet = ""; refresh())
 	sheet_layer.add_child(dim)
 	var p = PanelContainer.new()
 	var psb = _sb(Color("#F6F0E2"), Color(0.29, 0.25, 0.2, 0.5), 14, 1, 12)
@@ -2261,13 +2401,12 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 	# 选项还没画进底栏。按即将占掉的高度先把立绘缩小，名字和正文留在按钮上面，不被挡住。
 	var vsz := get_viewport_rect().size
 	var nopt := maxi(dlg_opts, 1)
-	var ph := 210.0
+	# 立绘留在正文上面，但不要高到把对白顶出首屏
+	var ph := 156.0 if vsz.y >= 800.0 else (132.0 if vsz.y >= 700.0 else 112.0)
 	if nopt >= 4:
-		ph = 120.0 if vsz.y < 760.0 else 140.0
+		ph = minf(ph, 108.0)
 	elif nopt >= 3:
-		ph = 136.0 if vsz.y < 700.0 else 168.0
-	if vsz.y < 700.0:
-		ph = minf(ph, 128.0)
+		ph = minf(ph, 124.0)
 	dlg_opts = 0
 	if spec.is_empty() and portrait.begins_with("vn_heroine") and g.s.get("portrait", {}) is Dictionary and not g.s.get("portrait", {}).is_empty():
 		spec = g.s["portrait"]
@@ -2326,15 +2465,17 @@ func dialog(speaker: String, portrait: String, text: String, dark: bool = true, 
 		adv.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		adv.add_theme_color_override("font_color", C_GOLD)
 		adv.add_theme_color_override("font_hover_color", C_GOLD)
-		# 点对话框任意处：字还在走就先一下子显完，再点才翻页（触摸会被模拟成鼠标，只认鼠标左键，免得一下翻两页）
+		# 点对话框任意处：字还在走就先一下子显完，再点才翻页。松手才翻，手指往上滑时不翻页。
 		p.gui_input.connect(func(e):
-			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 				_advance())
 	return done
 
 var type_tw: Tween
 var type_label: Label
 func _advance() -> void:
+	if _block_press:
+		return
 	if DisplayServer.get_name() != "headless" and type_tw != null and type_tw.is_valid() and type_tw.is_running():
 		type_tw.kill()
 		if is_instance_valid(type_label):
@@ -2727,7 +2868,8 @@ func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
 func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	# v0.11.2b：图要看得清——题头更高，底下只一层渐隐的本处纸色，地名直接压在画上（纸色晕边 + 柔影）
 	var vs: Vector2 = get_viewport_rect().size
-	var h := 146.0 if vs.y >= 760 else (112.0 if vs.y >= 700 else 88.0)   # 360×640 这类矮屏：题头比 v0.11.2 还矮 16px，给下面的人和“上前”腾地方
+	# 题头留一截地方的气味，但不要高到把这一带的人挤成两张大脸
+	var h := 118.0 if vs.y >= 760 else (96.0 if vs.y >= 700 else 80.0)
 	var pc: Color = lk["paper"]
 	var box = PanelContainer.new()
 	var fr = _sb(Color(0, 0, 0, 0), lk["edge"], 8, 2, 0)
@@ -3106,8 +3248,8 @@ func _roam() -> void:
 		_place_banner(p, lk, "游历 %d 个月 · 回青庐 %d 个月" % [int(rm.get("days", 0)), g.roam_home_days()])
 		place_look = lk
 	# 今天去哪：每个小去处 1 日、1 份干粮
-	# v0.11.4：矮屏（高 <700，如 360×640）小去处并成一排、只写地名，整页不用滚动
-	var short_scr: bool = get_viewport_rect().size.y < 700
+	# 手机高度上地名并成一排，首屏才容得下四张人脸；下面的人和杂务靠滑动再看
+	var short_scr: bool = get_viewport_rect().size.y < 920
 	var sc = card()
 	L("这个月去哪儿走走（各 1 个月）", 14, C_INK, sc)
 	var spots: Array = TV.spots(p)
@@ -3137,11 +3279,11 @@ func _roam() -> void:
 	if show.is_empty():
 		L("这个月没碰见什么人。", 13, C_DIM, pc)
 	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
-	# v0.16.2：两列大卡，头像要看得出五官。不再横滑把最后一个人切出屏幕。
+	# v0.16.3：仍是两列整脸，但一卡收矮。390 / 360 首屏大约四个人，再往下才是其余的人和杂务。
 	if not show.is_empty():
 		var vw: float = get_viewport_rect().size.x
 		var cw: float = floorf((vw - 52.0) / 2.0)
-		cw = clampf(cw, 132.0, 180.0)
+		cw = clampf(cw, 120.0, 168.0)
 		var grid = GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 8)
@@ -3207,14 +3349,25 @@ func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
 
 const DOING := {"求财": "买卖", "交游": "说笑", "探秘": "寻宝", "扬名": "比试", "压人": "比试", "破境": "闭关", "复仇": "寻人", "寻仇": "寻人", "疗伤": "养伤", "求偶": "出神", "护人": "等人", "报恩": "寻人", "赎过": "赶路", "叛门": "匆匆"}
 
+## 地点页 / 江湖页的人脸高度：整张脸，不裁成一条；两列两行大约落在首屏里
+func _people_face_h() -> float:
+	var y := get_viewport_rect().size.y
+	if y < 700.0:
+		return 72.0
+	if y < 820.0:
+		return 84.0
+	return 96.0
+
 func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, parent: Node) -> void:
 	var cid := int(c["id"])
 	var known: bool = W.known(c)
 	var col = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	parent.add_child(col)
+	var fh := _people_face_h()
+	var fw := minf(cw - 16.0, fh * 224.0 / 250.0)
 	var cell = Button.new()
-	cell.custom_minimum_size = Vector2(cw, cw * 1.08 + 36)
+	cell.custom_minimum_size = Vector2(cw, fh + 48.0)
 	cell.pressed.connect(func(): _press(func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
 	col.add_child(cell)
 	var v = VBoxContainer.new()
@@ -3224,7 +3377,8 @@ func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, 
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(v)
 	var pb = PBox.new()
-	pb.custom_minimum_size = Vector2(cw - 6, cw * 1.08 - 6)
+	pb.custom_minimum_size = Vector2(fw, fh)
+	pb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(pb)
 	pb.setup(npc_spec(c), PBox.FACE, 0.0)
 	var nl = L(String(c["name"]), 14, C_TEXT if known else C_INK, v)
@@ -3748,10 +3902,12 @@ func _jianghu() -> void:
 	grid.add_theme_constant_override("v_separation", 6)
 	body.add_child(grid)
 	var cw = floor((gw - 6 * (cols - 1)) / cols)
+	var fh := _people_face_h()
+	var fw := minf(float(cw) - 12.0, fh * 224.0 / 250.0)
 	for c in ppl.slice(0, 24):
 		var id = int(c["id"])
 		var cell = Button.new()
-		cell.custom_minimum_size = Vector2(cw, cw * 1.12 + 40)
+		cell.custom_minimum_size = Vector2(cw, fh + 44.0)
 		cell.pressed.connect(func(): _press(func(): person_id = id; person_tab = "life"; modal = {"kind": "person"}))
 		grid.add_child(cell)
 		var v = VBoxContainer.new()
@@ -3761,7 +3917,8 @@ func _jianghu() -> void:
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(v)
 		var pb = PBox.new()
-		pb.custom_minimum_size = Vector2(cw - 6, cw * 1.12 - 6)
+		pb.custom_minimum_size = Vector2(fw, fh)
+		pb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(pb)
 		pb.setup(npc_spec(c), PBox.FACE, 0.0)
 		if not c["alive"]:
@@ -3817,8 +3974,10 @@ func _person() -> void:
 	var is_p = c.get("player", false)
 	var hr = row()
 	var vs = get_viewport_rect().size
-	var pw = clampf(vs.x * 0.4, 130, 190)
-	_portrait_frame(npc_spec(c), Vector2(pw, pw * 4.0 / 3.0), hr)
+	# 档案头像让出右边的名字和下面的生平，长文靠中间这一栏往下翻
+	var ph := clampf(vs.y * 0.18, 112.0, 150.0)
+	var pw := minf(ph * 0.78, vs.x * 0.34)
+	_portrait_frame(npc_spec(c), Vector2(pw, ph), hr)
 	var info = VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.add_theme_constant_override("separation", 3)
