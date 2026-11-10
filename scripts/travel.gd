@@ -431,6 +431,15 @@ static func approach(W, id: int, p: String, sp: String) -> bool:
 static func can_approach(W) -> bool:
 	return int(W.w.get("appr", -1)) != int(W.w["day"])
 
+## 看看这一次上前会有哪些选项。不改随机、不记「已经上前」，点了选项才真正 approach。
+static func peek_meet(W, id: int, p: String, sp: String) -> Dictionary:
+	var st: int = int(W.rng.state)
+	var recent = W.w.get("recent", {}).duplicate(true)
+	var view: Dictionary = present(W, "相逢", {"B": id}, {"pl": p, "sp": sp, "me": 1})
+	W.rng.state = st
+	W.w["recent"] = recent
+	return view
+
 # ---------------------------------------------------------------- 事件：相逢 / 引路
 static func _o(id: String, label: String) -> Array:
 	return [id, label]

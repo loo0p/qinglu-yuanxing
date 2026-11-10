@@ -146,6 +146,8 @@ func from_dict(d: Dictionary) -> bool:
 		s[k] = int(s[k])
 	rng.seed = int(s.get("rng_seed", 0))
 	rng.state = int(s.get("rng", 0))
+	if not s.has("notes"):
+		s["notes"] = []   # v0.16.5：短提示的回看，旧档没有就补空的
 	return true
 
 ## v0.13 迁移（v1/v2 → v3）：旧档的“第 N 日”原样当“第 N 月”（经历一件不丢）；寿元按年龄与境界重算；
@@ -391,6 +393,7 @@ func _fold_add(dst: Dictionary, add: Dictionary) -> void:
 ## v0.13.1（Gemini v6 P0-6）：一样的话只留一条（长闭关不再五遍“赤阳果要熟了”）；
 ## 一次解锁好几处新去处，并成一条
 func notice(t: String) -> void:
+	_remember_note(t)
 	if t in notices:
 		return
 	if t.begins_with("新去处："):
@@ -401,6 +404,18 @@ func notice(t: String) -> void:
 				notices[i] = "新去处：%s、%s——这几处的路，她都认得了。" % [prev, nm]
 				return
 	notices.append(t)
+
+## 短提示的回看。同一句刚记过就不再记。存读档之后提示队列是空的，不能靠它来决定记不记，否则读档后续会多一条。
+func _remember_note(t: String) -> void:
+	if s.is_empty():
+		return
+	var notes: Array = s.get("notes", [])
+	if not notes.is_empty() and String(notes[notes.size() - 1].get("text", "")) == t:
+		return
+	notes.append({"day": I("day"), "text": t})
+	if notes.size() > 40:
+		notes = notes.slice(notes.size() - 40)
+	s["notes"] = notes
 
 # ---------------------------------------------------------------- 物品进出
 func _is_pack_kind(id: String) -> bool:
