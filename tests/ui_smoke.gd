@@ -38,6 +38,12 @@ func _has_text(n: Node, words: Array) -> bool:
 			return true
 	return false
 
+func _face_card():
+	for b in buttons(main.body, []):
+		if String(b.text).begins_with("看") and _count_faces(b) > 0:
+			return b
+	return null
+
 func _find(prefix: String):
 	for b in buttons(main, []):
 		if not b.disabled and b.text.replace("● ", "").begins_with(prefix):
@@ -180,17 +186,19 @@ func _go() -> void:
 	var cards_ok := (ppl_here == 0 or faces >= mini(ppl_here, 1)) and not gender_txt
 	log_lines.append("游历页画像卡（在场 %d 人，画像 %d 张，无男修/女修字样）：%s" % [ppl_here, faces, "PASS" if cards_ok else "FAIL"])
 	rm_ok = rm_ok and cards_ok
-	# 点画像卡 = 看看这个人，看完回游历页
+	# 点画像卡 = 同一个人的详情和交互。先看完退回，再点「问问修行」。
 	if ppl_here > 0:
 		var look_ok := false
-		for b in buttons(main.body, []):
-			if b.text == "" and _count_faces(b) > 0:
-				b.pressed.emit()
-				look_ok = main.modal.get("kind", "") == "person" and click("回坊市") and main.g.s["loc"] == "roam" and main.modal.is_empty()
-				break
+		var card_b = _face_card()
+		if card_b:
+			card_b.pressed.emit()
+			look_ok = main.modal.get("kind", "") == "person" and _find("问问修行") != null and _find("上前") == null and click("回坊市") and main.g.s["loc"] == "roam" and main.modal.is_empty()
 		log_lines.append("点画像卡看人、再回游历页：" + ("PASS" if look_ok else "FAIL"))
 		rm_ok = rm_ok and look_ok
-	rm_ok = rm_ok and click("上前")
+		var card_b2 = _face_card()
+		if card_b2:
+			card_b2.pressed.emit()
+	rm_ok = rm_ok and click("问问修行")
 	drain_story()
 	rm_ok = rm_ok and gw0 != null and int(gw0.w["fired"].get("相逢", 0)) > meet0
 	rm_ok = rm_ok and seq(["去别处"]) and main.sheet == "goto"

@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.4 试玩版"
+const VERSION = "v0.16.5 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -105,7 +105,10 @@ var hud: VBoxContainer
 var body: VBoxContainer
 var scroll: ScrollContainer
 var footer: VBoxContainer
-var toast: Label
+var toast: Button
+var toast_layer: Control
+var toast_tw: Tween
+var toast_sticky := false
 var sheet_layer: Control
 var fx_layer: Control
 var bag_icon: Control
@@ -159,26 +162,15 @@ func _ready() -> void:
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right", "top", "bottom"]:
-		ui.add_theme_constant_override("margin_" + side, 8)
+		ui.add_theme_constant_override("margin_" + side, 6)
 	add_child(ui)
 	var v = VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 4)
 	ui.add_child(v)
 	hud = VBoxContainer.new()
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(hud)
-	toast = Label.new()
-	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	toast.add_theme_color_override("font_color", C_WARN)
-	toast.add_theme_font_size_override("font_size", 14)
-	var tsb = StyleBoxFlat.new()
-	tsb.bg_color = C_PAPER
-	tsb.set_corner_radius_all(4)
-	tsb.set_content_margin_all(8)
-	toast.add_theme_stylebox_override("normal", tsb)
-	toast.visible = false
-	v.add_child(toast)
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -186,12 +178,31 @@ func _ready() -> void:
 	body = VBoxContainer.new()
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 8)
+	body.add_theme_constant_override("separation", 4)
 	scroll.add_child(body)
 	footer = VBoxContainer.new()
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	footer.add_theme_constant_override("separation", 6)
+	footer.add_theme_constant_override("separation", 4)
 	v.add_child(footer)
+	toast_layer = Control.new()
+	toast_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	toast_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(toast_layer)
+	toast = Button.new()
+	toast.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast.focus_mode = Control.FOCUS_NONE
+	toast.add_theme_color_override("font_color", C_WARN)
+	toast.add_theme_color_override("font_hover_color", C_WARN)
+	toast.add_theme_color_override("font_pressed_color", C_WARN)
+	toast.add_theme_font_size_override("font_size", 13)
+	var tsb := _sb(C_PAPER, Color(0.55, 0.32, 0.12, 0.45), 6, 1, 6)
+	for stn in ["normal", "hover", "pressed", "focus", "disabled"]:
+		toast.add_theme_stylebox_override(stn, tsb)
+	toast.visible = false
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.pressed.connect(_dismiss_toast)
+	toast_layer.add_child(toast)
 	sheet_layer = Control.new()
 	sheet_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	sheet_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -229,7 +240,7 @@ func _apply_safe_area() -> void:
 	safe_inset = ins
 	var sides = ["top", "right", "bottom", "left"]
 	for i in 4:
-		ui.add_theme_constant_override("margin_" + sides[i], 8 + int(ceil(ins[i])))
+		ui.add_theme_constant_override("margin_" + sides[i], 6 + int(ceil(ins[i])))
 
 var safe_inset = [0.0, 0.0, 0.0, 0.0]
 
@@ -656,7 +667,7 @@ func _sfx_db() -> float:
 func _settings() -> void:
 	_stage_image("bg_home" if screen == "game" else "title", 0.6)
 	var c = card()
-	H("设置", 24, C_ACCENT, c)
+	H("设置", 18, C_ACCENT, c)
 	for it in [["音乐", "music"], ["音效", "sfx"]]:
 		var k: String = it[1]
 		var r = row(c, 8)
@@ -716,11 +727,11 @@ func _make_theme() -> Theme:
 	var t = Theme.new()
 	if font_body:
 		t.default_font = font_body
-	t.default_font_size = 16
+	t.default_font_size = 14
 	t.set_color("font_color", "Label", C_TEXT)
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var sb = _sb({"normal": C_PAPER, "hover": C_PAPER, "pressed": Color("#E3D8C2"), "disabled": Color(0.93, 0.915, 0.88, 0.8), "focus": C_PAPER}[st],
-			C_INK if st != "disabled" else Color("#CFC6B4"), 4, 1, 10)
+			C_INK if st != "disabled" else Color("#CFC6B4"), 4, 1, 6)
 		sb.border_width_bottom = 2 if st != "pressed" else 1
 		sb.content_margin_top = 6
 		sb.content_margin_bottom = 6
@@ -730,9 +741,9 @@ func _make_theme() -> Theme:
 	t.set_color("font_pressed_color", "Button", C_ACCENT)
 	t.set_color("font_disabled_color", "Button", Color("#A39B8C"))
 	t.set_color("font_focus_color", "Button", C_TEXT)
-	var card = _sb(Color(1.0, 0.99, 0.965, 0.93), Color(0.29, 0.25, 0.2, 0.3), 6, 1, 10)
-	card.shadow_color = Color(0.1, 0.08, 0.05, 0.18)
-	card.shadow_size = 4
+	var card = _sb(Color(1.0, 0.99, 0.965, 0.93), Color(0.29, 0.25, 0.2, 0.3), 6, 1, 8)
+	card.shadow_color = Color(0.1, 0.08, 0.05, 0.14)
+	card.shadow_size = 2
 	card.shadow_offset = Vector2(0, 2)
 	t.set_stylebox("panel", "PanelContainer", card)
 	var fill = _sb(C_GOLD, Color(0, 0, 0, 0), 3, 0, 0)
@@ -984,7 +995,7 @@ func card(parent: Node = null) -> VBoxContainer:
 		p.add_theme_stylebox_override("panel", _place_card_sb(place_look))
 	(parent if parent else body).add_child(p)
 	var v = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	return v
 
@@ -1284,6 +1295,42 @@ func _bottom_pad() -> void:
 	pad.set_meta("bottom_pad", true)
 	body.add_child(pad)
 
+## 短提示浮在内容上，不占顶栏下面那一截。几秒后淡出，点一下就收。存档冲突一直留着。
+func _dismiss_toast() -> void:
+	if toast_tw and toast_tw.is_valid():
+		toast_tw.kill()
+	toast.visible = false
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _arm_toast(text: String, sticky: bool) -> void:
+	toast.text = text
+	toast.visible = true
+	toast.modulate.a = 1.0
+	toast.mouse_filter = Control.MOUSE_FILTER_STOP
+	toast_sticky = sticky
+	if toast_tw and toast_tw.is_valid():
+		toast_tw.kill()
+	if sticky:
+		return
+	toast_tw = create_tween()
+	toast_tw.tween_interval(3.2)
+	toast_tw.tween_property(toast, "modulate:a", 0.0, 0.4)
+	toast_tw.tween_callback(_dismiss_toast)
+
+func _place_toast() -> void:
+	if toast == null or not is_instance_valid(toast) or not toast.visible:
+		return
+	# 量到的顶栏高度不可靠时，提示会漂到人脸中间。夹在顶栏正下方。
+	var y := 64.0
+	if hud and is_instance_valid(hud) and hud.size.y > 20.0 and hud.size.y < 96.0:
+		y = hud.get_global_position().y + hud.size.y + 4.0
+	y = clampf(y, 52.0, 92.0)
+	var w := maxf(120.0, get_viewport_rect().size.x - 12.0)
+	toast.position = Vector2(6, y)
+	toast.custom_minimum_size = Vector2(w, 0)
+	toast.size = Vector2(w, 0)
+	toast.reset_size()
+
 func _bgm_for_scene() -> String:
 	if screen != "game":
 		return "title"
@@ -1314,14 +1361,20 @@ func _refresh() -> void:
 	bag_icon = null
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
-	toast.visible = false
+	var ttxt := ""
+	var sticky := false
 	if not g.notices.is_empty():
-		toast.text = "\n".join(g.notices)
-		toast.visible = true
+		# 一次来好几条时，顶上只留最新的一句，其余在行记里。
+		ttxt = String(g.notices[g.notices.size() - 1])
+		if g.notices.size() > 1:
+			ttxt += "（另 %d 条，见行记）" % (g.notices.size() - 1)
 		g.notices.clear()
 	if store.conflict:
-		toast.text = "另一个标签页也打开了这个存档，这里已停止保存。请关闭其中一个后刷新。"
-		toast.visible = true
+		ttxt = "另一个标签页也打开了这个存档，这里已停止保存。请关闭其中一个后刷新。"
+		sticky = true
+	if ttxt != "":
+		_arm_toast(ttxt, sticky)
+	call_deferred("_place_toast")
 	if not OS.is_userfs_persistent():
 		var wl = L("⚠ 这个浏览器不能长期保存（可能是隐私模式），关掉页面进度会丢。", 12, C_WARN, hud)
 		wl.add_theme_stylebox_override("normal", _sb(C_PAPER, Color(0, 0, 0, 0), 4, 0, 4))
@@ -1356,7 +1409,6 @@ func _refresh() -> void:
 	if g.s["extra"] == "" and int(g.s["trips_done"]) >= 1:
 		_extra_choice()
 		return
-	_guide()
 	match tab:
 		"home": _home()
 		"depart": _depart()
@@ -1365,6 +1417,8 @@ func _refresh() -> void:
 		"pack": _pack_tab()
 		"jianghu": _jianghu()
 	_nav()
+	if sheet == "" and _guide_key() != "":
+		sheet = "guide"
 	if sheet != "":
 		_sheet()
 
@@ -1379,7 +1433,7 @@ const GUIDE = {
 }
 func _guide_key() -> String:
 	var gd = g.s.get("guide", null)
-	if not (gd is Dictionary) or gd.get("off", false) or int(g.s.get("day", 0)) > 6 or sheet != "":
+	if not (gd is Dictionary) or gd.get("off", false) or int(g.s.get("day", 0)) > 6 or (sheet != "" and sheet != "guide"):
 		return ""
 	var k: String = tab
 	if tab == "home" and int(g.s.get("trips_done", 0)) >= 1 and gd["seen"].has("home"):
@@ -1388,27 +1442,53 @@ func _guide_key() -> String:
 		return ""
 	return k
 
-func _guide() -> void:
+## 手记改成底部抽屉，不再压在院子顶上。按钮文字不变，冒烟测试仍点「记下了」。
+func _sheet_guide(v: Node) -> void:
 	var k := _guide_key()
 	if k == "":
 		return
 	var gd: Dictionary = g.s["guide"]
-	var p = PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _sb(Color(0.99, 0.97, 0.91, 0.96), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.8), 8, 1, 10))
-	body.add_child(p)
-	var v = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	p.add_child(v)
-	var hr = row(v, 6)
-	IC("ico_fu", 30, hr)
-	H("旧主手记", 17, C_ACCENT, hr)
-	L(GUIDE[k], 14, C_TEXT, v)
+	var lb = L(_hard_wrap(GUIDE[k], 18), 14, C_TEXT, v)
+	lb.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lb.text = _hard_wrap(GUIDE[k], 18)
 	var br = row(v, 6)
-	var b1 = B("记下了", func(): gd["seen"][k] = true; _save(), true, br, 44)
-	b1.add_theme_font_size_override("font_size", 14)
-	var b2 = B("不必再提", func(): gd["off"] = true; _save(), true, br, 44)
-	b2.add_theme_font_size_override("font_size", 14)
+	var b1 = B("记下了", func(): gd["seen"][k] = true; sheet = ""; _save(), true, br, 44)
+	b1.add_theme_font_size_override("font_size", 13)
+	var b2 = B("不必再提", func(): gd["off"] = true; sheet = ""; _save(), true, br, 44)
+	b2.add_theme_font_size_override("font_size", 13)
 	b2.add_theme_color_override("font_color", C_DIM)
+
+## 游历页「行记」：这一路记下的，和没写进行记的短提示。
+func _sheet_rlog(v: Node) -> void:
+	var lg: Array = g.s.get("roam", {}).get("log", []) if g.s.get("loc", "") == "roam" else []
+	if lg.is_empty():
+		L("这一路还没写下什么。", 13, C_DIM, v)
+	for e in lg:
+		LW("%s  %s" % [World.cal_short(int(e[0])), String(e[1])], 13, C_TEXT, v)
+	var notes: Array = g.s.get("notes", [])
+	var seen := {}
+	for e in lg:
+		seen[String(e[1])] = true
+	var extra := []
+	for i in range(notes.size() - 1, -1, -1):
+		var tx := String(notes[i].get("text", ""))
+		if tx == "" or seen.has(tx):
+			continue
+		extra.append(notes[i])
+		if extra.size() >= 8:
+			break
+	if not extra.is_empty():
+		L("近来", 13, C_INK, v)
+		for it in extra:
+			LW("%s  %s" % [World.cal_short(int(it.get("day", 0))), String(it.get("text", ""))], 13, C_DIM, v)
+
+## 静室里的长说明收进抽屉，页面上只留能点的操作。
+func _sheet_cultip(v: Node) -> void:
+	LW("闭关：田和丹炉照常走；闭满一年，江湖的事不找上门。修为满了就去冲关，长闭关坐不出东西。一月、三月仍可坐着等。", 13, C_TEXT, v)
+	var need: int = Econ.fudan_need(g)
+	LW("服丹：每半年服 %d 颗聚气丹，这半年闭关修为 +%d%%（仓里 %d 颗）。连着闭关满三年心境蒙尘、所得减半，满五年坐不住要出关；出门走两个月就好。" % [need, Econ.FUDAN_PCT, g.store_n("pill_juqi")], 13, C_TEXT, v)
+	LW("紫芝是高阶灵草：坊市药铺收（约 %d 灵石一株），也能跟货郎换丹。用度欠着灵圃就停。" % Estate.zizhi_price(g), 13, C_TEXT, v)
+	LW("指点后辈要在家一个月。收徒要有客舍。细则都在「门下」。", 13, C_DIM, v)
 
 # ------------------------------------------------------------ 舞台（整幅插画）
 ## lift_to：>0 时把画面里墨色最重的那一带（BG_INK_Y，按图高的比例）往上挪到这个 y 附近（最多挪图高的 30%），
@@ -1510,7 +1590,7 @@ func _spacer(parent: Node = null) -> void:
 func _hud() -> void:
 	var s = g.s
 	var p = PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.9), Color(0.29, 0.25, 0.2, 0.35), 10, 1, 6))
+	p.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.92), Color(0.29, 0.25, 0.2, 0.35), 8, 1, 4))
 	hud.add_child(p)
 	var r = row(p, 8)
 	var dl = H(World.cal_short(int(s["day"])), 16, C_ACCENT, r)
@@ -1532,15 +1612,15 @@ func _hud() -> void:
 		pb.max_value = per
 		pb.value = per if int(s["xiuwei"]) >= GS.XW_GOAL else float(int(s["xiuwei"])) - per * (g.layer() - 1)
 	pb.show_percentage = false
-	pb.custom_minimum_size = Vector2(0, 7)
+	pb.custom_minimum_size = Vector2(0, 5)
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mid.add_child(pb)
 	var lim: int = g.shou_limit_y()   # v0.15：寿元上限按“出生月 + 寿元月”整除，不再用两次取整相加（99/100 横跳）
 	L("%s · %d/%d岁" % [World.season(int(s["day"])), g.age_y(), lim], 11, C_WARN if int(g.shou_years()) * 5 < lim else C_DIM, mid)
 	for it in [["ico_ration", "ration", int(s["ration"])], ["ico_lingshi", "lingshi", int(s["lingshi"])]]:
 		var h = row(r, 1)
-		IC(it[0], 22, h)
-		var nl = L("", 14, C_TEXT, h)
+		IC(it[0], 18, h)
+		var nl = L("", 13, C_TEXT, h)
 		nl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		tick_label(nl, it[1], it[2])
 	var bb = Button.new()
@@ -1562,7 +1642,7 @@ func _nav() -> void:
 	for t in tabs:
 		# 选中的页签：底色 + 主色字；字色在 normal/hover/pressed/focus 都设上——
 		# 以前只设了 normal，手机上点完按钮停在 focus/hover，字就变回默认色（“选中页签字不对”的毛病）
-		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 46)
+		var b = BI(t[1], t[2], func(): tab = t[0]; sheet = "", true, r, 44)
 		if cur == t[0]:
 			# v0.12.1：选中态每个状态都给定底色与字色——手机上点过之后按钮停在 hover/focus；且底色要不透明（Gemini v5 P1#10.5）
 			# 底色不能透：历练页底下是深色地图，原来 16% 的主色底透出地图，主色字就看不见了
@@ -1590,6 +1670,34 @@ func _nav() -> void:
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 # ------------------------------------------------------------ 底部抽屉
+func _hard_wrap(t: String, n: int) -> String:
+	var raw := t.replace(ZW, "").replace("\n", "")
+	var out := ""
+	var i := 0
+	while i < raw.length():
+		if out != "":
+			out += "\n"
+		out += raw.substr(i, n)
+		i += n
+	return out
+
+func _prewrap(n: Node, w: float) -> void:
+	if n is Label and n.get_parent() is VBoxContainer:
+		var l := n as Label
+		if l.autowrap_mode != TextServer.AUTOWRAP_OFF and l.text.length() > 0:
+			var font := l.get_theme_font("font")
+			var fs := l.get_theme_font_size("font_size")
+			if font != null:
+				var raw := l.text.replace(ZW, "")
+				var sz := font.get_multiline_string_size(raw, HORIZONTAL_ALIGNMENT_LEFT, w, fs)
+				var lh := maxf(sz.y, float(fs))
+				# 零宽字把测量撑成一字一行时，按字数估一个高度，别把抽屉撑满。
+				if raw.length() < 90 and lh > float(fs) * 8.0:
+					lh = float(fs) * (2.0 + float(raw.length()) / 18.0)
+				l.custom_minimum_size = Vector2(w, lh + 4.0)
+	for c in n.get_children():
+		_prewrap(c, w)
+
 func _sheet() -> void:
 	var dim = Button.new()
 	dim.flat = true
@@ -1610,11 +1718,11 @@ func _sheet() -> void:
 	p.add_theme_stylebox_override("panel", psb)
 	sheet_layer.add_child(p)
 	var v = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	var top = row(v)
-	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜", "men": "青庐 · 门下"}.get(sheet, "")
-	var ht = H(tl, 24, C_ACCENT, top)
+	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜", "men": "青庐 · 门下", "guide": "旧主手记", "rlog": "这一路", "cultip": "闭关须知"}.get(sheet, "")
+	var ht = H(tl, 16, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cb = B("收起", func(): sheet = "", true, top, 34)
 	cb.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -1634,7 +1742,13 @@ func _sheet() -> void:
 		"yao": _sheet_yao(v)
 		"jobs": _sheet_jobs(v)
 		"men": _sheet_men(v)
+		"guide": _sheet_guide(v)
+		"rlog": _sheet_rlog(v)
+		"cultip": _sheet_cultip(v)
 	var vs = get_viewport_rect().size
+	# 先按屏宽把换行算准。宽度还是 0 时，一句说明会被当成一字一行，抽屉就撑满整屏。
+	_prewrap(v, vs.x - 40.0)
+	p.custom_minimum_size = Vector2(vs.x, 0)
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
 	var h = max(p.get_combined_minimum_size().y, 120)
@@ -1778,12 +1892,12 @@ func _sheet_zao(v: Node) -> void:
 ## v0.13 行囊页：随身行囊 + 仓里的东西（v0.14 加储物袋、本命法器/法衣/佩饰/功法四格）
 func _pack_tab() -> void:
 	_stage_image("bg_home", 0.72)
-	H("行囊", 24)
+	H("行囊", 16)
 	_equip_panel(card())
 	var c = card()
 	_sheet_pack(c)
 	_gear_lists(c)
-	H("青庐仓里", 20)
+	H("青庐仓里", 16)
 	var c2 = card()
 	var grid = GridContainer.new()
 	grid.columns = 4
@@ -1833,7 +1947,7 @@ func _equip_panel(v: Node) -> void:
 			var it = Gear.eq(g, sl)
 			var t := "%s\n%s" % [Gear.SLOT_NAME[sl], "—" if it == null else Gear.full_name(it)]
 			var uu := -1 if it == null else int(it["u"])
-			var b = BI(t, SLOT_ICON[sl] if it == null else gear_icon(it), func(): item_u = uu; item_shop = false; sheet = "item", it != null, col, 56)
+			var b = BI(t, SLOT_ICON[sl] if it == null else gear_icon(it), func(): item_u = uu; item_shop = false; sheet = "item", it != null, col, 44)
 			b.add_theme_constant_override("icon_max_width", 30)
 			b.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.22))
 			b.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -2251,7 +2365,7 @@ func _title() -> void:
 		var d = store.load_data()
 		if d != null:
 			var st = d["state"]
-			var cb = BI("继续 · %s · %s" % [safe_name(String(st.get("name", ""))), World.cal_short(int(st.get("day", 0)))], "ico_ration", _continue, true, footer, 60)
+			var cb = BI("继续 · %s · %s" % [safe_name(String(st.get("name", ""))), World.cal_short(int(st.get("day", 0)))], "ico_ration", _continue, true, footer, 48)
 			cb.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			cb.add_theme_font_size_override("font_size", 18)
 		else:
@@ -2264,7 +2378,7 @@ func _title() -> void:
 			lb.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			lb.add_theme_font_size_override("font_size", 16)
 			L("旧档会复制一份到新版本继续玩，原档不改。", 12, C_DIM, footer).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var nb = B("新游戏", func(): screen = "create", true, footer, 60)
+	var nb = B("新游戏", func(): screen = "create", true, footer, 48)
 	nb.add_theme_font_size_override("font_size", 20)
 	var pad = Control.new()
 	pad.custom_minimum_size = Vector2(0, 8)
@@ -2275,7 +2389,7 @@ func _create() -> void:
 	if create_portrait.is_empty():
 		_reroll_portrait()
 	var vs = get_viewport_rect().size
-	var ph = clampf(vs.y * 0.36, 180, 330)
+	var ph = clampf(vs.y * 0.26, 140, 220)
 	var pr = _portrait_frame(create_portrait, Vector2(ph * 0.75, ph), body)
 	pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var rr = row()
@@ -2292,14 +2406,14 @@ func _create() -> void:
 	nr.add_theme_constant_override("v_separation", 6)
 	c.add_child(nr)
 	for nm in NAMES_PRESET:
-		var b = B(nm, func(): create_name = nm, true, nr, 48)
+		var b = B(nm, func(): create_name = nm, true, nr, 44)
 		b.add_theme_font_size_override("font_size", 18)
 		if create_name == nm:
 			_mark(b)
 	H("最舍不得", 22, C_ACCENT, c)
 	var cr = row(c)
 	for ch in [["sect", "山门", "ico_zhuji"], ["town", "小镇", "ico_ration"], ["book", "旧书", "ico_fu"]]:
-		var b2 = BI(ch[1], ch[2], func(): create_cherish = ch[0], true, cr, 56)
+		var b2 = BI(ch[1], ch[2], func(): create_cherish = ch[0], true, cr, 44)
 		b2.add_theme_constant_override("icon_max_width", 34)
 		b2.add_theme_font_size_override("font_size", 16)
 		if create_cherish == ch[0]:
@@ -2307,9 +2421,9 @@ func _create() -> void:
 	if store.exists():
 		L("旧档会另存，不删除。", 12, C_WARN, c)
 	var r = row(footer)
-	var bk = B("返回", func(): screen = "title", true, r, 56)
+	var bk = B("返回", func(): screen = "title", true, r, 44)
 	bk.size_flags_stretch_ratio = 0.4
-	var go = B("出发", func(): _start_new(), true, r, 56)
+	var go = B("出发", func(): _start_new(), true, r, 44)
 	go.add_theme_font_size_override("font_size", 20)
 
 ## 主角立绘：整张重摇，或只换一处（发髻 / 衣袍 / 袍色），其余不动
@@ -2506,7 +2620,7 @@ func _modal() -> void:
 			_spacer()
 			var sm: Dictionary = modal["sum"]
 			var c = card()
-			H("回到青庐", 26, C_ACCENT, c)
+			H("回到青庐", 18, C_ACCENT, c)
 			L(["灶膛是冷的。她生了火，烧上一壶水。", "柴门吱呀一声。院里的青芝又长高了些。", "门槛上压着葛老三留的字条：辟谷丹补上了，租钱别忘。"][int(g.s["day"]) % 3], 15, C_TEXT, c)
 			var bk: Dictionary = sm.get("basket", {})
 			var ir = HFlowContainer.new()
@@ -2534,7 +2648,7 @@ func _modal() -> void:
 			_spacer()
 			var sq: Dictionary = modal["sum"]
 			var c = card()
-			H("出关", 26, C_ACCENT, c)
+			H("出关", 18, C_ACCENT, c)
 			L("闭关%s。入关时是%s，出关已是%s，%d 岁。" % [GS.span_text(int(sq["months"])), World.cal_text(int(sq["from"])), g.date_text(), g.age_y()], 15, C_TEXT, c)
 			if String(sq["r0"]) != String(sq["r1"]):
 				L("境界：%s → %s" % [sq["r0"], sq["r1"]], 15, C_ACCENT, c)
@@ -2655,14 +2769,14 @@ func _home() -> void:
 func _cult() -> void:
 	var s = g.s
 	_stage_image("bg_biguan", 0.2)
-	H(g.realm_text(), 28, C_ACCENT)
+	H(g.realm_text(), 18, C_ACCENT)
 	var rr = row()
 	rr.alignment = BoxContainer.ALIGNMENT_CENTER
-	var rg = ring(rr, int(s["xiuwei"]), g.xw_goal(), 132, C_GOLD, "", "修为")
-	var nl = L("", 26, C_TEXT, rg)
+	var rg = ring(rr, int(s["xiuwei"]), g.xw_goal(), 104, C_GOLD, "", "修为")
+	var nl = L("", 22, C_TEXT, rg)
 	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	nl.position = Vector2.ZERO
-	nl.size = Vector2(132, 132)
+	nl.size = Vector2(104, 104)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tick_label(nl, "xw", int(s["xiuwei"]), "%d")
@@ -2681,7 +2795,7 @@ func _cult() -> void:
 		L(hint, 13, C_WARN)
 	_spacer()
 	var c = card()
-	L("闭关：田和丹炉照常走；闭满一年，江湖的事不找上门", 13, C_DIM, c)
+	B("闭关须知", func(): sheet = "cultip", true, c, 40)
 	var r = row(c)
 	var stalled: bool = g.at_gate()
 	for pr in [["一月", "days", 1], ["三月", "days", 3], ["一年", "years", 1], ["十年", "years", 10]]:
@@ -2725,7 +2839,7 @@ func _cult_econ() -> void:
 	var need: int = Econ.fudan_need(g)
 	var fb = B("服丹闭关：%s" % ("开着" if fd else "关着"), func(): Econ.set_fudan(g, not fd), fd or g.store_n("pill_juqi") >= need, r, 42)
 	fb.add_theme_font_size_override("font_size", 13)
-	LW("服丹：每半年服 %d 颗聚气丹，这半年闭关修为 +%d%%（仓里 %d 颗）。连着闭关满三年心境蒙尘、所得减半，满五年坐不住要出关；出门走两个月就好。" % [need, Econ.FUDAN_PCT, g.store_n("pill_juqi")], 11, C_DIM, c)
+	L("仓里聚气丹 %d 颗。" % g.store_n("pill_juqi"), 12, C_DIM, c)
 	if Econ.dusty(g):
 		L("心境蒙尘：闭关所得减半，出门走走。", 12, C_WARN, c)
 	_estate_card()
@@ -2748,7 +2862,7 @@ func _estate_card() -> void:
 		var why: String = Estate.can_build(g, kk)
 		var bb = BI("%s %s（%d 灵石，年 %d）" % ["建" if kk == "ke" else "辟", bd["n"], int(bd["build"]), int(bd["fee"])], UI_ICON.get(kk, "ico_zizhi"), func(): Estate.build(g, kk), why == "", r, 42)
 		bb.add_theme_font_size_override("font_size", 13)
-	LW("紫芝是高阶灵草：坊市药铺收（约 %d 灵石一株），也能跟货郎换丹。用度欠着灵圃就停。" % Estate.zizhi_price(g), 11, C_DIM, c)
+	L("紫芝约 %d 灵石一株，也能换丹。" % Estate.zizhi_price(g), 12, C_DIM, c)
 	L(Estate.tu_text(g), 13, C_INK, c)
 	var r2 = row(c)
 	var w1: String = Estate.can_teach(g)
@@ -2816,9 +2930,24 @@ func _seclude(preset: String, n: int, target: String = "") -> void:
 		g.s.erase("last_seclude")
 
 # ------------------------------------------------------------ 行记
+## 短提示淡掉之后，在生平里回看。不写进青庐行记本身。
+func _notes_block() -> void:
+	var notes: Array = g.s.get("notes", [])
+	if notes.is_empty():
+		return
+	H("近来", 16)
+	var nc = card()
+	var n := 0
+	for i in range(notes.size() - 1, -1, -1):
+		var it: Dictionary = notes[i]
+		LW("%s  %s" % [World.cal_short(int(it.get("day", 0))), String(it.get("text", ""))], 13, C_TEXT, nc)
+		n += 1
+		if n >= 8:
+			break
+
 func _log_tab() -> void:
 	_stage_image("bg_home", 0.7)
-	H("人物记得的事", 24)
+	H("人物记得的事", 16)
 	if g.s["memory"].is_empty():
 		L("（还没有）", 13, C_DIM)
 	var pk = {"老龟": "por_turtle", "葛老三": "por_gelaosan"}
@@ -2826,7 +2955,8 @@ func _log_tab() -> void:
 		var r = row(card())
 		IC(pk.get(m["npc"], "por_heroine"), 40, r)
 		LW("%s · %s：%s" % [World.cal_short(int(m["day"])), m["npc"], m["text"]], 14, C_TEXT, r)
-	H("青庐行记", 24)
+	H("青庐行记", 16)
+	_notes_block()
 	var lc = card()
 	if g.world != null:
 		B("她在江湖里的生平（履历）", func(): person_id = 1; person_tab = "life"; modal = {"kind": "person"}, true, lc, 40)
@@ -2858,7 +2988,7 @@ var place_look: Dictionary = {}
 func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
 	var pc: Color = lk["paper"]
 	var ec: Color = lk["edge"]
-	var sb = _sb(Color(pc.r, pc.g, pc.b, 0.94), Color(ec.r, ec.g, ec.b, 0.55), 8, 1, 10)
+	var sb = _sb(Color(pc.r, pc.g, pc.b, 0.94), Color(ec.r, ec.g, ec.b, 0.55), 8, 1, 6)
 	sb.border_width_left = 4          # 左边一道这地方颜色的“墨条”
 	sb.shadow_color = Color(ec.r, ec.g, ec.b, 0.16)
 	sb.shadow_size = 3
@@ -2868,8 +2998,8 @@ func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
 func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	# v0.11.2b：图要看得清——题头更高，底下只一层渐隐的本处纸色，地名直接压在画上（纸色晕边 + 柔影）
 	var vs: Vector2 = get_viewport_rect().size
-	# v0.16.4：题头只留地名。高题头会把买卖、差事和人脸一起挤到折页下面。
-	var h := 56.0 if vs.y >= 760.0 else 48.0
+	# v0.16.5：题头只留地名和这个月。回青庐在底栏，不再在题头重复。
+	var h := 46.0
 	var pc: Color = lk["paper"]
 	var box = PanelContainer.new()
 	var fr = _sb(Color(0, 0, 0, 0), lk["edge"], 8, 2, 0)
@@ -2940,14 +3070,17 @@ func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	mg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ov.add_child(mg)
 	var r = row(mg, 8)
-	IC("vig_" + String(lk["k"]), 30, r)
-	var nm = H(p, 24, lk["ink"], r)
-	_halo(nm, pc, 7)
-	var sl = L(sub, 13, C_INK, r)
-	_halo(sl, pc, 5)
+	IC("vig_" + String(lk["k"]), 22, r)
+	var nm = H(p, 18, lk["ink"], r)
+	_halo(nm, pc, 5)
+	var sl = L(sub, 12, C_INK, r)
+	_halo(sl, pc, 4)
 	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sl.clip_text = true
+	var jb = B("行记", func(): sheet = "rlog", true, r, 36)
+	jb.size_flags_horizontal = Control.SIZE_SHRINK_END
+	jb.add_theme_font_size_override("font_size", 13)
 	var frame = Panel.new()
 	frame.add_theme_stylebox_override("panel", fr)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3145,7 +3278,7 @@ func _depart() -> void:
 		stage.add_child(mk)
 	_spacer()
 	var n_un = TV.places(W).size()
-	var tip = L("认得 %d 处 · 点地名看看，“？”是只听过风声的地方" % n_un, 13, C_INK, footer)
+	var tip = L("认得 %d 处" % n_un, 12, C_DIM, footer)
 	tip.add_theme_stylebox_override("normal", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 4))
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
@@ -3246,7 +3379,7 @@ func _roam() -> void:
 		sl0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	else:
 		_stage_image("pl_" + String(lk["k"]), float(lk["wa"]), lk["wash"])
-		_place_banner(p, lk, "游历 %d 个月 · 回青庐 %d 个月" % [int(rm.get("days", 0)), g.roam_home_days()])
+		_place_banner(p, lk, "游历 %d 个月" % int(rm.get("days", 0)))
 		place_look = lk
 	# v0.16.4：买卖和差事先排。月记不在这一页再写一遍（顶上的提示已经是这个月的事）。
 	var spots: Array = TV.spots(p)
@@ -3271,10 +3404,11 @@ func _roam() -> void:
 		var sp: Array = spots[i]
 		var idx = i
 		_spot_plaque(String(sp[0]), i, spots.size(), int(rm.get("si", -1)) == i, lk, func(): _roam_spot(idx), spr)
-	# 今天在这一带的人：熟人在前，再添一两个生面孔。人还在，只是不再占满折页。
+	# 这一带的人：点卡片看详情，能上前时详情里就有交互，不再每人挂一颗「上前」。
 	var pc = card()
 	var can: bool = TV.can_approach(W)
-	L("这一带的人" + ("" if can else "（这个月已上前搭过话）"), 14, C_INK, pc)
+	if not can:
+		L("这个月已上前搭过话。", 12, C_DIM, pc)
 	var here: Array = TV.present_at(W, p)
 	var show := []
 	for c in here:
@@ -3285,23 +3419,22 @@ func _roam() -> void:
 			show.append(c)
 	if show.is_empty():
 		L("这个月没碰见什么人。", 13, C_DIM, pc)
-	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
 	if not show.is_empty():
 		var vw: float = get_viewport_rect().size.x
 		var cw: float = floorf((vw - 52.0) / 2.0)
 		cw = clampf(cw, 120.0, 168.0)
 		var grid = GridContainer.new()
 		grid.columns = 2
-		grid.add_theme_constant_override("h_separation", 8)
-		grid.add_theme_constant_override("v_separation", 6)
+		grid.add_theme_constant_override("h_separation", 4)
+		grid.add_theme_constant_override("v_separation", 4)
 		pc.add_child(grid)
 		for c in show:
-			_roam_card(W, c, cw, can, p, spn, grid)
+			_roam_card(W, c, cw, grid)
 	# 走动固定在底栏，不和店铺排在一起
 	var fr = row(footer, 6)
-	var hb = B("回青庐（%d月）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
+	var hb = B("回青庐（%d月）" % g.roam_home_days(), func(): _roam_home(), true, fr, 44)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 46)
+	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 44)
 	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 var _plaque_cache := {}
@@ -3427,7 +3560,7 @@ func _spot_plaque(name: String, i: int, _n: int, selected: bool, lk: Dictionary,
 	b.clip_text = true
 	b.clip_contents = true
 	var tall := get_viewport_rect().size.y >= 760.0
-	b.custom_minimum_size = Vector2(0, 76 if tall else 64)
+	b.custom_minimum_size = Vector2(0, 56 if tall else 48)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
 	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
@@ -3515,18 +3648,19 @@ func _people_face_h() -> float:
 func _face_w(fh: float, slack: float) -> float:
 	return minf(slack, fh * PBox.FACE.size.x / PBox.FACE.size.y)
 
-func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, parent: Node) -> void:
+func _roam_card(W, c: Dictionary, cw: float, parent: Node) -> void:
 	var cid := int(c["id"])
 	var known: bool = W.known(c)
-	var col = VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	parent.add_child(col)
 	var fh := _people_face_h()
 	var fw := _face_w(fh, cw - 16.0)
 	var cell = Button.new()
-	cell.custom_minimum_size = Vector2(cw, fh + 36.0)
+	cell.text = "看" + String(c["name"])
+	cell.clip_text = true
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
+		cell.add_theme_color_override(key, Color(0, 0, 0, 0))
+	cell.custom_minimum_size = Vector2(cw, fh + 32.0)
 	cell.pressed.connect(func(): _press(func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
-	col.add_child(cell)
+	parent.add_child(cell)
 	var v = VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.offset_left = 3; v.offset_top = 3; v.offset_right = -3; v.offset_bottom = -2
@@ -3549,8 +3683,6 @@ func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, 
 	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
 	hl.clip_text = true
-	var ab = B("上前", func(): _approach(cid, p, spn), can, col, 44)
-	ab.add_theme_font_size_override("font_size", 14)
 
 func _roam_spot(i: int) -> void:
 	var r: Dictionary = g.roam_spot(i)
@@ -3563,6 +3695,62 @@ func _roam_spot(i: int) -> void:
 func _approach(id: int, p: String, sp: String) -> void:
 	if TV.approach(g.world, id, p, sp):
 		g.world._save_rng()
+
+## 人就在这一带、这个月还没上前、眼前没有别的事，才给交互。江湖里只看详情。
+func _can_meet(c: Dictionary) -> bool:
+	if g.world == null or c.is_empty() or c.get("player", false) or not bool(c.get("alive", true)):
+		return false
+	if String(g.s.get("loc", "")) != "roam" or not g.world.pending().is_empty():
+		return false
+	if not TV.can_approach(g.world):
+		return false
+	return String(c.get("place", "")) == String(g.s.get("roam", {}).get("pl", ""))
+
+func _meet_spot() -> String:
+	var rm: Dictionary = g.s.get("roam", {})
+	var p := String(rm.get("pl", ""))
+	if not TV.PL.has(p):
+		return p
+	var spots: Array = TV.spots(p)
+	if spots.is_empty():
+		return p
+	return String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
+
+func _meet_actions(c: Dictionary) -> void:
+	var p := String(g.s.get("roam", {}).get("pl", ""))
+	var view: Dictionary = TV.peek_meet(g.world, int(c["id"]), p, _meet_spot())
+	var opts: Array = view.get("opts", [])
+	if opts.is_empty():
+		return
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	body.add_child(grid)
+	var cid := int(c["id"])
+	for o in opts:
+		var oid := String(o[0])
+		var b = B(String(o[1]), func(): _meet_pick(cid, oid), true, grid, 44)
+		b.add_theme_font_size_override("font_size", 13)
+
+func _meet_pick(cid: int, oid: String) -> void:
+	var p := String(g.s.get("roam", {}).get("pl", ""))
+	if not TV.approach(g.world, cid, p, _meet_spot()):
+		g.notice("这个月已经上前搭过话。")
+		return
+	var ev: Dictionary = g.world.pending()
+	var hit := false
+	for o in ev.get("opts", []):
+		if String(o[0]) == oid:
+			hit = true
+			break
+	if hit:
+		g.world.choose(oid)
+	else:
+		# 预览和真正掷出来的选项对不上时，仍把这件事打开，不把人卡在半截。
+		pass
+	modal = {"kind": "story"}
+	sheet = ""
 
 func _roam_home() -> void:
 	g.roam_home()
@@ -3654,7 +3842,7 @@ func _trip_event() -> void:
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
 	body.add_child(tag)
 	var tr = row(tag)
-	H(ev["title"], 24, C_ACCENT, tr)
+	H(ev["title"], 18, C_ACCENT, tr)
 	if ev.get("heavy", false):
 		chip("要事", tr, "", C_WARN)
 	_spacer()
@@ -3970,7 +4158,7 @@ func _story() -> void:
 	tag.add_theme_stylebox_override("panel", _sb(Color(0.985, 0.97, 0.935, 0.85), Color(0, 0, 0, 0), 8, 0, 6))
 	body.add_child(tag)
 	var tr = row(tag)
-	H("江湖 · " + String(ev["tid"]), 22, C_ACCENT, tr)
+	H("江湖 · " + String(ev["tid"]), 16, C_ACCENT, tr)
 	if tier >= 2:
 		chip("要事", tr, "", C_WARN)
 	_spacer()
@@ -4043,12 +4231,12 @@ func _jianghu() -> void:
 	_stage_image("bg_home", 0.72)
 	var w = g.world
 	var top = row()
-	H("江湖", 26, C_ACCENT, top).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	H("江湖", 18, C_ACCENT, top).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var me = B("她的生平", func(): person_id = 1; person_tab = "life"; modal = {"kind": "person"}, true, top, 36)
 	me.size_flags_horizontal = Control.SIZE_SHRINK_END
 	me.custom_minimum_size = Vector2(96, MIN_TAP)
 	var ppl: Array = w.acquaintances()
-	L("认识的人（%d）" % ppl.size(), 15, C_INK)
+	L("认识的人（%d）" % ppl.size(), 12, C_DIM)
 	if ppl.is_empty():
 		L("还没有认识谁。日子长了，山外的人自会找上门来。", 13, C_DIM)
 	var gw = get_viewport_rect().size.x - 16
@@ -4089,7 +4277,7 @@ func _jianghu() -> void:
 		var sl = L(rw + ("" if c["alive"] else " · " + w.status(c)), 11, col, v)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	H("传闻", 22, C_ACCENT)
+	H("传闻", 16, C_ACCENT)
 	var nc = card()
 	var news: Array = w.recent_news(40)
 	if news.is_empty():
@@ -4132,41 +4320,39 @@ func _person() -> void:
 	var hr = row()
 	var vs = get_viewport_rect().size
 	# 档案头像让出右边的名字和下面的生平，长文靠中间这一栏往下翻
-	var ph := clampf(vs.y * 0.18, 112.0, 150.0)
-	var pw := minf(ph * 0.78, vs.x * 0.34)
+	var ph := clampf(vs.y * 0.13, 84.0, 108.0)
+	var pw := minf(ph * 0.78, vs.x * 0.28)
 	_portrait_frame(npc_spec(c), Vector2(pw, ph), hr)
 	var info = VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_theme_constant_override("separation", 3)
+	info.add_theme_constant_override("separation", 2)
 	hr.add_child(info)
-	H(String(c["name"]), 26, C_ACCENT, info)
+	H(String(c["name"]), 18, C_ACCENT, info)
 	var realm = g.realm_text() if is_p else w.status(c)
 	var agey := g.age_y() if is_p else int(float(c.get("age", 0)))
-	L("%s · %s%s" % [String(c["sect"]), realm, (" · %d 岁" % agey) if agey > 0 else ""], 14, C_TEXT, info)
+	var rel: String = "" if is_p else (" · " + String(w.rel_word(c)))
+	L("%s · %s%s%s" % [String(c["sect"]), realm, (" · %d 岁" % agey) if agey > 0 else "", rel], 13, C_WARN if (not is_p and w.rel_word(c) in ["仇", "有隙"]) else C_TEXT, info)
 	if not is_p:
-		L("关系：%s" % w.rel_word(c), 14, C_WARN if w.rel_word(c) in ["仇", "有隙"] else C_TEXT, info)
-	var tf = HFlowContainer.new()
-	tf.add_theme_constant_override("h_separation", 4)
-	info.add_child(tf)
-	if not is_p:
+		var tf = HFlowContainer.new()
+		tf.add_theme_constant_override("h_separation", 4)
+		info.add_child(tf)
 		for t in c["traits"]:
 			chip(String(t), tf)
 		var r = w.R(c, w.P())
-		var close = int(r["f"]) >= 20 or c.get("known_like", false) or not w.R(w.P(), c)["t"].is_empty()
-		L("喜：%s" % ("、".join(c["likes"]) if close else "（还不熟）"), 13, C_DIM, info)
-		L("志：%s" % (String(c["goal"]) if close else "（还不熟）"), 13, C_DIM, info)
-		if w.known(c):
-			L("记得：%s" % String(w.sig(c)[1]), 13, C_DIM, info).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		if w.R(w.P(), c).has("ks"):
-			L("信物：%s" % String(w.R(w.P(), c)["ks"]), 13, C_GOLD, info).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			L("信物：%s" % String(w.R(w.P(), c)["ks"]), 12, C_GOLD, info).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var bar = ProgressBar.new()
 		bar.min_value = -60
 		bar.max_value = 80
 		bar.value = clampf(float(r["f"]) - float(r["g"]), -60, 80)
 		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(0, 6)
+		bar.custom_minimum_size = Vector2(0, 5)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		info.add_child(bar)
-		L("好感", 11, C_DIM, info)
+	if _can_meet(c):
+		_meet_actions(c)
+	elif String(g.s.get("loc", "")) == "roam" and not is_p and String(c.get("place", "")) == String(g.s.get("roam", {}).get("pl", "")) and g.world != null and not TV.can_approach(g.world):
+		L("这个月已上前搭过话。", 12, C_DIM)
 	var tr = row()
 	var mem_word := "记得她" if String(c.get("sex", "")) == "女" else "记得他"
 	for t in ([["life", "生平"], ["rel", "关系"]] + ([] if is_p else [["why", "心事"], ["mem", mem_word]])):
@@ -4178,7 +4364,12 @@ func _person() -> void:
 		"life":
 			_life_timeline(c, cc)
 		"why":
-			# v0.9：这个人眼下想做什么、为什么（动机 + 最放不下的几件事 + 性子）
+			# 喜、志、记得从顶上收进心事，长句不挡交互。
+			var close = int(w.R(c, w.P())["f"]) >= 20 or c.get("known_like", false) or not w.R(w.P(), c)["t"].is_empty()
+			L("喜：%s" % ("、".join(c["likes"]) if close else "（还不熟）"), 13, C_DIM, cc)
+			L("志：%s" % (String(c["goal"]) if close else "（还不熟）"), 13, C_DIM, cc)
+			if w.known(c):
+				L("记得：%s" % String(w.sig(c)[1]), 13, C_DIM, cc).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			var wl: Array = w.AG.why_lines(w, c)
 			var deep: bool = int(w.R(c, w.P())["f"]) >= 20 or not w.R(w.P(), c)["t"].is_empty() or int(w.R(c, w.P())["g"]) >= 20
 			if wl.is_empty():
@@ -4245,9 +4436,9 @@ func _person() -> void:
 				L("%s  %s" % [World.cal_short(int(m[0])), m[2]], 14, C_WARN if int(m[3]) < 0 else C_TEXT, cc)
 	if String(g.s.get("loc", "")) == "roam" and tab != "jianghu":
 		# v0.11.1：从游历页的画像卡点开的，看完回游历页
-		B("回%s" % String(g.s["roam"].get("pl", "")), func(): modal = {}; life_all = false, true, footer, 46)
+		B("回%s" % String(g.s["roam"].get("pl", "")), func(): modal = {}; life_all = false, true, footer, 44)
 	else:
-		B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 46)
+		B("回江湖", func(): modal = {}; tab = "jianghu"; life_all = false, true, footer, 44)
 
 ## 生平时间线：按历法分月（第 1 日是正月初一，30 日一月；节令也按这个历），近的月份在上、月内按日先后；每条右侧是提到的人的小头像（点开看此人）
 func _life_timeline(c: Dictionary, cc: VBoxContainer) -> void:

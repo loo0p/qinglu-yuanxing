@@ -136,6 +136,15 @@ with sync_playwright() as p:
         clear_dialogs()
         if state().get('loc') == 'roam': break
     gear['at_fangshi'] = state().get('loc') == 'roam'
+    # v0.16.5：点人（按钮文字「看」+名字）打开详情，再点「问问修行」。没有旧的「上前」按钮。
+    gear['person_open'] = tap('看', 1200)
+    if gear['person_open'] and tap('问问修行', 1200):
+        gear['person_talk'] = True
+        clear_dialogs()
+    else:
+        gear['person_talk'] = False
+        tap('回坊市', 800)
+    step('v0165_person', gear['person_open'])
     gear['shop_open'] = tap('器物铺', 1200) or tap_scroll('器物铺', 1200, 6)
     step('v14_shop', gear['shop_open'])
     # v0.15.2：托售一栏总在（没有货也写“眼下没有”）
