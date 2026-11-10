@@ -222,10 +222,12 @@ func _units() -> void:
 	var ns: Array = w.npcs().filter(func(c): return not c["player"])
 	var a: Dictionary = ns[0]
 	var b: Dictionary = ns[1]
-	# 立绘（画时修正，不改抽签）
+	# 立绘（画时修正，不改抽签）。v0.16.4 起允许按种子换底头、发型、眉眼、花钿，用来拉开同场的人。
 	var young_bad := 0
 	var san_bad := 0
 	var tot := 0
+	var f_bases := {}
+	var f_hairs := {}
 	for i in 400:
 		var c := {"id": 9000 + i, "pseed": 777 + i * 31, "age": 18.0 + float(i % 17), "sex": "男" if i % 3 != 0 else "女", "sect": w.SECT_LIST[i % w.SECT_LIST.size()], "lv": 2, "pv": 10, "player": false, "traits": []}
 		var sp: Dictionary = w.portrait_spec(c)
@@ -235,18 +237,61 @@ func _units() -> void:
 		tot += 1
 		var raw_b = sp.get("beard", null)
 		var bd := "" if raw_b == null else str(raw_b)
-		if sp["base"] == "base_m5":
+		var hair := str(sp.get("hair", ""))
+		var base := str(sp.get("base", ""))
+		if float(c["age"]) < 36.0 and base == "base_m5":
 			young_bad += 1
-		elif c["sex"] == "女" and raw_b != null:
-			young_bad += 1
-		elif c["sex"] == "男" and not (bd.begins_with("beard_m1") or bd.begins_with("beard_m2")):
+		if c["sex"] == "女":
+			if raw_b != null or not (base in w.F_BASES_SAFE) or not (hair in w.F_HAIRS_SAFE):
+				young_bad += 1
+			if hair.begins_with("hair_f9") or hair.begins_with("hair_f8"):
+				young_bad += 1
+			f_bases[base] = true
+			f_hairs[hair] = true
+		elif not (bd.begins_with("beard_m1") or bd.begins_with("beard_m2")) or not (base in w.M_BASES_SAFE) or not (hair in w.M_HAIRS_SAFE) or hair.begins_with("hair_m6"):
 			young_bad += 1
 		if c["sect"] == "散修" and Color8(int(sp["robe_tint"][0]), int(sp["robe_tint"][1]), int(sp["robe_tint"][2])).s > 0.35:
 			san_bad += 1
-		var raw: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
-		if raw.get("feats") != sp.get("feats") or raw.get("hair") != sp.get("hair") or raw.get("marks") != sp.get("marks"):
-			young_bad += 1000
-	ok(tot > 100 and young_bad == 0, "36 岁以下不用 base_m5；男修短须、女修无须；五官发型不动（%d 人）" % tot)
+		var drawn: Dictionary = Portrait5View.render_spec(sp)
+		if str(drawn.get("hair", "")) != hair or str(drawn.get("base", "")) != base:
+			young_bad += 1
+	ok(tot > 100 and young_bad == 0, "年轻不用 base_m5；男修短须、女修无须；发型落在安全集合（%d 人）" % tot)
+	ok(f_hairs.size() >= 4 and f_bases.has("base_f3"), "散女修用到圆脸，发型不止一款（底头 %d，发型 %d）" % [f_bases.size(), f_hairs.size()])
+	# 同世女修：id 小的先占 (底头, 发型)，十二人互不重复；后加的人不改前人的脸
+	var g2 = GS.new()
+	g2.new_game("苏青禾", "sect", 4, true)
+	var ww = g2.world
+	var keep := {}
+	for k in ww.w["C"].keys():
+		var oc: Dictionary = ww.w["C"][k]
+		if oc.get("player", false):
+			keep[k] = oc
+	ww.w["C"] = keep
+	var women := []
+	for i in 12:
+		var cw := {"id": 100 + i, "pseed": 50 + i * 13, "age": 22.0, "sex": "女", "sect": "散修", "lv": 1, "pv": 10, "player": false, "traits": []}
+		ww.w["C"][str(cw["id"])] = cw
+		women.append(cw)
+	var pairs := {}
+	var dup := 0
+	var f3n := 0
+	var bases := {}
+	var hairs := {}
+	for cw in women:
+		var spw: Dictionary = ww.portrait_spec(cw)
+		var pair := str(spw["base"]) + "|" + str(spw["hair"])
+		if pairs.has(pair):
+			dup += 1
+		pairs[pair] = true
+		bases[str(spw["base"])] = true
+		hairs[str(spw["hair"])] = true
+		if str(spw["base"]) == "base_f3":
+			f3n += 1
+	var first: Dictionary = ww.portrait_spec(women[0])
+	ww.w["C"]["9999"] = {"id": 9999, "pseed": 3, "age": 20.0, "sex": "女", "sect": "散修", "lv": 1, "pv": 10, "player": false, "traits": []}
+	var first2: Dictionary = ww.portrait_spec(women[0])
+	ok(dup == 0 and pairs.size() == 12 and f3n >= 3 and bases.size() == 3 and hairs.size() >= 6, "十二名同世女修 base+发型不撞，三种底头、圆脸至少 3 人（撞 %d，圆脸 %d，发型 %d）" % [dup, f3n, hairs.size()])
+	ok(first == first2 and ww.portrait_spec(women[3]) == ww.portrait_spec(women[3]), "同一人跨页（再算一次、后加人）脸不变")
 	ok(san_bad == 0, "散修袍色都是低饱和色")
 	ok(Portrait5View.render_spec({"base": "base_f", "robe": "robe_f8@base_f", "feats": {}}).robe == "robe_f9@base_f", "阴阳鱼补子袍改画素袍")
 	var cq := {"pseed": 5, "age": 20.0, "sex": "女", "sect": "青云宗", "lv": 2, "pv": 10, "player": false, "traits": []}

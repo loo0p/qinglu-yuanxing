@@ -3,7 +3,8 @@ extends Control
 ## crop 用画布坐标；cover=true 时铺满（裁边），否则完整放下。motion=0 不眨眼不摆动（缩略图用，省电）。
 const View = preload("res://addons/portrait5/portrait5_view.gd")
 const BUST := Rect2(24, 0, 384, 512)
-const FACE := Rect2(104, 40, 224, 250)
+## v0.16.4：脸卡从 y=40 起裁，高髻、双髻的上半截在画面外。改从画布顶裁到下巴，发髻留在框里。
+const FACE := Rect2(88, 0, 256, 300)
 
 const Lib = preload("res://addons/portrait5/portrait5_lib.gd")
 var view: Node2D
