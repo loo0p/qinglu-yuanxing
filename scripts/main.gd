@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.5 试玩版"
+const VERSION = "v0.16.6 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -1698,10 +1698,49 @@ func _prewrap(n: Node, w: float) -> void:
 	for c in n.get_children():
 		_prewrap(c, w)
 
+## 关掉抽屉。手记点遮罩或「收起」和「记下了」一样，这一张不再马上弹回来。
+func _dismiss_sheet() -> void:
+	if sheet == "guide":
+		var k := _guide_key()
+		var gd = g.s.get("guide", null)
+		if k != "" and gd is Dictionary:
+			gd["seen"][k] = true
+	sheet = ""
+
+## 抽屉活动范围：x 是遮罩顶（顶栏和短提示留在上面），y 是底边（停在底栏之上，页签一直能点）。
+func _sheet_band() -> Vector2:
+	var vs := get_viewport_rect().size
+	var top := 96.0
+	var bottom := vs.y
+	if footer != null and is_instance_valid(footer) and footer.get_child_count() > 0:
+		var fh := maxf(footer.get_combined_minimum_size().y, 44.0)
+		bottom = vs.y - 6.0 - fh
+	return Vector2(top, maxf(bottom, top + 160.0))
+
+func _sheet_hmax(band: Vector2) -> float:
+	return maxf(120.0, band.y - band.x - 32.0)   # 最上留一条遮罩，点得到、也关得掉
+
+## 长说明会把抽屉撑得比屏幕宽，「收起」就被挤出右缘。这里把最小宽度收回来。
+func _fit_sheet_width(n: Node, w: float) -> void:
+	if n is Control:
+		var c := n as Control
+		if c.custom_minimum_size.x > w:
+			c.custom_minimum_size.x = w
+		if n is Label:
+			var l := n as Label
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if l.autowrap_mode == TextServer.AUTOWRAP_OFF:
+				l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+				l.custom_minimum_size.x = minf(l.custom_minimum_size.x, w * 0.72)
+	for ch in n.get_children():
+		_fit_sheet_width(ch, w)
+
 func _sheet() -> void:
+	var band := _sheet_band()
 	var dim = Button.new()
 	dim.flat = true
-	dim.size = get_viewport_rect().size
+	dim.position = Vector2(0, band.x)
+	dim.size = Vector2(get_viewport_rect().size.x, maxf(0.0, band.y - band.x))
 	var dsb = StyleBoxFlat.new()
 	dsb.bg_color = Color(0.1, 0.08, 0.05, 0.35)
 	for st in ["normal", "hover", "pressed", "focus"]:
@@ -1709,13 +1748,16 @@ func _sheet() -> void:
 	dim.pressed.connect(func():
 		if _block_press:
 			return
-		sheet = ""; refresh())
+		_dismiss_sheet()
+		_save()
+		refresh())
 	sheet_layer.add_child(dim)
 	var p = PanelContainer.new()
 	var psb = _sb(Color("#F6F0E2"), Color(0.29, 0.25, 0.2, 0.5), 14, 1, 12)
 	psb.corner_radius_bottom_left = 0
 	psb.corner_radius_bottom_right = 0
 	p.add_theme_stylebox_override("panel", psb)
+	p.clip_contents = true
 	sheet_layer.add_child(p)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -1724,10 +1766,12 @@ func _sheet() -> void:
 	var tl = {"field": "田", "furnace": "丹炉 · 仓", "zao": "灶间 · 旧主手记", "pack": "行囊", "stats": "近况", "place": sel_place, "goto": "去别处", "item": "器物", "shop": "坊市 · 器物铺", "auc": "坊市 · 拍卖会", "yao": "坊市 · 药铺", "jobs": "坊市 · 差事榜", "men": "青庐 · 门下", "guide": "旧主手记", "rlog": "这一路", "cultip": "闭关须知"}.get(sheet, "")
 	var ht = H(tl, 16, C_ACCENT, top)
 	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var cb = B("收起", func(): sheet = "", true, top, 34)
+	var cb = B("收起", _dismiss_sheet, true, top, 34)
 	cb.size_flags_horizontal = Control.SIZE_SHRINK_END
 	cb.custom_minimum_size = Vector2(64, MIN_TAP)
 	cb.add_theme_font_size_override("font_size", 13)
+	if toast != null and toast.visible and String(toast.text) != "":
+		L(String(toast.text), 13, C_WARN, v)
 	match sheet:
 		"field": _sheet_field(v)
 		"furnace": _sheet_furnace(v)
@@ -1747,13 +1791,14 @@ func _sheet() -> void:
 		"cultip": _sheet_cultip(v)
 	var vs = get_viewport_rect().size
 	# 先按屏宽把换行算准。宽度还是 0 时，一句说明会被当成一字一行，抽屉就撑满整屏。
-	_prewrap(v, vs.x - 40.0)
+	_prewrap(v, vs.x - 48.0)
+	_fit_sheet_width(v, vs.x - 36.0)
 	p.custom_minimum_size = Vector2(vs.x, 0)
 	p.size = Vector2(vs.x, 0)
 	p.reset_size()
 	var h = max(p.get_combined_minimum_size().y, 120)
-	# v0.15：抽屉比屏幕高（器物铺两行货、药铺）就改成能滚，标题和“收起”不滚
-	var hmax: float = vs.y * 0.88
+	# 高出底栏以上的空位就改成能滚，标题和“收起”不滚，底栏也不被盖住
+	var hmax: float = _sheet_hmax(band)
 	if h > hmax:
 		var sc = ScrollContainer.new()
 		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -1773,33 +1818,35 @@ func _sheet() -> void:
 		p.size = Vector2(vs.x, 0)
 		p.reset_size()
 		h = p.get_combined_minimum_size().y
-	p.position = Vector2(0, vs.y - h)
+	p.position = Vector2(0, band.y - h)
 	p.size = Vector2(vs.x, h)
 	var tw: Tween = null
 	if not sheet_layer.has_meta("open") or sheet_layer.get_meta("open") != sheet:
 		sheet_layer.set_meta("open", sheet)
-		p.position.y = vs.y
+		p.position.y = band.y
 		tw = p.create_tween()
-		tw.tween_property(p, "position:y", vs.y - h, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(p, "position:y", band.y - h, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	# 换行字要排过一帧才知道真实行数：下一帧按真实高度再贴一次底
 	var pref = weakref(p)
+	var band_keep := band
 	get_tree().process_frame.connect(func():
 		var p2 = pref.get_ref()
 		if p2 == null or not is_instance_valid(p2):
 			return
-		_refit_sheet(p2, tw, vs)
+		_refit_sheet(p2, tw, vs, band_keep)
 	, CONNECT_ONE_SHOT)
 
-func _refit_sheet(p: PanelContainer, tw: Tween, vs: Vector2) -> void:
-	var h2: float = minf(maxf(p.get_combined_minimum_size().y, 120.0), vs.y * 0.9)
+func _refit_sheet(p: PanelContainer, tw: Tween, vs: Vector2, band: Vector2) -> void:
+	var h2: float = minf(maxf(p.get_combined_minimum_size().y, 120.0), _sheet_hmax(band))
 	if absf(h2 - p.size.y) < 1.0:
 		return
 	p.size = Vector2(vs.x, h2)
+	var y := band.y - h2
 	if tw != null and tw.is_valid():
 		tw.kill()
-		p.create_tween().tween_property(p, "position:y", vs.y - h2, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		p.create_tween().tween_property(p, "position:y", y, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	else:
-		p.position.y = vs.y - h2
+		p.position.y = y
 
 func _queue_text() -> String:
 	if g.s["queue"].is_empty():
@@ -2090,12 +2137,12 @@ func _sheet_item(v: Node) -> void:
 	if where == "consign":
 		var cp := int(csg["price"])
 		LW("%s托售，两年内有效（到%s）。" % [String(csg["from"]), World.cal_text(int(csg["until"]))], 12, C_DIM, v)
-		B("接下（%d 灵石）" % cp, func(): act.call(func(): return Econ.consign_buy(g, uu)); sheet = "shop", int(g.s["lingshi"]) >= cp, r, 42)
+		B("接下（%d 灵石）" % cp, func(): _back_to_shop(String(Econ.consign_buy(g, uu)), "接下了，收进行囊。"), int(g.s["lingshi"]) >= cp, r, 42)
 		B("回铺子", func(): sheet = "shop", true, r, 42)
 		return
 	if where == "shop":
 		var pr: int = Gear.buy_price(it, day)
-		B("买下（%d 灵石）" % pr, func(): act.call(func(): return Gear.shop_buy(g, uu)); sheet = "shop", int(g.s["lingshi"]) >= pr, r, 42)
+		B("买下（%d 灵石）" % pr, func(): _back_to_shop(String(Gear.shop_buy(g, uu)), "买下了，收进行囊。"), int(g.s["lingshi"]) >= pr, r, 42)
 		B("回铺子", func(): sheet = "shop", true, r, 42)
 		return
 	if where == "eq":
@@ -2875,6 +2922,11 @@ func _estate_card() -> void:
 func _est_msg(m: String) -> void:
 	if m != "":
 		g.notice(m)
+
+## 买下 / 接下之后回到铺子，可以接着挑。成了就写明已经收进行囊。
+func _back_to_shop(msg: String, ok_line: String) -> void:
+	g.notice(ok_line if msg == "" else msg)
+	sheet = "shop"
 
 ## v0.16：门下——挑一个后辈指点（一年一回），或收作徒弟（要客舍）
 func _sheet_men(v: Node) -> void:
