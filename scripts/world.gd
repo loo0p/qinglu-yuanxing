@@ -938,10 +938,14 @@ func portrait_opts(c: Dictionary) -> Dictionary:
 	return o
 
 ## v0.12.1 立绘的画时修正（Gemini v5 P2#12）：只改“怎么画”，不改抽签与存档——同一个人每次看都一样，旧档人物也跟着变顺眼
-## - 36 岁以下（且非老相）：不用方长脸底模 base_m5、不长胡子（“嗜战”的粗人除外可留短须）
+## - 36 岁以下（且非老相）：不用方长脸底模 base_m5
 ## - 袍色：宗门各有一组色（青云月白/青、药王竹青、万剑玄黑/银、落霞绯、血煞暗红…），散修只取素白、鸦青、赭石、竹青、浅灰这些低饱和色
 ## - 胸前阴阳鱼补子那件袍（robe_f8）换成同形的素袍 robe_f9：在 Portrait5View.render_spec 里改，主角也算
-## 发型（刘海、鬓发）与脸型不动：不新加高额头、不换五官
+## v0.16.2：非老者男修一律短须，女修无须
+## v0.16.4：年轻女修原先被折进 base_f / f2 / f4 几张相近瘦脸，安全长发又只剩三款，同场看起来像同一个人。
+## 非老者按种子改画法（存档里的签不动）：女修在圆脸 f3、瓜子 f、略长 f4 之间换，发型用长发 / 发髻 / 辫 / 双髻这些真正不同的款，眉眼和花钿跟着换；
+## 男修在 m2 / m / m3 之间换，短须留着。不用方脸 f5、窄脸 m4、老脸 m5、飞发 f9、现代短发 m6、高发际 f8。
+## 同场去重：同一性别里，id 更小的人先占 (底头, 发型)，后来的人让开。只看 id 更小的人，所以后入世的人不改前人的脸；坊市、江湖、人物页是同一次计算，跨页不变。
 const SECT_PAL = {
 	"青云宗": [[226, 230, 226], [112, 150, 128], [190, 208, 196]],
 	"玄霜谷": [[200, 214, 226], [222, 230, 236], [150, 170, 190]],
@@ -953,28 +957,119 @@ const SECT_PAL = {
 	"散修": [[228, 224, 214], [62, 72, 82], [138, 114, 94], [112, 140, 112], [176, 176, 172]],
 }
 const YOUNG_BASE_TO = ["base_m", "base_m2", "base_m3"]
+## 3 与 7 互质，0..20 的 (底头, 发型) 各不相同。底头把圆脸 f3 放在第一位。
+const F_LOOK_N := 21
+const F_BASES_SAFE := ["base_f3", "base_f", "base_f4"]
+const F_HAIRS_SAFE := ["hair_f6@base_f", "hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
+const F_BROWS_SAFE := ["brows:fx_f1@base_f", "brows:fx_f3@base_f", "brows:fx_f5@base_f", "brows:fx_f2@base_f", "brows:fx_f4@base_f"]
+const F_EYES_SAFE := ["eyes:fx_f4@base_f", "eyes:fx_f1@base_f", "eyes:fx_f5@base_f", "eyes:fx_f3@base_f", "eyes:eyes_cold@base_f"]
+const F_MARKS_SAFE := ["huadian_moon", "huadian_drop", "huadian_plum", "huadian_dots", "huadian_flame", "mole_cheek", ""]
+const F_OUTERS_SAFE := ["", "outer_f2@base_f", "outer_f4@base_f", "outer_f3@base_f"]
+## 3 与 5 互质，0..14 的 (底头, 发型) 各不相同。不用 m4 / m5。
+const M_LOOK_N := 15
+const M_BASES_SAFE := ["base_m2", "base_m", "base_m3"]
+const M_HAIRS_SAFE := ["hair_m1@base_m", "hair_m2@base_m", "hair_m7@base_m", "hair_m9@base_m", "hair_m3@base_m"]
+const M_BROWS_SAFE := ["brows:fx_m1@base_m", "brows:fx_m3@base_m"]
+const M_EYES_SAFE := ["eyes:fx_m1@base_m", "eyes:fx_m3@base_m"]
+const M_BEARDS_SAFE := ["beard_m1@base_m", "beard_m2@base_m"]
+const M_OUTERS_SAFE := ["", "outer_m1@base_m", "outer_m2@base_m"]
 
 func portrait_spec(c: Dictionary) -> Dictionary:
 	var o := portrait_opts(c)
 	var sp: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
 	return portrait_fix(c, sp, o)
 
+func _look_pair(sex: String, slot: int) -> String:
+	if sex == "女":
+		return F_BASES_SAFE[slot % F_BASES_SAFE.size()] + "|" + F_HAIRS_SAFE[slot % F_HAIRS_SAFE.size()]
+	return M_BASES_SAFE[slot % M_BASES_SAFE.size()] + "|" + M_HAIRS_SAFE[slot % M_HAIRS_SAFE.size()]
+
+func _pick_slot(sex: String, pseed: int, n: int, used: Dictionary) -> int:
+	var pref := absi(pseed * 2654435761) % n
+	for k in n:
+		var s := (pref + k) % n
+		if not used.has(_look_pair(sex, s)):
+			return s
+	return pref
+
+## 人在世上：让开 id 更小的同性已经占了的 (底头, 发型)。不在世上（测试里临时造的人）就只按自己的种子。
+func _look_slot(c: Dictionary, n: int) -> int:
+	var sex := String(c.get("sex", "女"))
+	var used := {}
+	var mine := int(c.get("id", -1))
+	var cmap: Dictionary = w.get("C", {})
+	if mine < 0 or not cmap.has(str(mine)):
+		return _pick_slot(sex, int(c.get("pseed", 0)), n, used)
+	var ids: Array = []
+	for k in cmap.keys():
+		var o: Dictionary = cmap[k]
+		if o.get("player", false) or String(o.get("sex", "")) != sex:
+			continue
+		var oid := int(o.get("id", -1))
+		if oid >= 0 and oid < mine:
+			ids.append(oid)
+	ids.sort()
+	for oid in ids:
+		var o2: Dictionary = cmap[str(oid)]
+		var s := _pick_slot(sex, int(o2.get("pseed", 0)), n, used)
+		used[_look_pair(sex, s)] = true
+	return _pick_slot(sex, int(c.get("pseed", 0)), n, used)
+
+func _apply_young_look(c: Dictionary, sp: Dictionary) -> int:
+	var female: bool = c["sex"] != "男"
+	var n := F_LOOK_N if female else M_LOOK_N
+	var s := _look_slot(c, n)
+	if not sp.has("feats"):
+		sp["feats"] = {}
+	var feats: Dictionary = sp["feats"]
+	if female:
+		sp["base"] = F_BASES_SAFE[s % F_BASES_SAFE.size()]
+		sp["hair"] = F_HAIRS_SAFE[s % F_HAIRS_SAFE.size()]
+		feats["brows"] = F_BROWS_SAFE[s % F_BROWS_SAFE.size()]
+		feats["eyes"] = F_EYES_SAFE[s % F_EYES_SAFE.size()]
+		var mk := String(F_MARKS_SAFE[s % F_MARKS_SAFE.size()])
+		sp["marks"] = [mk] if mk != "" else []
+		var outer := String(F_OUTERS_SAFE[s % F_OUTERS_SAFE.size()])
+		sp["outer"] = outer if outer != "" else null
+		sp["beard"] = null
+	else:
+		sp["base"] = M_BASES_SAFE[s % M_BASES_SAFE.size()]
+		sp["hair"] = M_HAIRS_SAFE[s % M_HAIRS_SAFE.size()]
+		feats["brows"] = M_BROWS_SAFE[s % M_BROWS_SAFE.size()]
+		feats["eyes"] = M_EYES_SAFE[s % M_EYES_SAFE.size()]
+		sp["marks"] = []
+		var outer_m := String(M_OUTERS_SAFE[s % M_OUTERS_SAFE.size()])
+		sp["outer"] = outer_m if outer_m != "" else null
+		sp["beard"] = M_BEARDS_SAFE[s % M_BEARDS_SAFE.size()]
+	# 发饰是按原来那款发型定位的，换了发型就拿掉，免得簪子浮在空处。刘海鬓角画在发型贴图里。
+	sp["acc"] = []
+	var mouth := str(feats.get("mouth", ""))
+	if mouth.begins_with("mouth:fx_f1") or mouth.begins_with("mouth:fx_f2"):
+		feats.erase("mouth")
+	return s
+
 func portrait_fix(c: Dictionary, sp: Dictionary, o: Dictionary = {}) -> Dictionary:
 	if o.is_empty():
 		o = portrait_opts(c)
 	var h := absi(int(c["pseed"]) * 2654435761) % 997
-	if not o["elder"] and float(c["age"]) < 36.0 and str(sp.get("base")) == "base_m5":
-		sp["base"] = YOUNG_BASE_TO[h % YOUNG_BASE_TO.size()]
-	# v0.16.2：男修要一眼看出是男的。非老者一律短须（山羊胡 / 络腮的浅一档），不留长髯，也不光下巴。
-	# 女修不长须。老者仍用抽到的须（白须），不在这里改。只改画法，存档里的种子不动。
-	if c["sex"] == "男" and not o.get("elder", false):
-		var light := ["beard_m1@base_m", "beard_m2@base_m"]
-		sp["beard"] = light[h % light.size()]
+	var slot := -1
+	if not o.get("elder", false):
+		slot = _apply_young_look(c, sp)
 	elif c["sex"] != "男":
 		sp["beard"] = null
+	# 兜底：年轻不用 base_m5；男修短须、女修无须。正常路径上面已经换过。
+	if not o.get("elder", false) and float(c["age"]) < 36.0 and str(sp.get("base")) == "base_m5":
+		sp["base"] = YOUNG_BASE_TO[h % YOUNG_BASE_TO.size()]
+	if not o.get("elder", false):
+		if c["sex"] == "男":
+			var bd := str(sp.get("beard", ""))
+			if not (bd.begins_with("beard_m1") or bd.begins_with("beard_m2")):
+				sp["beard"] = M_BEARDS_SAFE[h % M_BEARDS_SAFE.size()]
+		else:
+			sp["beard"] = null
 	var pal: Array = SECT_PAL.get(String(c["sect"]), [])
 	if not pal.is_empty():
-		sp["robe_tint"] = pal[h % pal.size()]
+		sp["robe_tint"] = pal[(h + maxi(slot, 0)) % pal.size()]
 	return sp
 
 # ================================================================ 主角同步（境界来自青庐的修为）

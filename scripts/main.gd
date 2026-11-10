@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.3 试玩版"
+const VERSION = "v0.16.4 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 
@@ -2868,8 +2868,8 @@ func _place_card_sb(lk: Dictionary) -> StyleBoxFlat:
 func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	# v0.11.2b：图要看得清——题头更高，底下只一层渐隐的本处纸色，地名直接压在画上（纸色晕边 + 柔影）
 	var vs: Vector2 = get_viewport_rect().size
-	# 题头留一截地方的气味，但不要高到把这一带的人挤成两张大脸
-	var h := 118.0 if vs.y >= 760 else (96.0 if vs.y >= 700 else 80.0)
+	# v0.16.4：题头只留地名。高题头会把买卖、差事和人脸一起挤到折页下面。
+	var h := 56.0 if vs.y >= 760.0 else 48.0
 	var pc: Color = lk["paper"]
 	var box = PanelContainer.new()
 	var fr = _sb(Color(0, 0, 0, 0), lk["edge"], 8, 2, 0)
@@ -2922,13 +2922,14 @@ func _place_banner(p: String, lk: Dictionary, sub: String) -> Label:
 	var ov = VBoxContainer.new()
 	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(ov)
-	# 右上角一枚小签：这地方的气味（松风 · 山涧 · 青苔 …）
-	var tg = HBoxContainer.new()
-	tg.alignment = BoxContainer.ALIGNMENT_END
-	tg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ov.add_child(tg)
-	var ml = L(String(lk["motto"]), 12, lk["ink"], tg)
-	ml.add_theme_stylebox_override("normal", _sb(Color(pc.r, pc.g, pc.b, 0.72), Color(0, 0, 0, 0), 0, 0, 3))
+	# 题头够高时才挂气味小签；矮题头把地方留给地名
+	if h >= 70.0:
+		var tg = HBoxContainer.new()
+		tg.alignment = BoxContainer.ALIGNMENT_END
+		tg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ov.add_child(tg)
+		var ml = L(String(lk["motto"]), 12, lk["ink"], tg)
+		ml.add_theme_stylebox_override("normal", _sb(Color(pc.r, pc.g, pc.b, 0.72), Color(0, 0, 0, 0), 0, 0, 3))
 	var sp = Control.new()
 	sp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3247,24 +3248,30 @@ func _roam() -> void:
 		_stage_image("pl_" + String(lk["k"]), float(lk["wa"]), lk["wash"])
 		_place_banner(p, lk, "游历 %d 个月 · 回青庐 %d 个月" % [int(rm.get("days", 0)), g.roam_home_days()])
 		place_look = lk
-	# 今天去哪：每个小去处 1 日、1 份干粮
-	# 手机高度上地名并成一排，首屏才容得下四张人脸；下面的人和杂务靠滑动再看
-	var short_scr: bool = get_viewport_rect().size.y < 920
-	var sc = card()
-	L("这个月去哪儿走走（各 1 个月）", 14, C_INK, sc)
+	# v0.16.4：买卖和差事先排。月记不在这一页再写一遍（顶上的提示已经是这个月的事）。
 	var spots: Array = TV.spots(p)
-	var spr = row(sc, 6) if short_scr else null
+	if p == "坊市":
+		var shopc = card()
+		var gr = row(shopc, 6)
+		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, gr, 40)
+		_shop_btn(bb)
+		var jb = B("差事榜", func(): sheet = "jobs", true, gr, 40)
+		_shop_btn(jb)
+		var gr2 = row(shopc, 6)
+		var sb = B("器物铺 · 卖修", func(): sheet = "shop", true, gr2, 40)
+		_shop_btn(sb)
+		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr2, 40)
+		_shop_btn(yb)
+		if Gear.auction_month(int(g.s["day"])):
+			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, shopc, 40)
+			_shop_btn(ab)
+	# 小去处：各一张这地方底图的牌，不再用纯文字按钮
+	var spr = row(null, 6)
 	for i in spots.size():
 		var sp: Array = spots[i]
 		var idx = i
-		var b = B(String(sp[0]) if short_scr else "%s · %s" % [sp[0], sp[1]], func(): _roam_spot(idx), true, spr if short_scr else sc, 44)
-		b.add_theme_font_size_override("font_size", 14)
-		if not short_scr:
-			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.clip_text = true
-		if int(rm.get("si", -1)) == i:
-			b.add_theme_color_override("font_color", C_ACCENT)
-	# 今天在这一带的人：熟人在前，再添一两个生面孔
+		_spot_plaque(String(sp[0]), i, spots.size(), int(rm.get("si", -1)) == i, lk, func(): _roam_spot(idx), spr)
+	# 今天在这一带的人：熟人在前，再添一两个生面孔。人还在，只是不再占满折页。
 	var pc = card()
 	var can: bool = TV.can_approach(W)
 	L("这一带的人" + ("" if can else "（这个月已上前搭过话）"), 14, C_INK, pc)
@@ -3279,7 +3286,6 @@ func _roam() -> void:
 	if show.is_empty():
 		L("这个月没碰见什么人。", 13, C_DIM, pc)
 	var spn := String(spots[clampi(int(rm.get("si", 0)), 0, spots.size() - 1)][0])
-	# v0.16.3：仍是两列整脸，但一卡收矮。390 / 360 首屏大约四个人，再往下才是其余的人和杂务。
 	if not show.is_empty():
 		var vw: float = get_viewport_rect().size.x
 		var cw: float = floorf((vw - 52.0) / 2.0)
@@ -3287,43 +3293,191 @@ func _roam() -> void:
 		var grid = GridContainer.new()
 		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 8)
-		grid.add_theme_constant_override("v_separation", 8)
+		grid.add_theme_constant_override("v_separation", 6)
 		pc.add_child(grid)
 		for c in show:
 			_roam_card(W, c, cw, can, p, spn, grid)
-	var lg: Array = rm.get("log", [])
-	if not lg.is_empty():
-		var lc = card()
-		for it in lg.slice(-2):
-			_wl("%s·%s" % [World.cal_short(int(it[0])), String(it[1])], 13, C_DIM, lc)
-	# 铺子、差事、买丹收成次要一组，不和「去哪儿」抢同一排大按钮
-	if p == "坊市":
-		var shopc = card()
-		L("坊市杂务", 13, C_DIM, shopc)
-		var bb = B("买辟谷丹（1灵石）", func(): g.roam_buy_ration(), int(g.s["lingshi"]) > 0 and int(g.s["ration"]) < 12, shopc, 40)
-		bb.add_theme_font_size_override("font_size", 13)
-		bb.add_theme_color_override("font_color", C_INK)
-		var gr = row(shopc, 6)
-		var sb = B("器物铺 · 卖修", func(): sheet = "shop", true, gr, 40)
-		sb.add_theme_font_size_override("font_size", 13)
-		sb.add_theme_color_override("font_color", C_INK)
-		var yb = B("药铺 · 卖药收药" + (" ●" if g.dry_chiyang_available() or Econ.ice_lian_available(g) or g.junk_lianzi_available() else ""), func(): sheet = "yao", true, gr, 40)
-		yb.add_theme_font_size_override("font_size", 13)
-		yb.add_theme_color_override("font_color", C_INK)
-		var gr2 = row(shopc, 6)
-		var jb = B("差事榜 · 代炼 客卿 悬赏", func(): sheet = "jobs", true, gr2, 40)
-		jb.add_theme_font_size_override("font_size", 13)
-		jb.add_theme_color_override("font_color", C_INK)
-		if Gear.auction_month(int(g.s["day"])):
-			var ab = B("拍卖会（%s）" % ("春拍" if (int(g.s["day"]) - 1) % 12 + 1 == 3 else "秋拍"), func(): sheet = "auc", true, gr2, 40)
-			ab.add_theme_font_size_override("font_size", 13)
-			ab.add_theme_color_override("font_color", C_INK)
 	# 走动固定在底栏，不和店铺排在一起
 	var fr = row(footer, 6)
 	var hb = B("回青庐（%d月）" % g.roam_home_days(), func(): _roam_home(), true, fr, 46)
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mb = B("去别处", func(): sheet = "goto", TV.places(W).size() > 1, fr, 46)
 	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+var _plaque_cache := {}
+
+## 底图中间常有一大块留白。牌面挑三截反差大、彼此隔开的画面，避开那块空白。
+func _plaque_centers(k: String, t: Texture2D) -> Array:
+	if _plaque_cache.has(k):
+		return _plaque_cache[k]
+	# 每张牌：[纵向中心, 左, 右]，都是 0..1。不够三截有画面的，就把最清楚的那截左右切开。
+	var cuts: Array = [[0.14, 0.0, 1.0], [0.78, 0.0, 0.62], [0.78, 0.38, 1.0]]
+	# ImageTexture.get_image 在这台机器上拿不到像素，改从底图文件读。
+	var img := Image.new()
+	var bytes := FileAccess.get_file_as_bytes("res://web_portrait/bg/pl_%s.webp" % k)
+	var loaded := bytes.size() > 0 and img.load_webp_from_buffer(bytes) == OK
+	if loaded and not img.is_empty():
+		var w := img.get_width()
+		var h := img.get_height()
+		var bands := 12
+		var score: Array = []
+		var top := 0.0
+		for bi in bands:
+			var y0 := int(float(h) * bi / bands)
+			var y1 := int(float(h) * (bi + 1) / bands)
+			var acc := 0.0
+			var n := 0
+			var y := y0
+			while y < y1:
+				var x := 4
+				while x < w - 20:
+					var c := img.get_pixel(x, y)
+					var c2 := img.get_pixel(x + 18, y)
+					acc += absf(c.r - c2.r) + absf(c.g - c2.g) + absf(c.b - c2.b)
+					n += 1
+					x += 28
+				y += 8
+			var sc := acc / maxf(1.0, float(n))
+			score.append(sc)
+			top = maxf(top, sc)
+		var picked: Array = []
+		var floor_s := top * 0.45
+		for _round in 3:
+			var best := -1
+			var bv := -1.0
+			for bi in bands:
+				if float(score[bi]) < floor_s:
+					continue
+				var far := true
+				for p in picked:
+					if absi(bi - int(p)) < 3:
+						far = false
+				if not far:
+					continue
+				if float(score[bi]) > bv:
+					bv = float(score[bi])
+					best = bi
+			if best < 0:
+				break
+			picked.append(best)
+		picked.sort()
+		if picked.size() >= 2:
+			cuts = []
+			for bi in picked:
+				var y_c := (float(bi) + 0.5) / float(bands)
+				var y0b := int(float(h) * float(bi) / bands)
+				var y1b := int(float(h) * float(bi + 1) / bands)
+				var span: Array = _plaque_span(img, y0b, y1b, [])
+				cuts.append([y_c, span[0], span[1]])
+			if cuts.size() == 2:
+				var y0b2 := int(float(h) * float(picked[1]) / bands)
+				var y1b2 := int(float(h) * float(picked[1] + 1) / bands)
+				var span2: Array = _plaque_span(img, y0b2, y1b2, [[cuts[1][1], cuts[1][2]]])
+				cuts.append([(float(picked[1]) + 0.5) / float(bands), span2[0], span2[1]])
+	_plaque_cache[k] = cuts
+	return cuts
+
+## 在这一截里找一块够窄、反差最大的窗，避开已经用过的位置。牌面是扁的，整幅居中裁会裁进留白。
+func _plaque_span(img: Image, y0: int, y1: int, used: Array) -> Array:
+	var w := img.get_width()
+	var win := clampi(int(float(y1 - y0) * 2.2), 90, w)
+	var best_x := 0
+	var best_s := -1.0
+	var x := 0
+	while x + win <= w:
+		var overlap := false
+		for u in used:
+			var ua := float(u[0]) * w
+			var ub := float(u[1]) * w
+			if mini(x + win, ub) - maxi(x, ua) > win * 0.45:
+				overlap = true
+		if not overlap:
+			var acc := 0.0
+			var n := 0
+			var y := y0
+			while y < y1:
+				var xx := x + 4
+				while xx < x + win - 14:
+					var c := img.get_pixel(xx, y)
+					var c2 := img.get_pixel(xx + 12, y)
+					acc += absf(c.r - c2.r) + absf(c.g - c2.g) + absf(c.b - c2.b)
+					n += 1
+					xx += 22
+				y += 10
+			var sc := acc / maxf(1.0, float(n))
+			if sc > best_s:
+				best_s = sc
+				best_x = x
+		x += 20
+	if best_s < 0.0:
+		best_x = 0
+	return [float(best_x) / float(w), float(best_x + win) / float(w)]
+
+## 坊市按钮保持一行，窄屏不把「差事榜」折成三行把人脸顶下去。
+func _shop_btn(b: Button) -> void:
+	b.autowrap_mode = TextServer.AUTOWRAP_OFF
+	b.clip_text = true
+	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_color_override("font_color", C_INK)
+
+## 小去处牌面：取这地方底图的一段，下面写地名。按钮文字仍是地名，冒烟测试按前缀点。
+func _spot_plaque(name: String, i: int, _n: int, selected: bool, lk: Dictionary, cb: Callable, parent: Node) -> void:
+	var b := Button.new()
+	b.text = name
+	b.clip_text = true
+	b.clip_contents = true
+	var tall := get_viewport_rect().size.y >= 760.0
+	b.custom_minimum_size = Vector2(0, 76 if tall else 64)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(key, Color(0, 0, 0, 0))
+	var edge: Color = lk.get("edge", C_INK)
+	var paper: Color = lk.get("paper", C_PAPER)
+	var ink: Color = lk.get("ink", C_INK)
+	var sb := _sb(Color(paper.r, paper.g, paper.b, 0.2), C_ACCENT if selected else edge, 8, 3 if selected else 1, 0)
+	for st in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(func(): _press(cb))
+	parent.add_child(b)
+	var key_name := "pl_" + String(lk.get("k", ""))
+	var t: Texture2D = tex(key_name) if lk.has("k") else null
+	if t != null:
+		var ts := t.get_size()
+		var cuts: Array = _plaque_centers(String(lk.get("k", "")), t)
+		var cut: Array = cuts[clampi(i, 0, cuts.size() - 1)]
+		var hy := float(cut[0])
+		var region_h := ts.y * 0.20
+		var x0 := ts.x * float(cut[1])
+		var x1 := ts.x * float(cut[2])
+		var at := AtlasTexture.new()
+		at.atlas = t
+		at.region = Rect2(x0, clampf(ts.y * hy - region_h * 0.5, 0.0, maxf(0.0, ts.y - region_h)), maxf(8.0, x1 - x0), region_h)
+		var tr := TextureRect.new()
+		tr.texture = at
+		tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tr.offset_left = 2
+		tr.offset_top = 2
+		tr.offset_right = -2
+		tr.offset_bottom = -2
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(tr)
+	var lab := Label.new()
+	lab.text = name
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.clip_text = true
+	lab.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	lab.offset_left = 2
+	lab.offset_right = -2
+	lab.offset_top = -22
+	lab.offset_bottom = -2
+	lab.add_theme_font_size_override("font_size", 13)
+	lab.add_theme_color_override("font_color", ink)
+	lab.add_theme_stylebox_override("normal", _sb(Color(paper.r, paper.g, paper.b, 0.86), Color(0, 0, 0, 0), 0, 0, 2))
+	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(lab)
 
 ## 小头像（点开看这个人）：地点抽屉里“熟人在那边”
 func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
@@ -3349,14 +3503,17 @@ func _mini_face(c: Dictionary, cw: float, parent: Node) -> void:
 
 const DOING := {"求财": "买卖", "交游": "说笑", "探秘": "寻宝", "扬名": "比试", "压人": "比试", "破境": "闭关", "复仇": "寻人", "寻仇": "寻人", "疗伤": "养伤", "求偶": "出神", "护人": "等人", "报恩": "寻人", "赎过": "赶路", "叛门": "匆匆"}
 
-## 地点页 / 江湖页的人脸高度：整张脸，不裁成一条；两列两行大约落在首屏里
+## 地点页 / 江湖页的人脸高度。v0.16.4 首屏要同时放下买卖和两张能分开的脸，卡再收一点。
 func _people_face_h() -> float:
 	var y := get_viewport_rect().size.y
 	if y < 700.0:
-		return 72.0
+		return 60.0
 	if y < 820.0:
-		return 84.0
-	return 96.0
+		return 72.0
+	return 80.0
+
+func _face_w(fh: float, slack: float) -> float:
+	return minf(slack, fh * PBox.FACE.size.x / PBox.FACE.size.y)
 
 func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, parent: Node) -> void:
 	var cid := int(c["id"])
@@ -3365,9 +3522,9 @@ func _roam_card(W, c: Dictionary, cw: float, can: bool, p: String, spn: String, 
 	col.add_theme_constant_override("separation", 4)
 	parent.add_child(col)
 	var fh := _people_face_h()
-	var fw := minf(cw - 16.0, fh * 224.0 / 250.0)
+	var fw := _face_w(fh, cw - 16.0)
 	var cell = Button.new()
-	cell.custom_minimum_size = Vector2(cw, fh + 48.0)
+	cell.custom_minimum_size = Vector2(cw, fh + 36.0)
 	cell.pressed.connect(func(): _press(func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
 	col.add_child(cell)
 	var v = VBoxContainer.new()
@@ -3903,7 +4060,7 @@ func _jianghu() -> void:
 	body.add_child(grid)
 	var cw = floor((gw - 6 * (cols - 1)) / cols)
 	var fh := _people_face_h()
-	var fw := minf(float(cw) - 12.0, fh * 224.0 / 250.0)
+	var fw := _face_w(fh, float(cw) - 12.0)
 	for c in ppl.slice(0, 24):
 		var id = int(c["id"])
 		var cell = Button.new()

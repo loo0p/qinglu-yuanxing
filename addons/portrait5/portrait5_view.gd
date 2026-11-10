@@ -57,14 +57,14 @@ static func _col(a) -> Vector3:
 	return Vector3(float(a[0]) / 255.0, float(a[1]) / 255.0, float(a[2]) / 255.0)
 
 ## v0.8.1：画的时候把几种“看着变形”的组合换掉（只换画法，不改存档里的 spec、也不改抽签，所以所有人照旧认得出）：
-## - 女修方脸底模 base_f5：下颌宽、原生浓眉、肩比衣袍宽，配女式发型像戴了假发 → 换成 f/f2/f4 之一（按五官签定）
+## - 女修方脸底模 base_f5：下颌宽、原生浓眉、肩比衣袍宽，配女式发型像戴了假发 → 换成圆脸 f3 / f / f4 之一（按五官签定，不再折进几张相近瘦脸）
 ## - 眼片里带进来的别人的眉：eyes:base_f5（叠出双眉）、eyes:fx_m2（眉成 X 形）；fx_f2 只在圆脸 f3 上叠双眉
 ## - 本身就怪的：eyes:fx_m4（一只眼耷拉）、eyes:fx_m5（瞪圆）、brows:fx_m4（一高一低）、brows:fx_m2（断眉）、
 ##   brows:fx_m5（八字愁眉）、brows:base_f5（女修的浓直男眉）
 const FEAT_SWAP := {"eyes:base_f5": "eyes:base_f4", "eyes:fx_m2@base_m": "eyes:fx_m3@base_m", "eyes:fx_m4@base_m": "eyes:fx_m1@base_m",
 	"eyes:fx_m5@base_m": "eyes:base_m2", "brows:fx_m4@base_m": "brows:fx_m1@base_m", "brows:fx_m2@base_m": "brows:base_m2",
 	"brows:fx_m5@base_m": "brows:base_m4", "brows:base_f5": "brows:base_f4"}
-const F5_TO := ["base_f", "base_f2", "base_f4"]
+const F5_TO := ["base_f3", "base_f", "base_f4"]
 ## v0.10.2：男修窄长脸底模 base_m4（中庭长、下巴尖，配披发时像脸被夹窄——玩家截图圈出的那位）→ 换成 m/m2/m3 之一（按五官签定）
 const M4_TO := ["base_m", "base_m2", "base_m3"]
 
@@ -95,14 +95,14 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 	var mouth := str(feats.get("mouth", ""))
 	if mouth.begins_with("mouth:fx_f1") or mouth.begins_with("mouth:fx_f2"):
 		feats.erase("mouth")
-	# v0.16.2：修仙不出短碎发。hair_m6 是现代短发，画的时候换成束发长发；发饰是给短发定位的，一并拿掉。
+	# v0.16.2：修仙不出短碎发。hair_m6 是现代短发，画的时候换成束发 / 冠 / 抹额；发饰是给短发定位的，一并拿掉。
 	if str(out.get("hair", "")).begins_with("hair_m6"):
-		var tied := ["hair_m1@base_m", "hair_m2@base_m", "hair_m5@base_m", "hair_m7@base_m"]
+		var tied := ["hair_m1@base_m", "hair_m2@base_m", "hair_m7@base_m", "hair_m9@base_m", "hair_m3@base_m"]
 		out.hair = tied[absi(hash(str(out.get("base", "")) + str(feats.get("eyes", "")))) % tied.size()]
 		out.acc = []
-	# v0.16.3：hair_f9 是红丝飞发，发丝糊在脸上。换成齐整的长发，刘海鬓角留在那几款发型里。
+	# v0.16.3 / v0.16.4：hair_f9 是红丝飞发，发丝糊在脸上。换成几款真正不同的长发、发髻、辫（都留刘海鬓角）。
 	if str(out.get("hair", "")).begins_with("hair_f9"):
-		var calm := ["hair_f1@base_f", "hair_f6@base_f", "hair_f12@base_f"]
+		var calm := ["hair_f6@base_f", "hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
 		out.hair = calm[absi(hash(str(out.get("base", "")) + str(feats.get("eyes", "")))) % calm.size()]
 		out.acc = []
 	# v0.16.3：纱丝 outer_f1、飘带 outer_f5 薄得像贴纸。换成能搭在肩上的披风 / 毛领。
