@@ -52,14 +52,49 @@ with sync_playwright() as p:
             up = bool(ys) and all(y < 100 for _, _, y in ys)
             pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, -220 if up else 220); pg.wait_for_timeout(500)
         return False
+    def close_sheet_once():
+        # 手记点「记下了」；别的抽屉点「收起」；再不行点顶栏下的遮罩。对话开着时不点，免得点穿选项。
+        st = state()
+        if (st.get('modal') or '') != '':
+            return False
+        names = [t for t, _, _ in btns()]
+        sheet = st.get('sheet') or ''
+        if any(t.startswith('记下了') for t in names):
+            res.setdefault('log', []).append('记下了'); return tap('记下了', 500)
+        # 「收起」要整词相等。「收起行记」也以这两个字开头，点到会翻行记、关不掉抽屉。
+        # 中心点必须在屏内：器物说明把按钮挤出右缘时，改点遮罩。
+        if sheet and any(t == '收起' for t in names):
+            res.setdefault('log', []).append('收起')
+            for t, x, y in btns():
+                if t == '收起' and 8 <= x <= W - 8 and 0 <= y <= H:
+                    pg.touchscreen.tap(x, y); pg.wait_for_timeout(500); return True
+            pg.touchscreen.tap(W * 0.5, 110); pg.wait_for_timeout(450)
+            res.setdefault('log', []).append('遮罩'); return True
+        if sheet:
+            pg.touchscreen.tap(W * 0.5, 110); pg.wait_for_timeout(450)
+            res.setdefault('log', []).append('遮罩'); return True
+        return False
+    def close_sheets(n=6):
+        for _ in range(n):
+            st = state()
+            if (st.get('modal') or '') != '':
+                return False
+            names = [t for t, _, _ in btns()]
+            if (st.get('sheet') or '') == '' and not any(t.startswith('记下了') for t in names):
+                return True
+            if not close_sheet_once():
+                return False
+        return (state().get('sheet') or '') == ''
     def clear_dialogs(n=12):
-        # 对话点完（▼ / 继续 / 知道了 / 记下了），事件有选项就点第一个
+        # 对话点完（▼ / 继续 / 知道了 / 记下了），手记和铺子抽屉关掉，事件有选项就点第一个
         for _ in range(n):
             st = state()
             names = [t for t, _, _ in btns()]
             hit = [k for k in ['记下了', '知道了', '继续', '▼', '推开静室的门', '进屋'] if any(t.startswith(k) for t in names)]
             if hit:
                 res.setdefault('log', []).append(hit[0]); tap(hit[0]); continue
+            if (st.get('sheet') or '') != '' and (st.get('modal') or '') == '':
+                close_sheet_once(); continue
             if st.get('modal', '') == '' and st.get('loc') != 'trip' and any(t in NAV for t in names):
                 return
             if st.get('modal', '') == '' and st.get('loc') == 'roam':
@@ -106,7 +141,9 @@ with sync_playwright() as p:
     step('opening', ok)
     clear_dialogs()
     step('home', state().get('screen') == 'game')
-    ok = tap('历练') and tap('后山') and tap('去后山游历', 1500)
+    opened = tap('历练', 1000)
+    close_sheets()   # 第一次开历练，《旧主手记》挡着后山
+    ok = opened and tap('后山') and tap('去后山游历', 1500)
     step('roam', ok)
     for i in range(12):
         clear_dialogs()
@@ -170,7 +207,7 @@ with sync_playwright() as p:
             tap('回铺子', 800)
     gear['bought'] = bought
     step('v14_bought', bought is not None)
-    tap('收起', 800)
+    close_sheets()   # 买完回到铺子，关掉再去药铺，别让抽屉盖住底栏
     # v0.15.2：药铺抽屉（卖青芝 / 卖丹 / 主药保底）和差事榜（代炼、客卿、悬赏）
     clear_dialogs(3)
     gear['yao_open'] = tap('药铺', 1200) or tap_scroll('药铺', 1200, 4)
@@ -198,14 +235,14 @@ with sync_playwright() as p:
         if hit and tap_scroll(hit[0], 1000):
             step('v14_item', True)
             gear['equipped'] = tap('装上', 1200)
-            tap('收起', 800)
+            close_sheets()
             clear_dialogs(3)
             slot = [t for t, _, _ in btns() if bought in t and '\n' in t]
             gear['slot_btn'] = slot[:1]
             step('v14_equipped', bool(slot))
             if slot and tap_scroll(slot[0], 1000):
                 gear['unequipped'] = tap('卸下', 1200)
-                tap('收起', 800)
+                close_sheets()
                 clear_dialogs(3)
                 step('v14_unequipped', gear['unequipped'])
     res['gear'] = gear
@@ -213,6 +250,7 @@ with sync_playwright() as p:
     tap('青庐', 1200)
     # v0.15.2：静室里有聚灵阵一行、服丹闭关开关（有丹就点开再点回）
     room = {'open': tap('静室', 1200)}
+    close_sheets()   # 第一次进静室，手记挡着「十年」
     room['arr'] = [t for t in labels() if '聚灵阵' in t][:1] + [t for t, _, _ in btns() if '聚灵阵' in t][:1]
     fd = [t for t, _, _ in btns() if t.startswith('服丹闭关：')]
     room['fudan'] = fd[:1]
@@ -232,6 +270,7 @@ with sync_playwright() as p:
     for _ in range(3):
         clear_dialogs()
         if tap('静室', 1200) or True:
+            close_sheets()
             tap('十年', 4000)
         clear_dialogs()
     # v0.14.1：修为满了（卡在关口）时静室的样子；再一月一月坐到三月 / 九月，去坊市看拍卖会
@@ -246,6 +285,7 @@ with sync_playwright() as p:
         if (max(d, 1) - 1) % 12 + 1 in (2, 8): break   # 去坊市路上要走一个月，到了正好三月 / 九月
         clear_dialogs()
         tap('青庐', 900); tap('静室', 1000)
+        close_sheets()
         tap('一月', 2500)
         clear_dialogs()
     clear_dialogs()
@@ -330,9 +370,29 @@ with sync_playwright() as p:
         for _ in range(4):   # 货郎的货单在药铺最底下：翻到底
             pg.mouse.move(W / 2, H / 2); pg.mouse.wheel(0, 400); pg.wait_for_timeout(400)
         ls1 = int(state().get('lingshi') or 0)
-        bt = [t for t, _, _ in btns() if ' 换 ' in t and '（' not in t]   # 能换的（筑基档里三样都备了料）
-        zj['barter'] = bt[:3]
-        zj['bartered'] = tap_scroll(bt[0], 1200, 4) if bt else False
+        def plain_offers():
+            return [t for t, _, _ in btns() if ' 换 ' in t and '（' not in t]
+        picked = ''
+        for _ in range(8):
+            # 每次看当前货单。换过的那条会带「（今年换过了）」，不再当能换的。
+            cands = [(t, x, y) for t, x, y in btns() if ' 换 ' in t and '（' not in t]
+            cands.sort(key=lambda c: c[2])
+            hit = [c for c in cands if 72 <= c[2] <= H - 56]
+            if hit:
+                t, x, y = hit[0]
+                pg.touchscreen.tap(x, y); pg.wait_for_timeout(1200)
+                picked = t
+                break
+            pg.mouse.move(W / 2, H * 0.62)
+            if cands and cands[0][2] > H - 56:
+                pg.mouse.wheel(0, 180)
+            else:
+                pg.mouse.wheel(0, -180)
+            pg.wait_for_timeout(450)
+        zj['barter'] = plain_offers()[:3] if not picked else [picked]
+        still = plain_offers()
+        zj['barter_pick'] = picked
+        zj['bartered'] = bool(picked) and picked not in still
         zj['barter_after'] = [t for t, _, _ in btns() if ' 换 ' in t][:3]
         step('zj_barter', zj['yao_open'] and bool(zj['barter_hdr']) and zj['bartered'] and int(state().get('lingshi') or 0) == ls1)
         tap('收起', 800)
