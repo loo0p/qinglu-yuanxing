@@ -938,7 +938,7 @@ func _entry_face(c: Dictionary, parent: Node, h: float, press: Callable = Callab
 	frame.clip_contents = true
 	frame.mouse_filter = Control.MOUSE_FILTER_STOP if press.is_valid() else Control.MOUSE_FILTER_IGNORE
 	frame.tooltip_text = String(c.get("name", ""))
-	frame.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), edge, 3, 1, 1))
+	frame.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), edge, 3, 2, 1))
 	frame.custom_minimum_size = inner + Vector2(4, 4)
 	frame.size_flags_horizontal = Control.SIZE_SHRINK_END
 	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -986,7 +986,9 @@ func _btn_rank(text: String) -> String:
 	var t := _btn_plain(text)
 	if t.begins_with("问问修行") or t == "出发" or t.begins_with("新游戏") or t.begins_with("买辟谷") or t.begins_with("差事榜") or t.begins_with("冲关") or t == "一年":
 		return "main"
-	if t.begins_with("点个头") or t.begins_with("收起") or t == "返回" or t.begins_with("回去") or t.begins_with("算了") or t.begins_with("不必") or t.begins_with("回江湖") or t.begins_with("回坊市") or t.begins_with("回标题") or t.begins_with("回铺子") or t.begins_with("闭关须知") or t == "行记":
+	if t.begins_with("回江湖") or t.begins_with("回坊市"):
+		return "back"
+	if t.begins_with("点个头") or t.begins_with("收起") or t == "返回" or t.begins_with("回去") or t.begins_with("算了") or t.begins_with("不必") or t.begins_with("回标题") or t.begins_with("回铺子") or t.begins_with("闭关须知") or t == "行记":
 		return "quiet"
 	return "mid"
 
@@ -1020,10 +1022,36 @@ func _act_glyph(text: String) -> String:
 		return "path"
 	if t.begins_with("回青庐"):
 		return "home"
+	if t.begins_with("回江湖") or t.begins_with("回坊市"):
+		return "back"
 	return ""
+
+var _cream_btn_theme: Theme
+
+## 朱砂底上的字必须是米白。写进按钮自己的 Theme，免得父主题的深色字盖回来。
+func _cream_theme() -> Theme:
+	if _cream_btn_theme == null:
+		var t := Theme.new()
+		var c := Color(0.99, 0.96, 0.90)
+		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			t.set_color(k, "Button", c)
+		t.set_color("font_disabled_color", "Button", Color(c.r, c.g, c.b, 0.72))
+		_cream_btn_theme = t
+	return _cream_btn_theme
 
 func _paint_btn(b: Button, rank: String) -> void:
 	var sts := ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]
+	if rank == "back":
+		for st in sts:
+			var col := Color(0.90, 0.84, 0.72, 1) if st == "pressed" or st == "hover_pressed" else Color(0.98, 0.95, 0.88, 1)
+			var sb := _sb(col, Color(0.29, 0.22, 0.14, 0.85), 8, 1, 6)
+			sb.border_width_bottom = 1 if st == "pressed" else 3
+			b.add_theme_stylebox_override(st, sb)
+		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			b.add_theme_color_override(fcn, C_INK)
+		b.add_theme_color_override("font_disabled_color", Color("#A39B8C"))
+		b.add_theme_font_size_override("font_size", 15)
+		return
 	if rank == "quiet":
 		b.flat = true
 		for st in sts:
@@ -1047,9 +1075,11 @@ func _paint_btn(b: Button, rank: String) -> void:
 			sb.shadow_size = 5
 			sb.shadow_offset = Vector2(0, 2)
 			b.add_theme_stylebox_override(st, sb)
-		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			b.add_theme_color_override(fcn, Color(0.99, 0.96, 0.90))
-		b.add_theme_color_override("font_disabled_color", Color(0.99, 0.96, 0.90, 0.55))
+		b.theme = _cream_theme()
+		var cream := Color(0.99, 0.96, 0.90)
+		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			b.add_theme_color_override(fcn, cream)
+		b.add_theme_color_override("font_disabled_color", Color(cream.r, cream.g, cream.b, 0.72))
 		b.add_theme_font_size_override("font_size", 16)
 		return
 	var wood := Color(0.95, 0.89, 0.76, 1)
@@ -1065,7 +1095,7 @@ func _paint_btn(b: Button, rank: String) -> void:
 
 func _hint_dot(b: Button) -> void:
 	var dot := ColorRect.new()
-	dot.color = Color(0.78, 0.16, 0.12, 0.95)
+	dot.color = Color(1.0, 0.92, 0.72, 0.95)
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dot.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	dot.offset_left = -14
@@ -1081,6 +1111,8 @@ func B(text: String, cb: Callable, enabled: bool = true, parent: Node = null, h:
 	var rank := _btn_rank(text)
 	if rank == "main":
 		h = maxi(h, 50)
+	elif rank == "back":
+		h = maxi(h, 44)
 	elif rank == "quiet":
 		h = mini(maxi(h, 34), 40)
 	var b = Button.new()
@@ -1092,9 +1124,9 @@ func B(text: String, cb: Callable, enabled: bool = true, parent: Node = null, h:
 	_paint_btn(b, rank)
 	var gid := _act_glyph(text)
 	if gid != "" and rank != "quiet":
-		b.icon = Glyph.tex(gid)
+		b.icon = Glyph.tex(gid, rank == "main")
 		b.expand_icon = true
-		b.add_theme_constant_override("icon_max_width", 22 if rank == "main" else 18)
+		b.add_theme_constant_override("icon_max_width", 24)
 	if rank == "main" and enabled:
 		_hint_dot(b)
 	b.pressed.connect(func(): _press(cb))
@@ -1469,11 +1501,19 @@ func _place_toast() -> void:
 	if hud and is_instance_valid(hud) and hud.size.y > 20.0 and hud.size.y < 96.0:
 		y = hud.get_global_position().y + hud.size.y + 4.0
 	y = clampf(y, 52.0, 92.0)
-	var w := maxf(120.0, get_viewport_rect().size.x - 12.0)
+	# 按给定宽度量行高，并封顶。否则自动换行在宽度还是 0 时会一字一行，提示条盖住底栏，点页签点不中。
+	var w := maxf(120.0, get_viewport_rect().size.x - 24.0)
+	var font := toast.get_theme_font("font")
+	var fs := toast.get_theme_font_size("font_size")
+	var th := 40.0
+	if font != null and toast.text != "":
+		var sz := font.get_multiline_string_size(toast.text, HORIZONTAL_ALIGNMENT_LEFT, w - 20.0, fs)
+		th = clampf(sz.y + 16.0, 36.0, 64.0)
+	toast.clip_text = true
+	toast.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	toast.position = Vector2(6, y)
-	toast.custom_minimum_size = Vector2(w, 0)
-	toast.size = Vector2(w, 0)
-	toast.reset_size()
+	toast.custom_minimum_size = Vector2(w, th)
+	toast.size = Vector2(w, th)
 
 func _bgm_for_scene() -> String:
 	if screen != "game":
@@ -1777,44 +1817,58 @@ func _hud() -> void:
 	bag_icon = bb
 
 func _nav() -> void:
-	var r = row(footer, 2)
-	# 底栏是图标加字，不是一排和正文一样的木牌。选中的底下一条朱砂。
+	# 底栏垫一层实纸，免得字压在院子的画上。图标在上，字在下，未选中也是深墨。
+	var wrap := PanelContainer.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.93, 0.86, 1), Color(0.42, 0.32, 0.2, 0.35), 0, 0, 2))
+	footer.add_child(wrap)
+	var r = row(wrap, 2)
 	var tabs = [["home", "青庐", "home"], ["depart", "历练", "mountain"], ["pack", "行囊", "bag"], ["life", "生平", "scroll"]]
 	if g.world != null:
 		tabs.insert(3, ["jianghu", "江湖", "pair"])
 	var cur: String = "home" if tab == "cult" else ("life" if tab == "log" else tab)
 	for t in tabs:
-		var key := String(t[0])
+		var key: String = String(t[0])
+		var word: String = String(t[1])
+		var on: bool = cur == key
 		var b := Button.new()
-		b.text = String(t[1])
-		b.icon = Glyph.tex(String(t[2]))
-		b.expand_icon = true
-		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.autowrap_mode = TextServer.AUTOWRAP_OFF
-		b.clip_text = true
+		b.text = word
+		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(0, 48)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_constant_override("icon_max_width", 18)
-		b.add_theme_constant_override("h_separation", 2)
-		b.add_theme_font_size_override("font_size", 12 if tabs.size() > 4 else 13)
-		var on := cur == key
 		var edge := Color(0.62, 0.22, 0.14, 1) if on else Color(0, 0, 0, 0)
-		var bg := Color(0.98, 0.95, 0.88, 0.96) if on else Color(0, 0, 0, 0)
+		var bg := Color(0.99, 0.96, 0.90, 1) if on else Color(0.96, 0.93, 0.86, 1)
 		for stn in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
-			var tsb := _sb(bg, edge, 6, 0, 2)
+			var tsb := _sb(bg, edge, 6, 0, 1)
 			tsb.border_width_bottom = 3 if on else 0
 			tsb.border_color = edge
 			b.add_theme_stylebox_override(stn, tsb)
-		var fc := C_ACCENT if on else C_DIM
-		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-			b.add_theme_color_override(fcn, fc)
+		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color", "font_disabled_color"]:
+			b.add_theme_color_override(fcn, Color(0, 0, 0, 0))
+		b.add_theme_font_size_override("font_size", 1)
 		b.pressed.connect(func(): _press(func(): tab = key; sheet = ""))
-		b.button_down.connect(func():
-			b.pivot_offset = b.size / 2
-			var tw = b.create_tween()
-			tw.tween_property(b, "scale", Vector2(0.94, 0.94), 0.05)
-			tw.tween_property(b, "scale", Vector2.ONE, 0.1))
 		r.add_child(b)
+		var v := VBoxContainer.new()
+		v.set_anchors_preset(Control.PRESET_FULL_RECT)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.add_theme_constant_override("separation", 1)
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(v)
+		var ic := TextureRect.new()
+		ic.texture = Glyph.tex(String(t[2]), false)
+		ic.custom_minimum_size = Vector2(22, 22)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(ic)
+		var lab := Label.new()
+		lab.text = word
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lab.add_theme_font_size_override("font_size", 12)
+		lab.add_theme_color_override("font_color", Color(0.55, 0.16, 0.10) if on else C_INK)
+		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(lab)
 
 # ------------------------------------------------------------ 底部抽屉
 func _hard_wrap(t: String, n: int) -> String:
@@ -2966,8 +3020,7 @@ func _home() -> void:
 	_spacer()
 	_light_notes()
 	if g.can_breakthrough() == "":
-		var bb = B(_gate_label(), func(): g.start_breakthrough(), true, footer, 52)
-		bb.add_theme_color_override("font_color", C_WARN)
+		B(_gate_label(), func(): g.start_breakthrough(), true, footer, 48)
 
 # ------------------------------------------------------------ 修炼 / 闭关
 func _cult() -> void:
@@ -3024,9 +3077,7 @@ func _cult() -> void:
 		L("冲关：" + why, 12, C_DIM, c)
 	if g.world != null:
 		_cult_econ()
-	var bb = B(_gate_label(), func(): g.start_breakthrough(), why == "", footer, 50)
-	if why == "":
-		bb.add_theme_color_override("font_color", C_WARN)
+	B(_gate_label(), func(): g.start_breakthrough(), why == "", footer, 46)
 
 ## v0.15（Gemini v7 专项 2 / 4c）：静室布置——聚灵阵（布阵 + 每年正月年费）、服丹闭关、蒙尘
 func _cult_econ() -> void:
@@ -3622,10 +3673,11 @@ func _roam() -> void:
 		L("这个月没碰见什么人。", 13, C_DIM, pc)
 	if not show.is_empty():
 		var vw: float = get_viewport_rect().size.x
-		var cw: float = floorf((vw - 52.0) / 2.0)
-		cw = clampf(cw, 120.0, 168.0)
+		var cols: int = 3 if vw >= 340.0 else 2
+		var cw: float = floorf((vw - 40.0 - 6.0 * float(cols - 1)) / float(cols))
+		cw = clampf(cw, 96.0, 150.0)
 		var grid = GridContainer.new()
-		grid.columns = 2
+		grid.columns = cols
 		grid.add_theme_constant_override("h_separation", 4)
 		grid.add_theme_constant_override("v_separation", 4)
 		pc.add_child(grid)
@@ -3751,6 +3803,12 @@ func _plaque_span(img: Image, y0: int, y1: int, used: Array) -> Array:
 func _shop_btn(b: Button) -> void:
 	b.autowrap_mode = TextServer.AUTOWRAP_OFF
 	b.clip_text = true
+	if _btn_rank(b.text) == "main":
+		b.add_theme_font_size_override("font_size", 14)
+		var cream := Color(0.99, 0.96, 0.90)
+		for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			b.add_theme_color_override(fcn, cream)
+		return
 	b.add_theme_font_size_override("font_size", 13)
 	b.add_theme_color_override("font_color", C_INK)
 
@@ -3846,10 +3904,22 @@ const DOING := {"求财": "买卖", "交游": "说笑", "探秘": "寻宝", "扬
 func _people_face_h() -> float:
 	var y := get_viewport_rect().size.y
 	if y < 700.0:
-		return 60.0
-	if y < 820.0:
-		return 72.0
-	return 80.0
+		return 96.0
+	return 112.0
+
+## 列表里的人脸：纸色淡金框，不把底头的纸色裸成一块白。
+func _face_plate(spec: Dictionary, fw: float, fh: float, parent: Node) -> PBox:
+	var frame := PanelContainer.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), C_GOLD, 4, 2, 2))
+	parent.add_child(frame)
+	var pb := PBox.new()
+	pb.custom_minimum_size = Vector2(fw, fh)
+	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(pb)
+	pb.setup(spec, PBox.FACE, 0.0)
+	return pb
 
 func _face_w(fh: float, slack: float) -> float:
 	return minf(slack, fh * PBox.FACE.size.x / PBox.FACE.size.y)
@@ -3864,31 +3934,30 @@ func _roam_card(W, c: Dictionary, cw: float, parent: Node) -> void:
 	cell.clip_text = true
 	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
 		cell.add_theme_color_override(key, Color(0, 0, 0, 0))
-	cell.custom_minimum_size = Vector2(cw, fh + 32.0)
+	var warm := _sb(Color(0.97, 0.93, 0.86, 1), Color(0.45, 0.32, 0.18, 0.4), 8, 1, 4)
+	for stn in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+		cell.add_theme_stylebox_override(stn, warm)
+	cell.custom_minimum_size = Vector2(cw, fh + 58.0)
 	cell.pressed.connect(func(): _press(func(): person_id = cid; person_tab = "life"; modal = {"kind": "person"}))
 	parent.add_child(cell)
 	var v = VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 3; v.offset_top = 3; v.offset_right = -3; v.offset_bottom = -2
-	v.add_theme_constant_override("separation", 0)
+	v.offset_left = 4; v.offset_top = 4; v.offset_right = -4; v.offset_bottom = -4
+	v.add_theme_constant_override("separation", 2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(v)
-	var pb = PBox.new()
-	pb.custom_minimum_size = Vector2(fw, fh)
-	pb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(pb)
-	pb.setup(npc_spec(c), PBox.FACE, 0.0)
+	_face_plate(npc_spec(c), fw, fh, v)
 	var nl = L(String(c["name"]), 14, C_TEXT if known else C_INK, v)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	nl.clip_text = true
+	nl.clip_text = false
 	var k := String(c.get("dr", {}).get("k", "交游"))
 	var rw: String = W.rel_word(c) if known else String(c["sect"])
-	var hc = C_WARN if rw in ["仇", "有隙"] else C_DIM
-	var hl = L("%s·%s" % [rw, DOING.get(k, "闲逛")], 11, hc, v)
+	var hc = C_WARN if rw in ["仇", "有隙"] else C_INK
+	var hl = L("%s·%s" % [rw, DOING.get(k, "闲逛")], 12, hc, v)
 	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hl.autowrap_mode = TextServer.AUTOWRAP_OFF
-	hl.clip_text = true
+	hl.clip_text = false
 
 func _roam_spot(i: int) -> void:
 	var r: Dictionary = g.roam_spot(i)
@@ -4450,7 +4519,7 @@ func _jianghu() -> void:
 	if ppl.is_empty():
 		L("还没有认识谁。日子长了，山外的人自会找上门来。", 13, C_DIM)
 	var gw = get_viewport_rect().size.x - 16
-	var cols = 2 if gw < 520 else 3
+	var cols: int = 3 if gw >= 330.0 else 2
 	var grid = GridContainer.new()
 	grid.columns = cols
 	grid.add_theme_constant_override("h_separation", 6)
@@ -4458,11 +4527,14 @@ func _jianghu() -> void:
 	body.add_child(grid)
 	var cw = floor((gw - 6 * (cols - 1)) / cols)
 	var fh := _people_face_h()
-	var fw := _face_w(fh, float(cw) - 12.0)
+	var fw := _face_w(fh, float(cw) - 16.0)
 	for c in ppl.slice(0, 24):
 		var id = int(c["id"])
 		var cell = Button.new()
-		cell.custom_minimum_size = Vector2(cw, fh + 44.0)
+		var warmjh := _sb(Color(0.97, 0.93, 0.86, 1), Color(0.45, 0.32, 0.18, 0.4), 8, 1, 4)
+		for stn in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+			cell.add_theme_stylebox_override(stn, warmjh)
+		cell.custom_minimum_size = Vector2(cw, fh + 52.0)
 		cell.pressed.connect(func(): _press(func(): person_id = id; person_tab = "life"; modal = {"kind": "person"}))
 		grid.add_child(cell)
 		var v = VBoxContainer.new()
@@ -4471,22 +4543,19 @@ func _jianghu() -> void:
 		v.add_theme_constant_override("separation", 0)
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(v)
-		var pb = PBox.new()
-		pb.custom_minimum_size = Vector2(fw, fh)
-		pb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		v.add_child(pb)
-		pb.setup(npc_spec(c), PBox.FACE, 0.0)
+		var pb := _face_plate(npc_spec(c), fw, fh, v)
 		if not c["alive"]:
 			pb.modulate = Color(0.75, 0.75, 0.75, 0.85)
 		var nl = L(String(c["name"]), 14, C_TEXT, v)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		nl.autowrap_mode = TextServer.AUTOWRAP_OFF
-		nl.clip_text = true
+		nl.clip_text = false
 		var rw = w.rel_word(c)
-		var col = C_WARN if rw in ["仇", "有隙"] else (Color("#B03A2E") if rw in ["道侣", "金兰", "师父"] else C_DIM)
-		var sl = L(rw + ("" if c["alive"] else " · " + w.status(c)), 11, col, v)
+		var col = C_WARN if rw in ["仇", "有隙"] else (Color("#B03A2E") if rw in ["道侣", "金兰", "师父"] else C_INK)
+		var sl = L(rw + ("" if c["alive"] else " · " + w.status(c)), 12, col, v)
 		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		sl.clip_text = false
 	H("传闻", 16, C_ACCENT)
 	var nc = card()
 	var news: Array = w.recent_news(40)
@@ -4519,7 +4588,7 @@ func _icon_tab(label: String, glyph: String, on: bool, cb: Callable, parent: Nod
 	b.clip_text = true
 	b.custom_minimum_size = Vector2(0, 40)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_constant_override("icon_max_width", 16)
+	b.add_theme_constant_override("icon_max_width", 22)
 	b.add_theme_font_size_override("font_size", 13)
 	var edge := Color(0.62, 0.22, 0.14, 1) if on else Color(0, 0, 0, 0)
 	var bg := Color(0.98, 0.95, 0.88, 1) if on else Color(0, 0, 0, 0)
@@ -4528,7 +4597,7 @@ func _icon_tab(label: String, glyph: String, on: bool, cb: Callable, parent: Nod
 		sb.border_width_bottom = 3 if on else 0
 		sb.border_color = edge
 		b.add_theme_stylebox_override(stn, sb)
-	var fc := C_ACCENT if on else C_DIM
+	var fc := C_ACCENT if on else C_INK
 	for fcn in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(fcn, fc)
 	b.pressed.connect(func(): _press(cb))
