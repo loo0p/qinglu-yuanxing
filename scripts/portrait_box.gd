@@ -81,6 +81,13 @@ func _start_bake() -> void:
 	_sv.size = Vector2i(ceili(size.x * _k), ceili(size.y * _k))
 	_sv.render_target_update_mode = SubViewport.UPDATE_ONCE
 	_sv.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS   # 部件缩小拍照时不起锯齿
+	# 视口清成透明。底头贴图本身是不透明纸色，裁切缝若露出来，垫一层与人物卡画框相同的纸色，不再落成白底或黑底。
+	var paper := ColorRect.new()
+	paper.color = Color(0.96, 0.94, 0.9, 1)
+	paper.position = Vector2.ZERO
+	paper.size = Vector2(_sv.size)
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sv.add_child(paper)
 	var v2 = View.new()
 	v2.motion = 0.0
 	_sv.add_child(v2)
@@ -135,7 +142,12 @@ func _process(delta: float) -> void:
 var _pulse := 0.0
 func _draw() -> void:
 	if _baked != null:
-		draw_texture_rect(_baked, Rect2(Vector2.ZERO, size), false)
+		var ts := _baked.get_size()
+		if ts.x > 1.0 and ts.y > 1.0 and size.x > 1.0 and size.y > 1.0:
+			# 铺满并裁边，不把脸拉扁。控件比例和烘焙时一致时，正好贴满。
+			var sc := maxf(size.x / ts.x, size.y / ts.y)
+			var dst := ts * sc
+			draw_texture_rect(_baked, Rect2((size - dst) * 0.5, dst), false)
 		return
 	if complete or view == null:
 		return
@@ -161,6 +173,15 @@ func _notification(what: int) -> void:
 
 func _fit() -> void:
 	if _baked != null:
+		var ts := _baked.get_size()
+		if _key != "" and ts.y > 1.0 and size.y > 1.0:
+			var ba := ts.x / ts.y
+			var ca := size.x / size.y
+			if absf(ba - ca) > 0.05:
+				# 行高变了之后不要拿旧图硬拉。丢掉这张，按新尺寸重拍。
+				_baked = null
+				material = null
+				set_process(true)
 		queue_redraw()
 		return
 	if view == null or size.x <= 0 or size.y <= 0:
