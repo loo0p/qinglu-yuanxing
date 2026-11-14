@@ -38,6 +38,8 @@ json.dump(rels, open(os.path.join(R, 'data/portrait_files.json'), 'w'), ensure_a
 open(os.path.join(dst, '.gdignore'), 'w').close()
 tot = sum(os.path.getsize(p) for p in glob.glob(dst + '/*/*.webp'))
 print(len(rels), 'files', round(tot / 1e6, 2), 'MB')
-# 五官贴片打包（网页版按包取）
+# v0.16.8：眉只留一套、毛领尖角削平、发束不透、脸颈遮罩羽化（在打包之前，网页读的是包）
+import repair_v0168
+repair_v0168.apply()
 import subprocess
 subprocess.run([sys.executable, os.path.join(R, 'tools/bundle_portraits.py')], check=True)
