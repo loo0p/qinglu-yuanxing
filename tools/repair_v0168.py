@@ -154,18 +154,48 @@ def repair_outer_horns(im):
     return out
 
 
-def repair_hair_opaque(im):
-    """发束内部不透明。外缘 2px 仍留抗锯齿。浅色发带保持原色。"""
-    a = im[..., 3].astype(np.float32)
-    if (a > 30).sum() < 80:
+def repair_hair_soft(im):
+    """发束内部用平滑曲线把半透明收上去，外缘 3px 保持原来的羽化。
+
+    不用一个 alpha 阈值硬切：硬切会让发梢变成墨块，缩放后外缘发灰发白。
+    透明像素若带着浅色，线性采样会出白边，这里把发色渗进边缘。浅色发带不动。
+    """
+    rgb = im[..., :3].astype(np.float32)
+    a = im[..., 3].astype(np.float32) / 255.0
+    if (a > 0.12).sum() < 80:
         return im
-    dist = cv2.distanceTransform((a > 28).astype(np.uint8), cv2.DIST_L2, 3)
-    interior = dist >= 2.0
-    semi = interior & (a > 16) & (a < 250)
-    if semi.sum() < 30:
-        return im
-    out = im.copy()
-    out[..., 3] = np.where(semi, 255, out[..., 3])
+    L = Lof(rgb)
+    dist = cv2.distanceTransform((a > 0.04).astype(np.uint8), cv2.DIST_L2, 3)
+    # 外缘 3px 原样。再往里 4px 用 smoothstep 把剩下的透明度收到约 2%。
+    # 细过 6px 的发梢整段都在外缘里，不会被收成墨块。
+    t = np.clip((dist - 3.0) / 4.0, 0.0, 1.0)
+    s = t * t * (3.0 - 2.0 * t)
+    a2 = np.where(dist < 3.0, a, 1.0 - (1.0 - a) * (1.0 - 0.98 * s))
+    # 发带、红丝这类成块的浅色/有色饰物不改颜色
+    sat = rgb.max(-1) - rgb.min(-1)
+    solid_light = ((L > 150) & (a > 0.7)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(solid_light, 8)
+    keep = np.zeros(a.shape, bool)
+    for i in range(1, n):
+        if st[i, cv2.CC_STAT_AREA] >= 36:
+            keep |= lab == i
+    keep = cv2.dilate(keep.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    # 把发色渗进低透明度的一圈，免得和纸色一插值就出白边
+    core = (a > 0.55) & (L < 110) & ~keep
+    if core.sum() > 40:
+        ink = np.median(rgb[core], axis=0)
+    else:
+        ink = np.array([28.0, 26.0, 24.0], np.float32)
+    rim = cv2.dilate((a > 0.08).astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
+    pale = rim & (a < 0.35) & (L > 90) & (sat < 28) & ~keep
+    rgb2 = rgb.copy()
+    rgb2[pale] = ink
+    # 近乎全透明、又贴着发丝的像素，颜色跟发丝走（线性采样不会捞到浅色）
+    near = rim & (a < 0.08) & ~keep
+    rgb2[near] = ink
+    out = np.zeros_like(im)
+    out[..., :3] = np.clip(rgb2, 0, 255)
+    out[..., 3] = np.clip(a2 * 255.0 + 0.5, 0, 255).astype(np.uint8)
     return out
 
 
@@ -209,58 +239,19 @@ def smooth_neck(im, mask, mouth_y):
 
 
 def apply():
+    """只动头发和毛领尖角。眉不在贴图上改：游戏绘制时不再叠眉片，底脸的眉留着。
+    头和遮罩也不在这里抹，矩形色块和横缝就是从前那一步留下的。"""
     lib = json.load(open(LIBP, encoding="utf-8"))
-    heads = {}
-
-    def head_of(base):
-        if base not in heads:
-            heads[base] = load_rgba("heads/%s.jpg" % base)[..., :3]
-        return heads[base]
-
-    n_brow = 0
-    for key, e in lib["feats"].items():
-        fid, base, st = key.split("|")
-        if not fid.startswith("brows:") or st != "open":
-            continue
-        rel = e["tex"]
-        im = load_rgba(rel)
-        fixed = repair_brow(head_of(base), im, e["pos"])
-        if fixed is not None:
-            save_webp(rel, fixed, lossless=True)
-            n_brow += 1
-    print("brows", n_brow)
-
-    # 毛领
     rel = lib["parts"]["outer_f4@base_f"]["tex"]
     save_webp(rel, repair_outer_horns(load_rgba(rel)))
     print("outer_f4")
-
-    # 头发：内部不透明，刘海让开眉线
     n_hair = 0
     for key, e in lib["parts"].items():
         if e.get("kind") != "hair":
             continue
-        rel = e["tex"]
-        im = repair_hair_opaque(load_rgba(rel))
-        save_webp(rel, im)
+        save_webp(e["tex"], repair_hair_soft(load_rgba(e["tex"])))
         n_hair += 1
     print("hair", n_hair)
-
-    # 遮罩 G 羽化 + 颈色
-    for base, hinfo in lib["heads"].items():
-        mrel = "heads/%s.mask.png" % base
-        if not os.path.exists(webp(mrel)):
-            continue
-        mask = load_rgba(mrel)
-        mask = feather_mask_g(mask)
-        save_webp(mrel, mask, lossless=True)
-        if "mouth" not in hinfo["anchors"]:
-            continue
-        hrel = "heads/%s.jpg" % base
-        him = load_rgba(hrel)
-        him = smooth_neck(him, mask, hinfo["anchors"]["mouth"][1])
-        save_webp(hrel, him)
-    print("heads")
     return lib
 
 
@@ -395,18 +386,19 @@ def _crop_face(im, box=(150, 100, 290, 210), scale=3):
 
 def render_pair(lib):
     os.makedirs(DOCS, exist_ok=True)
-    # 双丸子 + 蓝交领 + 最容易叠出直眉的两款
+    # 绘制时不叠眉片，只留底脸自己的眉。双丸子三张底脸。
     specs = [
-        ("base_f3", "brows:base_f5", "hair_f7@base_f", "eyes:fx_f4@base_f"),
-        ("base_f3", "brows:fx_f2@base_f", "hair_f7@base_f", "eyes:fx_f2@base_f"),
+        ("base_f3", "hair_f7@base_f", "eyes:fx_f4@base_f"),
+        ("base_f", "hair_f7@base_f", "eyes:fx_f1@base_f"),
+        ("base_f4", "hair_f7@base_f", "eyes:fx_f3@base_f"),
     ]
     tiles = []
-    for base, brow, hair, eyes in specs:
-        im = compose(lib, base, brow=brow, hair=hair, robe="robe_f1@base_f", robe_tint=(72, 96, 150), eyes=eyes)
+    for base, hair, eyes in specs:
+        im = compose(lib, base, hair=hair, robe="robe_f1@base_f", robe_tint=(72, 96, 150), eyes=eyes)
         face = _crop_face(im)
         d = ImageDraw.Draw(face)
         d.rectangle((0, 0, face.width, 18), fill=(255, 252, 240))
-        d.text((4, 2), "%s  %s" % (hair.split("@")[0], brow), fill=(40, 30, 20))
+        d.text((4, 2), "%s  %s  底脸眉" % (base, hair.split("@")[0]), fill=(40, 30, 20))
         tiles.append(face)
     w = max(t.width for t in tiles)
     sheet = Image.new("RGB", (w, sum(t.height for t in tiles) + 8), (245, 240, 230))
@@ -421,8 +413,7 @@ def render_cape(lib):
     tiles = []
     for base, hair in (("base_f", "hair_f6@base_f"), ("base_f3", "hair_f1@base_f"), ("base_f4", "hair_f4@base_f")):
         im = compose(lib, base, hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
-                     outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f",
-                     brow="brows:fx_f3@base_f")
+                     outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f")
         pic = Image.fromarray(im).crop((50, 0, 390, 520)).resize((340, 520))
         d = ImageDraw.Draw(pic)
         d.rectangle((0, 0, 340, 18), fill=(255, 252, 240))
@@ -438,38 +429,25 @@ def render_contacts(lib):
     """底脸 × 发型 × 眉型，只裁眉眼，用来确认没有双眉。"""
     os.makedirs(DOCS, exist_ok=True)
 
-    def grid(bases, hairs, brows, name):
-        cell_w, cell_h = 72, 48
-        cols = len(brows)
-        # 每个底脸一组，组内每种发型一行
-        rows = []
-        labels = []
-        for base in bases:
-            for hair in hairs:
-                row = []
-                for brow in brows:
-                    im = compose(lib, base, brow=brow, hair=hair)
-                    c = im[108:168, 156:300]
-                    row.append(Image.fromarray(c).resize((cell_w, cell_h), Image.Resampling.BILINEAR))
-                rows.append(row)
-                labels.append("%s %s" % (base.replace("base_", ""), hair.split("@")[0].replace("hair_", "")))
-        sheet = Image.new("RGB", (cols * cell_w + 78, len(rows) * cell_h + 16), (250, 246, 238))
+    def grid(bases, hairs, name):
+        # 游戏不再叠眉片。每格是这张底脸自己的眉 × 这一款发。
+        cell_w, cell_h = 96, 64
+        cols = len(hairs)
+        sheet = Image.new("RGB", (cols * cell_w + 8, len(bases) * cell_h + 18), (250, 246, 238))
         dr = ImageDraw.Draw(sheet)
-        for i, b in enumerate(brows):
-            dr.text((78 + i * cell_w + 2, 1), b.split(":")[1][:10], fill=(80, 60, 40))
-        for r, row in enumerate(rows):
-            dr.text((2, 16 + r * cell_h + 16), labels[r], fill=(60, 50, 40))
-            for c, im in enumerate(row):
-                sheet.paste(im, (78 + c * cell_w, 16 + r * cell_h))
+        for i, hair in enumerate(hairs):
+            dr.text((i * cell_w + 4, 1), hair.split("@")[0].replace("hair_", ""), fill=(80, 60, 40))
+        for r, base in enumerate(bases):
+            dr.text((2, 18 + r * cell_h), base.replace("base_", ""), fill=(60, 50, 40))
+            for c, hair in enumerate(hairs):
+                im = compose(lib, base, hair=hair, eyes="eyes:fx_f4@base_f" if base.startswith("base_f") else "eyes:fx_m1@base_m")
+                crop = Image.fromarray(im[100:180, 150:310]).resize((cell_w - 28, cell_h - 2), Image.Resampling.BILINEAR)
+                sheet.paste(crop, (28 + c * cell_w, 18 + r * cell_h))
         sheet.save(os.path.join(DOCS, name))
         print(name, sheet.size)
 
-    f_brows = [b for b in lib["pools"]["feats"]["f"]["brows"] if not b.endswith("base_f5") or True]
-    # 女：常用底脸 × 全部女发 × 全部女眉。base_f5 运行时会换掉，仍放进表里看着。
-    grid(["base_f", "base_f2", "base_f3", "base_f4", "base_f5"],
-         lib["pools"]["hair"]["f"], lib["pools"]["feats"]["f"]["brows"], "brows_all_f.png")
-    grid(["base_m", "base_m2", "base_m3", "base_m4", "base_m5"],
-         lib["pools"]["hair"]["m"], lib["pools"]["feats"]["m"]["brows"], "brows_all_m.png")
+    grid(["base_f", "base_f2", "base_f3", "base_f4", "base_f5"], lib["pools"]["hair"]["f"], "brows_all_f.png")
+    grid(["base_m", "base_m2", "base_m3", "base_m4", "base_m5"], lib["pools"]["hair"]["m"], "brows_all_m.png")
 
 
 def render_outers(lib):
@@ -480,7 +458,7 @@ def render_outers(lib):
     for outer in outers:
         for hair in hairs:
             im = compose(lib, "base_f3", hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
-                         outer=outer, outer_tint=(210, 200, 186), brow="brows:fx_f3@base_f")
+                         outer=outer, outer_tint=(210, 200, 186), eyes="eyes:fx_f4@base_f")
             pic = Image.fromarray(im).crop((70, 20, 370, 460)).resize((150, 220))
             d = ImageDraw.Draw(pic)
             d.rectangle((0, 0, 150, 16), fill=(255, 252, 240))
@@ -539,6 +517,35 @@ def doubles(lib, base, brow, hair=None):
     return n
 
 
+def render_zoom(lib):
+    """脸和发缘 2 倍近邻放大，专门看硬边、白边、矩形补丁、双眉。"""
+    combos = [
+        ("base_f", "hair_f6@base_f", (70, 40, 250, 300)),
+        ("base_f3", "hair_f1@base_f", (90, 20, 300, 280)),
+        ("base_f4", "hair_f4@base_f", (60, 40, 280, 300)),
+        ("base_f3", "hair_f7@base_f", (90, 10, 320, 260)),
+        ("base_f4", "hair_f6@base_f", (70, 30, 270, 290)),
+        ("base_f", "hair_f11@base_f", (90, 20, 300, 280)),
+    ]
+    tiles = []
+    for base, hair, box in combos:
+        im = compose(lib, base, hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
+                     outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f")
+        c = Image.fromarray(im).crop(box)
+        z = c.resize((c.width * 2, c.height * 2), Image.Resampling.NEAREST)
+        d = ImageDraw.Draw(z)
+        d.rectangle((0, 0, 280, 22), fill=(255, 252, 240))
+        d.text((4, 3), "%s + %s" % (base, hair.split("@")[0]), fill=(30, 20, 10))
+        tiles.append(z)
+    w = max(t.width for t in tiles)
+    h = max(t.height for t in tiles)
+    sheet = Image.new("RGB", (w * 3, h * 2), (245, 240, 230))
+    for i, t in enumerate(tiles):
+        sheet.paste(t, ((i % 3) * w, (i // 3) * h))
+    sheet.save(os.path.join(DOCS, "face_edge_2x.png"))
+    print("face_edge_2x", sheet.size)
+
+
 def render_after():
     lib = json.load(open(LIBP, encoding="utf-8"))
     os.makedirs(DOCS, exist_ok=True)
@@ -546,6 +553,7 @@ def render_after():
     render_cape(lib).save(os.path.join(DOCS, "cape_fur_after.png"))
     render_contacts(lib)
     render_outers(lib)
+    render_zoom(lib)
     print("sheets saved")
 
 
