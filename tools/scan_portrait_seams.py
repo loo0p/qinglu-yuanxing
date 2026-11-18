@@ -79,21 +79,30 @@ def seam_hits(im, skin):
 
 
 def flat_rects(im):
-    """几乎没有纹理的深色长方。耳旁那块填充就是这种。"""
+    """耳旁的低纹理深色块。
+
+    整片发髻、垂到腰的长发不算：只要贴着脸、从眼睛往下约一掌、
+    大约 30×55 这种填出来的方块。5deed59 的 hair_f6 左右两块就是这种。
+    """
     L = im.astype(np.float32) @ P.LUM
     std = P._local_std(L)
-    flat = ((std < 2.6) & (L < 34)).astype(np.uint8)
+    flat = ((std < 2.8) & (L < 36)).astype(np.uint8)
     n, lab, st, _ = cv2.connectedComponentsWithStats(flat, 8)
     hits = []
     for i in range(1, n):
-        x, y, w, h, area = st[i]
-        if area < 400 or w < 16 or h < 24:
+        x, y, w, h, area = [int(v) for v in st[i]]
+        if area < 400 or w < 16 or h < 28 or w > 46 or h > 75:
             continue
-        if area / float(w * h) < 0.55:
+        if area / float(w * h) < 0.50:
             continue
-        if y > 300 or y + h < 160:
+        if y < 140 or y > 230:
             continue
-        hits.append(("F", int(x), int(y), int(w), int(h), int(area)))
+        aspect = w / float(h)
+        if aspect < 0.4 or aspect > 1.6:
+            continue
+        if not (36 <= abs(x + w / 2.0 - 216) <= 82):
+            continue
+        hits.append(("F", x, y, w, h, area))
     return hits
 
 

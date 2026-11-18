@@ -257,10 +257,19 @@ def _brow_band(shape, anchors):
 
 
 def _already_solid_brow(rgb, anchors):
-    """实心墨眉的核心有一整小片压到 L<112。描边眉只有一两个像素那么深。"""
+    """和 base_f 一样：多数列有至少 3 个像素压到 L<140。细描边只有一两像素。"""
     L = Lof(rgb)
-    y0, y1, x0, x1 = _brow_band(L.shape, anchors)
-    return int((L[y0:y1, x0:x1] < 112).sum()) >= 28
+    by, bx = int(anchors["brows"][1]), int(anchors["brows"][0])
+    thick = 0
+    cols = 0
+    for x in range(max(0, bx - 55), min(L.shape[1], bx + 55)):
+        col = L[by - 4:by + 5, x]
+        if col.min() > 155:
+            continue
+        cols += 1
+        if int((col < 140).sum()) >= 3:
+            thick += 1
+    return cols > 0 and thick >= int(cols * 0.55)
 
 
 def solidify_brow(rgb, anchors):
@@ -309,18 +318,19 @@ def solidify_brow(rgb, anchors):
     ink_rgb = np.array(ink_rgb, np.float32)
     # 描边眉本身偏浅。压到和 base_f 核心差不多的墨色，避免又画出一道发白的细线。
     ink_L = float(ink_rgb @ LUM)
-    if ink_L > 108:
-        ink_rgb = ink_rgb * (100.0 / ink_L)
-    sig = 1.25
+    if ink_L > 96:
+        ink_rgb = ink_rgb * (92.0 / max(ink_L, 1.0))
+    # 中间约 3px 铺实，外面再收，避免又剩成一根发白的细线。
     out = base.copy()
     ys_all = np.arange(H)
     for x, yc in zip(xs.astype(int), cy):
         if x < 0 or x >= W:
             continue
-        wgt = np.exp(-0.5 * ((ys_all - yc) / sig) ** 2)
+        ad = np.abs(ys_all - yc)
+        wgt = np.where(ad <= 1.15, 1.0, np.exp(-0.5 * ((ad - 1.15) / 0.95) ** 2))
         wgt[:y0] = 0
         wgt[y1:] = 0
-        kblend = wgt * 0.94
+        kblend = wgt * 0.96
         out[:, x] = out[:, x] * (1 - kblend)[:, None] + ink_rgb * kblend[:, None]
     return np.clip(out, 0, 255).astype(np.uint8)
 
@@ -349,9 +359,9 @@ def heal_flat_blocks(im, pos):
     hits = 0
     for i in range(1, n):
         x, y, w, h, area = st[i]
-        if area < 180 or w < 10 or h < 18 or area / float(w * h) < 0.5:
+        if area < 120 or w < 8 or h < 14 or area / float(w * h) < 0.40:
             continue
-        if (y + py) > 300 or (y + h + py) < 160:
+        if (y + py) > 320 or (y + h + py) < 95:
             continue
         comp = lab == i
         yA = max(0, y - 22)
@@ -544,6 +554,31 @@ def heal_alpha_notch(im, pos):
     return out, n
 
 
+def strip_eye_brow_gap(im, pos, y_cut):
+    """眼贴片上沿若在眉和眼睑之间另有一道深色，会和底眉叠成空心双眉。那一截去掉，眼睑留下。"""
+    rgb = im[..., :3].astype(np.float32)
+    a = im[..., 3].astype(np.float32).copy()
+    L = Lof(rgb)
+    y0 = int(pos[1])
+    changed = False
+    for y in range(im.shape[0]):
+        cy = y0 + y
+        if cy >= y_cut:
+            continue
+        # 越靠近眼睑越少削，避免把上眼线切成一条硬边
+        fade = 1.0 if cy <= y_cut - 3 else 0.55
+        dark = (a[y] > 30) & (L[y] < 168)
+        if not dark.any():
+            continue
+        a[y][dark] *= (1.0 - fade)
+        changed = True
+    if not changed:
+        return im
+    out = im.copy()
+    out[..., 3] = np.clip(a, 0, 255).astype(np.uint8)
+    return out
+
+
 def soften_mask_g(mask):
     """G 是换脸时切头发的脸颈保护区。硬边会在别的脸上切出直边。已经是软边就不再模糊。"""
     g = mask[..., 1].astype(np.float32)
@@ -611,6 +646,18 @@ def apply(soft_hair=True):
             save_webp(rel, im)
             n_brow += 1
     print("brows", n_brow)
+    # base_f3 的眼贴片在眉和眼睑之间多一道深色，和底眉错成空心双眉。眼睑（锚点往上 8px 以内）不动。
+    n_eye = 0
+    y_cut = int(lib["heads"]["base_f3"]["anchors"]["eyes"][1]) - 8
+    for key, e in lib["feats"].items():
+        if not key.startswith("eyes:") or "|base_f3|" not in key:
+            continue
+        im = load_rgba(e["tex"])
+        out = strip_eye_brow_gap(im, e["pos"], y_cut)
+        if out is not im:
+            save_webp(e["tex"], out)
+            n_eye += 1
+    print("eye_gap", n_eye, "y_cut", y_cut)
     n_mask = 0
     for name in lib["heads"]:
         rel = "heads/%s.mask.png" % name
