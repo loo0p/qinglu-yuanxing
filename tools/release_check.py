@@ -342,7 +342,23 @@ with sync_playwright() as p:
         tb = [t for t, _, _ in btns() if t.startswith('指点')]
         zj['teach_btn'] = tb[:1]
         if tb:
-            tap(tb[0], 2500)
+            tap(tb[0], 450)
+        # v0.16.9：长提示还在（约 3 秒才淡）就点底栏「行囊」，必须进得去，提示不能压住页签。
+        pg.wait_for_timeout(350)
+        st_toast = state()
+        toast_txt = st_toast.get('toast') or ''
+        zj['toast'] = toast_txt[:80]
+        zj['toast_geom'] = {'b': st_toast.get('toast_b'), 'foot': st_toast.get('foot_y')}
+        bar = [(t, x, y) for t, x, y in btns() if t == '行囊' and y >= H * 0.55]
+        if bar:
+            pg.touchscreen.tap(bar[0][1], bar[0][2])
+            pg.wait_for_timeout(700)
+        st_after = state()
+        geom_ok = True
+        if toast_txt and st_toast.get('foot_y'):
+            geom_ok = float(st_toast.get('toast_b') or 0) <= float(st_toast.get('foot_y')) - 2
+        zj['toast_bar'] = {'tab': st_after.get('tab'), 'len': len(toast_txt), 'geom': geom_ok}
+        step('zj_toast_bar', bool(bar) and st_after.get('tab') == 'pack' and len(toast_txt) >= 16 and geom_ok)
         clear_dialogs(20)
         zj['teach_day'] = [d0, state().get('day')]
         step('zj_taught', bool(tb) and int(state().get('day') or 0) == d0 + 1)

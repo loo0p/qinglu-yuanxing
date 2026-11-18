@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.8 试玩版"
+const VERSION = "v0.16.9 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 const Glyph = preload("res://scripts/ink_glyph.gd")
@@ -110,6 +110,7 @@ var toast: Button
 var toast_layer: Control
 var toast_tw: Tween
 var toast_sticky := false
+var toast_full := ""          # 屏上最多两行，整句留在这里，近况里已有全文
 var sheet_layer: Control
 var fx_layer: Control
 var bag_icon: Control
@@ -191,7 +192,10 @@ func _ready() -> void:
 	add_child(toast_layer)
 	toast = Button.new()
 	toast.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	toast.autowrap_mode = TextServer.AUTOWRAP_OFF
+	toast.clip_text = true
+	toast.clip_contents = true
+	toast.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	toast.focus_mode = Control.FOCUS_NONE
 	toast.add_theme_color_override("font_color", C_WARN)
 	toast.add_theme_color_override("font_hover_color", C_WARN)
@@ -551,6 +555,15 @@ var _drag_on := false
 var _ignore_mouse_ms := 0
 
 func _input(ev: InputEvent) -> void:
+	# 短提示不挡操作：这一下先收起，事件继续交给下面的页签。存档冲突的提示留着。
+	if toast != null and toast.visible and not toast_sticky:
+		var down := false
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			down = true
+		elif ev is InputEventScreenTouch and ev.pressed:
+			down = true
+		if down:
+			_dismiss_toast()
 	if not audio_unlocked:
 		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
 			audio_unlocked = true
@@ -1418,6 +1431,8 @@ func _btn_table() -> String:
 		var n: Node = st.pop_back()
 		for ch in n.get_children():
 			st.append(ch)
+		if n == toast:
+			continue   # 短提示不是能办事的按钮，发布核对按文字点时不要点到它
 		if n is BaseButton and (n as BaseButton).is_visible_in_tree() and not (n as BaseButton).disabled:
 			var r: Rect2 = (n as Control).get_global_rect()
 			var tx := String((n as Button).text) if n is Button else ""
@@ -1501,10 +1516,7 @@ func refresh() -> void:
 		scroll.scroll_vertical = 0
 		if g.s.get("ending", "") == "feisheng" and g.s.get("loc", "") == "ending" and not prev_key.contains("|ending|"):
 			_fx_breakthrough()
-	if OS.has_feature("web"):
-		var w = JavaScriptBridge.get_interface("window")
-		if w:
-			w.qinglu_state = JSON.stringify({"screen": screen, "tab": tab, "modal": modal.get("kind", ""), "sheet": sheet, "loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "lingshi": g.s.get("lingshi", 0), "stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""), "rev": store.rev, "persistent": OS.is_userfs_persistent(), "conflict": store.conflict, "bgm": cur_bgm, "bgm_on": bgm_on, "muted": muted, "unlocked": audio_unlocked})
+	_publish_web()
 
 ## v0.15（Gemini v7 P1）：正文滚得动、底下又压着常驻按钮时，正文末尾补 48px 留白，最后一行不被按钮挡住
 func _bottom_pad() -> void:
@@ -1521,21 +1533,27 @@ func _bottom_pad() -> void:
 	pad.set_meta("bottom_pad", true)
 	body.add_child(pad)
 
-## 短提示浮在内容上，不占顶栏下面那一截。几秒后淡出，点一下就收。存档冲突一直留着。
+## 短提示只占顶栏和底栏之间的一条，最多两行，大约三秒后淡出。点一下就收。存档冲突一直留着。
+## 全文在 notice() 里进了近况（s["notes"]），屏上截断不把句子丢掉。
 func _dismiss_toast() -> void:
+	if toast_sticky:
+		return
 	if toast_tw and toast_tw.is_valid():
 		toast_tw.kill()
 	toast.visible = false
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _arm_toast(text: String, sticky: bool) -> void:
-	toast.text = text
+	toast_full = text
+	toast_sticky = sticky
 	toast.visible = true
 	toast.modulate.a = 1.0
-	toast.mouse_filter = Control.MOUSE_FILTER_STOP
-	toast_sticky = sticky
+	# 穿透：点在提示上会收起，事件仍往父节点走；真正点到底栏靠「先收起、再把这一下交给下面」。
+	toast.mouse_filter = Control.MOUSE_FILTER_PASS
+	toast.autowrap_mode = TextServer.AUTOWRAP_OFF
 	if toast_tw and toast_tw.is_valid():
 		toast_tw.kill()
+	_place_toast(false)
 	if sticky:
 		return
 	toast_tw = create_tween()
@@ -1543,27 +1561,120 @@ func _arm_toast(text: String, sticky: bool) -> void:
 	toast_tw.tween_property(toast, "modulate:a", 0.0, 0.4)
 	toast_tw.tween_callback(_dismiss_toast)
 
-func _place_toast() -> void:
-	if toast == null or not is_instance_valid(toast) or not toast.visible:
-		return
-	# 量到的顶栏高度不可靠时，提示会漂到人脸中间。夹在顶栏正下方。
-	var y := 64.0
-	if hud and is_instance_valid(hud) and hud.size.y > 20.0 and hud.size.y < 96.0:
-		y = hud.get_global_position().y + hud.size.y + 4.0
-	y = clampf(y, 52.0, 92.0)
-	# 按给定宽度量行高，并封顶。否则自动换行在宽度还是 0 时会一字一行，提示条盖住底栏，点页签点不中。
-	var w := maxf(120.0, get_viewport_rect().size.x - 24.0)
+## 顶栏下沿、底栏上沿。底栏还没排出来时，先按大约一行页签的高度让开。
+func _toast_slot() -> Rect2:
+	var vs := get_viewport_rect().size
+	var top := 72.0
+	var bot := vs.y - 80.0
+	if hud != null and is_instance_valid(hud) and hud.size.y >= 28.0 and hud.size.y < 120.0:
+		top = hud.get_global_position().y + hud.size.y + 4.0
+	if footer != null and is_instance_valid(footer) and footer.get_child_count() > 0:
+		var fr := footer.get_global_rect()
+		if fr.size.y >= 40.0 and fr.position.y > top + 48.0:
+			bot = minf(bot, fr.position.y - 6.0)
+	top = clampf(top, 48.0, vs.y * 0.42)
+	bot = clampf(bot, top + 36.0, vs.y - 64.0)
+	return Rect2(6.0, top, maxf(120.0, vs.x - 12.0), bot - top)
+
+func _toast_fits(font: Font, fs: int, s: String, w: float) -> bool:
+	return font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= w + 0.5
+
+## 长句收成两行，放不下的用省略号。「另 N 条」留在第二行末，全文已经在近况里。
+func _fit_two_lines(full: String, inner_w: float) -> String:
+	var raw := full.replace("\n", "").replace(ZW, "")
+	var tail := ""
+	var mark := raw.find("（另 ")
+	if mark > 0 and raw.ends_with("）"):
+		tail = raw.substr(mark)
+		raw = raw.substr(0, mark)
 	var font := toast.get_theme_font("font")
-	var fs := toast.get_theme_font_size("font_size")
-	var th := 40.0
-	if font != null and toast.text != "":
-		var sz := font.get_multiline_string_size(toast.text, HORIZONTAL_ALIGNMENT_LEFT, w - 20.0, fs)
-		th = clampf(sz.y + 16.0, 36.0, 64.0)
+	var fs: int = toast.get_theme_font_size("font_size")
+	if font == null or inner_w < 40.0:
+		var bits := raw
+		if tail != "":
+			bits += tail
+		if bits.length() <= 32:
+			return bits
+		return bits.substr(0, 16) + "\n" + bits.substr(16, 14) + "…"
+	var ell := "…"
+	var line1 := _take_line(font, fs, raw, inner_w)
+	var rest := raw.substr(line1.length())
+	if rest == "" and tail == "":
+		return line1
+	if rest == "" and _toast_fits(font, fs, line1 + tail, inner_w):
+		return line1 + tail
+	var line2 := rest + tail
+	if not _toast_fits(font, fs, line2, inner_w):
+		var keep := tail
+		if keep != "" and not _toast_fits(font, fs, keep, inner_w):
+			keep = ""
+		var room := rest
+		while room != "" and not _toast_fits(font, fs, room + ell + keep, inner_w):
+			room = room.substr(0, room.length() - 1)
+		line2 = (room + ell if rest != room else room) + keep
+		if line2 == "":
+			line2 = ell
+	if line1 == "":
+		return line2
+	return line1 + "\n" + line2
+
+func _take_line(font: Font, fs: int, raw: String, inner_w: float) -> String:
+	var line := ""
+	for i in raw.length():
+		var nxt := line + raw[i]
+		if line != "" and not _toast_fits(font, fs, nxt, inner_w):
+			break
+		line = nxt
+	return line
+
+func _place_toast(retry: bool = true) -> void:
+	if toast == null or not is_instance_valid(toast) or not toast.visible:
+		_publish_web()
+		return
+	var slot := _toast_slot()
+	var font := toast.get_theme_font("font")
+	var fs: int = toast.get_theme_font_size("font_size")
+	var lh := float(fs) + 4.0
+	if font != null:
+		lh = font.get_height(fs)
+	# 两行字加纸边。再高也不许伸进底栏：最大高度卡死，自动换行不会把按钮撑满屏。
+	var th := minf(lh * 2.0 + 16.0, slot.size.y)
+	th = maxf(th, 36.0)
+	var inner := maxf(40.0, slot.size.x - 20.0)
+	toast.autowrap_mode = TextServer.AUTOWRAP_OFF
 	toast.clip_text = true
-	toast.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	toast.position = Vector2(6, y)
-	toast.custom_minimum_size = Vector2(w, th)
-	toast.size = Vector2(w, th)
+	toast.clip_contents = true
+	toast.text = _fit_two_lines(toast_full, inner)
+	toast.custom_maximum_size = Vector2(slot.size.x, th)
+	toast.custom_minimum_size = Vector2(minf(slot.size.x, inner), minf(th, lh + 16.0))
+	toast.position = slot.position
+	toast.size = Vector2(slot.size.x, th)
+	var laid := footer != null and is_instance_valid(footer) and footer.get_child_count() > 0 and footer.size.y >= 36.0
+	if retry and not laid:
+		call_deferred("_place_toast", false)
+	_publish_web()
+
+func _publish_web() -> void:
+	if not OS.has_feature("web"):
+		return
+	var w = JavaScriptBridge.get_interface("window")
+	if w == null:
+		return
+	var tb := 0.0
+	var fy := 0.0
+	if toast != null and is_instance_valid(toast) and toast.visible:
+		tb = toast.position.y + toast.size.y
+	if footer != null and is_instance_valid(footer) and footer.get_child_count() > 0:
+		fy = footer.get_global_rect().position.y
+	w.qinglu_state = JSON.stringify({
+		"screen": screen, "tab": tab, "modal": modal.get("kind", ""), "sheet": sheet,
+		"loc": g.s.get("loc", ""), "day": g.s.get("day", -1), "lingshi": g.s.get("lingshi", 0),
+		"stage": g.s.get("trip", {}).get("stage", ""), "node": g.s.get("trip", {}).get("node", ""),
+		"rev": store.rev, "persistent": OS.is_userfs_persistent(), "conflict": store.conflict,
+		"bgm": cur_bgm, "bgm_on": bgm_on, "muted": muted, "unlocked": audio_unlocked,
+		"toast": toast_full if toast != null and toast.visible else "",
+		"toast_b": tb, "foot_y": fy,
+	})
 
 func _bgm_for_scene() -> String:
 	if screen != "game":
@@ -1598,7 +1709,7 @@ func _refresh() -> void:
 	var ttxt := ""
 	var sticky := false
 	if not g.notices.is_empty():
-		# 一次来好几条时，顶上只留最新的一句，其余在行记里。
+		# 一次来好几条：并成一条（最新一句，写明还有几条）。不往下再叠一条。全文各自在近况里。
 		ttxt = String(g.notices[g.notices.size() - 1])
 		if g.notices.size() > 1:
 			ttxt += "（另 %d 条，见行记）" % (g.notices.size() - 1)
@@ -2031,8 +2142,8 @@ func _sheet() -> void:
 	cb.size_flags_horizontal = Control.SIZE_SHRINK_END
 	cb.custom_minimum_size = Vector2(64, MIN_TAP)
 	cb.add_theme_font_size_override("font_size", 13)
-	if toast != null and toast.visible and String(toast.text) != "":
-		L(String(toast.text), 13, C_WARN, v)
+	if toast != null and toast.visible and toast_full != "":
+		L(toast_full, 13, C_WARN, v)
 	match sheet:
 		"field": _sheet_field(v)
 		"furnace": _sheet_furnace(v)
