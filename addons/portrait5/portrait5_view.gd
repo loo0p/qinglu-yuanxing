@@ -102,9 +102,13 @@ static func render_spec(sp: Dictionary) -> Dictionary:
 		var tied := ["hair_m1@base_m", "hair_m2@base_m", "hair_m7@base_m", "hair_m9@base_m", "hair_m3@base_m"]
 		out.hair = tied[absi(hash(str(out.get("base", "")) + str(feats.get("eyes", "")))) % tied.size()]
 		out.acc = []
+	# v0.16.8：hair_f6 耳旁有深色方块，不再进池。旧档里抽到它的人，绘制时改成半束长发 hair_f4（还是长发披下来，不是发髻）。存档里的签不动。
+	if str(out.get("hair", "")).begins_with("hair_f6"):
+		out.hair = "hair_f4@base_f"
+		out.acc = []
 	# v0.16.3 / v0.16.4：hair_f9 是红丝飞发，发丝糊在脸上。换成几款真正不同的长发、发髻、辫（都留刘海鬓角）。
 	if str(out.get("hair", "")).begins_with("hair_f9"):
-		var calm := ["hair_f6@base_f", "hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
+		var calm := ["hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
 		out.hair = calm[absi(hash(str(out.get("base", "")) + str(feats.get("eyes", "")))) % calm.size()]
 		out.acc = []
 	# v0.16.3：纱丝 outer_f1、飘带 outer_f5 薄得像贴纸。换成能搭在肩上的披风 / 毛领。

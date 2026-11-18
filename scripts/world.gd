@@ -957,10 +957,10 @@ const SECT_PAL = {
 	"散修": [[228, 224, 214], [62, 72, 82], [138, 114, 94], [112, 140, 112], [176, 176, 172]],
 }
 const YOUNG_BASE_TO = ["base_m", "base_m2", "base_m3"]
-## 3 与 7 互质，0..20 的 (底头, 发型) 各不相同。底头把圆脸 f3 放在第一位。
-const F_LOOK_N := 21
+## 3 底头 × 6 发型 = 18 种不重复的 (底头, 发型)。hair_f6 有耳旁方块，不进这张表。底头把圆脸 f3 放在第一位。
+const F_LOOK_N := 18
 const F_BASES_SAFE := ["base_f3", "base_f", "base_f4"]
-const F_HAIRS_SAFE := ["hair_f6@base_f", "hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
+const F_HAIRS_SAFE := ["hair_f1@base_f", "hair_f5@base_f", "hair_f7@base_f", "hair_f12@base_f", "hair_f4@base_f", "hair_f2@base_f"]
 const F_BROWS_SAFE := ["brows:fx_f1@base_f", "brows:fx_f3@base_f", "brows:fx_f5@base_f", "brows:fx_f2@base_f", "brows:fx_f4@base_f"]
 const F_EYES_SAFE := ["eyes:fx_f4@base_f", "eyes:fx_f1@base_f", "eyes:fx_f5@base_f", "eyes:fx_f3@base_f", "eyes:eyes_cold@base_f"]
 const F_MARKS_SAFE := ["huadian_moon", "huadian_drop", "huadian_plum", "huadian_dots", "huadian_flame", "mole_cheek", ""]
@@ -979,9 +979,14 @@ func portrait_spec(c: Dictionary) -> Dictionary:
 	var sp: Dictionary = Portrait5Lib.roll(int(c["pseed"]), o)
 	return portrait_fix(c, sp, o)
 
+func _female_ix(slot: int) -> Array:
+	# 三种底头先轮开，再换下一款发型。3 与 6 不互质，不能两个都对 slot 取余。
+	return [slot % F_BASES_SAFE.size(), int(slot / F_BASES_SAFE.size()) % F_HAIRS_SAFE.size()]
+
 func _look_pair(sex: String, slot: int) -> String:
 	if sex == "女":
-		return F_BASES_SAFE[slot % F_BASES_SAFE.size()] + "|" + F_HAIRS_SAFE[slot % F_HAIRS_SAFE.size()]
+		var ix: Array = _female_ix(slot)
+		return F_BASES_SAFE[ix[0]] + "|" + F_HAIRS_SAFE[ix[1]]
 	return M_BASES_SAFE[slot % M_BASES_SAFE.size()] + "|" + M_HAIRS_SAFE[slot % M_HAIRS_SAFE.size()]
 
 func _pick_slot(sex: String, pseed: int, n: int, used: Dictionary) -> int:
@@ -1023,8 +1028,9 @@ func _apply_young_look(c: Dictionary, sp: Dictionary) -> int:
 		sp["feats"] = {}
 	var feats: Dictionary = sp["feats"]
 	if female:
-		sp["base"] = F_BASES_SAFE[s % F_BASES_SAFE.size()]
-		sp["hair"] = F_HAIRS_SAFE[s % F_HAIRS_SAFE.size()]
+		var ix: Array = _female_ix(s)
+		sp["base"] = F_BASES_SAFE[ix[0]]
+		sp["hair"] = F_HAIRS_SAFE[ix[1]]
 		feats["brows"] = F_BROWS_SAFE[s % F_BROWS_SAFE.size()]
 		feats["eyes"] = F_EYES_SAFE[s % F_EYES_SAFE.size()]
 		var mk := String(F_MARKS_SAFE[s % F_MARKS_SAFE.size()])

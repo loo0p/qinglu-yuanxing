@@ -290,10 +290,15 @@ func _units() -> void:
 	var first: Dictionary = ww.portrait_spec(women[0])
 	ww.w["C"]["9999"] = {"id": 9999, "pseed": 3, "age": 20.0, "sex": "女", "sect": "散修", "lv": 1, "pv": 10, "player": false, "traits": []}
 	var first2: Dictionary = ww.portrait_spec(women[0])
-	ok(dup == 0 and pairs.size() == 12 and f3n >= 3 and bases.size() == 3 and hairs.size() >= 6, "十二名同世女修 base+发型不撞，三种底头、圆脸至少 3 人（撞 %d，圆脸 %d，发型 %d）" % [dup, f3n, hairs.size()])
+	ok(dup == 0 and pairs.size() == 12 and f3n >= 3 and bases.size() == 3 and hairs.size() >= 5, "十二名同世女修 base+发型不撞，三种底头、圆脸至少 3 人、发型至少五款（撞 %d，圆脸 %d，发型 %d）" % [dup, f3n, hairs.size()])
 	ok(first == first2 and ww.portrait_spec(women[3]) == ww.portrait_spec(women[3]), "同一人跨页（再算一次、后加人）脸不变")
 	ok(san_bad == 0, "散修袍色都是低饱和色")
 	ok(Portrait5View.render_spec({"base": "base_f", "robe": "robe_f8@base_f", "feats": {}}).robe == "robe_f9@base_f", "阴阳鱼补子袍改画素袍")
+	var old_hair := {"base": "base_f", "hair": "hair_f6@base_f", "feats": {"eyes": "eyes:fx_f4@base_f"}, "acc": ["acc_f1@base_f"]}
+	var drawn_hair: Dictionary = Portrait5View.render_spec(old_hair)
+	ok(drawn_hair["hair"] == "hair_f4@base_f" and drawn_hair["acc"].is_empty(), "旧档 hair_f6 只在绘制时换成半束长发 hair_f4")
+	ok(old_hair["hair"] == "hair_f6@base_f", "存档里的发型签仍是 hair_f6")
+	ok(not ("hair_f6@base_f" in w.F_HAIRS_SAFE), "同场用的安全发型里没有 hair_f6")
 	var cq := {"pseed": 5, "age": 20.0, "sex": "女", "sect": "青云宗", "lv": 2, "pv": 10, "player": false, "traits": []}
 	ok(w.portrait_spec(cq)["robe_tint"] in w.SECT_PAL["青云宗"], "宗门袍色取自本门色组")
 	ok(w.portrait_spec(cq) == w.portrait_spec(cq), "同一人每次画出来一样")

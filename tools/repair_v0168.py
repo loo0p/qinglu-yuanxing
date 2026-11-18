@@ -826,7 +826,7 @@ def render_pair(lib):
 
 def render_cape(lib):
     tiles = []
-    for base, hair in (("base_f", "hair_f6@base_f"), ("base_f3", "hair_f1@base_f"), ("base_f4", "hair_f4@base_f")):
+    for base, hair in (("base_f", "hair_f4@base_f"), ("base_f3", "hair_f1@base_f"), ("base_f4", "hair_f12@base_f")):
         im = compose(lib, base, hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
                      outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f")
         pic = Image.fromarray(im).crop((50, 0, 390, 520)).resize((340, 520))
@@ -935,13 +935,13 @@ def doubles(lib, base, brow, hair=None):
 def render_zoom(lib):
     """脸和发缘 2 倍近邻放大，专门看硬边、白边、矩形补丁、双眉。"""
     combos = [
-        ("base_f", "hair_f6@base_f", (70, 40, 250, 300)),
+        ("base_f", "hair_f4@base_f", (70, 40, 250, 300)),
         ("base_f3", "hair_f1@base_f", (90, 20, 300, 280)),
-        ("base_f4", "hair_f4@base_f", (60, 40, 280, 300)),
+        ("base_f4", "hair_f2@base_f", (60, 40, 280, 300)),
         ("base_f3", "hair_f7@base_f", (90, 10, 320, 260)),
-        ("base_f4", "hair_f6@base_f", (70, 30, 270, 290)),
+        ("base_f4", "hair_f5@base_f", (70, 30, 270, 290)),
         ("base_f", "hair_f11@base_f", (90, 20, 300, 280)),
-        ("base_f3", "hair_f6@base_f", (70, 30, 270, 290)),
+        ("base_f3", "hair_f12@base_f", (70, 30, 270, 290)),
         ("base_f3", "hair_f4@base_f", (70, 30, 280, 300)),
         ("base_f3", "hair_f11@base_f", (80, 20, 300, 280)),
         ("base_m", "hair_m1@base_m", (70, 30, 280, 300)),
