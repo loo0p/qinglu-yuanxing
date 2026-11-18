@@ -9,8 +9,12 @@
 - 长发内部有大量半透明像素，袍色会从头发里透出来。发束内部改为不透明，只留外缘一圈抗锯齿。
 - 换到别的脸上时，头部遮罩 G 通道是一块硬边梯形，压在脸颈上像一块矩形补丁。
   把这条边羽化开。下颌到锁骨的肤色若有一块突兀的色阶，顺着周围肤色抹平，墨线留下。
+- base_f3 底脸的眉是一道又细又浅的描边，放大后中段发白、像上下两道。眉区先用周围肤色软补，
+  再按 base_f 的实心墨眉重画。男女十二张底脸都对过，只有这一张是描边眉。
+- 长发在画布 y≈237（下颌到颈）前后两层硬接，接缝下方发色突然变黑。耳旁另有一块几乎没有纹理的
+  深色长方形（hair_f6 最明显）。平掉这块，并把接缝处的发色顺着上面那一层软接上。
 
-用法：python3 tools/repair_v0168.py
+用法：python3 tools/repair_v0168.py apply | sheets
 """
 import os, sys, json
 import numpy as np
@@ -238,20 +242,384 @@ def smooth_neck(im, mask, mouth_y):
     return out
 
 
-def apply():
-    """只动头发和毛领尖角。眉不在贴图上改：游戏绘制时不再叠眉片，底脸的眉留着。
-    头和遮罩也不在这里抹，矩形色块和横缝就是从前那一步留下的。"""
+# 十二张底脸都看过眉：只有 base_f3 是细描边（中段发白，像两道）。
+# 其余是实心墨眉，或老人的淡眉，不再重画。
+HOLLOW_BROWS = ("base_f3",)
+
+
+def _brow_band(shape, anchors):
+    by, bx = int(anchors["brows"][1]), int(anchors["brows"][0])
+    ey = int(anchors["eyes"][1])
+    H, W = shape
+    y0, y1 = max(0, by - 11), min(H, min(by + 8, ey - 6))
+    x0, x1 = max(0, bx - 78), min(W, bx + 78)
+    return y0, y1, x0, x1
+
+
+def _already_solid_brow(rgb, anchors):
+    """实心墨眉的核心有一整小片压到 L<112。描边眉只有一两个像素那么深。"""
+    L = Lof(rgb)
+    y0, y1, x0, x1 = _brow_band(L.shape, anchors)
+    return int((L[y0:y1, x0:x1] < 112).sum()) >= 28
+
+
+def solidify_brow(rgb, anchors):
+    """描边眉改成一道实心墨眉：眉区用周围肤色软补（不留方块、不留浅色擦痕），再沿原来的弧画一道。"""
+    if _already_solid_brow(rgb, anchors):
+        return rgb
+    src = rgb.astype(np.float32)
+    L = Lof(src)
+    y0, y1, x0, x1 = _brow_band(L.shape, anchors)
+    H, W = L.shape
+    bg = cv2.dilate(L.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 11))).astype(np.float32)
+    ink = np.zeros(L.shape, bool)
+    ink[y0:y1, x0:x1] = (bg[y0:y1, x0:x1] - L[y0:y1, x0:x1] > 12) & (L[y0:y1, x0:x1] < 180)
+    ink = cv2.morphologyEx(ink.astype(np.uint8), cv2.MORPH_OPEN, np.ones((2, 2), np.uint8)) > 0
+    n, lab, st, _ = cv2.connectedComponentsWithStats(ink.astype(np.uint8), 8)
+    keep = np.zeros(ink.shape, bool)
+    for i in range(1, n):
+        if st[i, cv2.CC_STAT_AREA] >= 12:
+            keep |= lab == i
+    ink = keep
+    if int(ink.sum()) < 30:
+        return rgb
+    xs, cy = [], []
+    for x in range(x0, x1):
+        ys = np.where(ink[:, x])[0]
+        if len(ys) < 1:
+            continue
+        w = np.clip(bg[ys, x] - L[ys, x], 1, None)
+        xs.append(x)
+        cy.append(float(np.average(ys, weights=w)))
+    if len(xs) < 12:
+        return rgb
+    xs = np.array(xs, np.float32)
+    cy = np.array(cy, np.float32)
+    k = np.array([1, 2, 4, 6, 4, 2, 1], np.float32)
+    k /= k.sum()
+    cy = np.convolve(np.pad(cy, (3, 3), mode="edge"), k, mode="valid")
+    hole = cv2.dilate(ink.astype(np.uint8), np.ones((3, 3), np.uint8)) * 255
+    bgr = cv2.cvtColor(np.clip(src, 0, 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+    filled = cv2.cvtColor(cv2.inpaint(bgr, hole, 4, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB).astype(np.float32)
+    soft = cv2.GaussianBlur(hole.astype(np.float32) / 255.0, (0, 0), 1.15)[..., None]
+    base = src * (1 - soft) + filled * soft
+    dark = L[ink] < np.percentile(L[ink], 30)
+    cols = np.where(ink)
+    ink_rgb = np.median(src[cols[0][dark], cols[1][dark]], axis=0) if int(dark.sum()) > 8 else np.array([110, 98, 90], np.float32)
+    ink_rgb = np.array(ink_rgb, np.float32)
+    # 描边眉本身偏浅。压到和 base_f 核心差不多的墨色，避免又画出一道发白的细线。
+    ink_L = float(ink_rgb @ LUM)
+    if ink_L > 108:
+        ink_rgb = ink_rgb * (100.0 / ink_L)
+    sig = 1.25
+    out = base.copy()
+    ys_all = np.arange(H)
+    for x, yc in zip(xs.astype(int), cy):
+        if x < 0 or x >= W:
+            continue
+        wgt = np.exp(-0.5 * ((ys_all - yc) / sig) ** 2)
+        wgt[:y0] = 0
+        wgt[y1:] = 0
+        kblend = wgt * 0.94
+        out[:, x] = out[:, x] * (1 - kblend)[:, None] + ink_rgb * kblend[:, None]
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _local_std(L):
+    k = np.ones((5, 5), np.float32) / 25.0
+    mean = cv2.filter2D(L, -1, k)
+    sq = cv2.filter2D(L * L, -1, k)
+    return np.sqrt(np.clip(sq - mean * mean, 0, None))
+
+
+def heal_flat_blocks(im, pos):
+    """耳旁那块没有纹理的深色长方：用上方有发丝的颜色顺着铺下来，边缘羽化。
+
+    根因是前后发层在下颌旁接死，接缝上方留了一块几乎纯色的填充（hair_f6 左右各一块，
+    画布 y 约 175–235）。旁边没有头发可借，只能从这块上方的发丝往下接。
+    """
+    rgb = im[..., :3].astype(np.float32).copy()
+    a = im[..., 3].astype(np.float32)
+    H, W = rgb.shape[:2]
+    py = int(pos[1])
+    L = Lof(rgb)
+    std = _local_std(L)
+    flat = ((std < 2.6) & (L < 34) & (a > 200)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(flat, 8)
+    hits = 0
+    for i in range(1, n):
+        x, y, w, h, area = st[i]
+        if area < 180 or w < 10 or h < 18 or area / float(w * h) < 0.5:
+            continue
+        if (y + py) > 300 or (y + h + py) < 160:
+            continue
+        comp = lab == i
+        yA = max(0, y - 22)
+        if y - yA < 8:
+            continue
+        src = rgb[yA:y]
+        src_a = a[yA:y]
+        sh = src.shape[0]
+        painted = np.zeros((H, W), bool)
+        for xx in range(x, x + w):
+            if not comp[:, xx].any():
+                continue
+            sm = src_a[:, xx] > 150
+            if int(sm.sum()) < 5:
+                continue
+            med_src = np.median(src[:, xx][sm], 0)
+            dev = src[:, xx] - med_src
+            yB = min(H - 1, y + h + 10)
+            bm = a[y + h:yB, xx] > 150
+            med_below = np.median(rgb[y + h:yB, xx][bm], 0) if int(bm.sum()) >= 3 else med_src
+            # 下方本来就比脸侧发丝深一档。只接上半截的落差，不要把整缕发漂成同一个浅灰。
+            med_below = med_src * 0.45 + med_below * 0.55
+            ys = np.where(comp[:, xx])[0]
+            y0s, y1s = int(ys.min()), int(ys.max())
+            span = max(1, y1s - y0s)
+            for yy in ys:
+                t = (yy - y0s) / span
+                t = t * t * (3 - 2 * t)
+                base = med_src * (1 - t) + med_below * t
+                rgb[yy, xx] = base + dev[(yy - y0s) % sh] * 0.55
+                painted[yy, xx] = True
+        if not painted.any():
+            continue
+        inner = cv2.distanceTransform(painted.astype(np.uint8), cv2.DIST_L2, 3)
+        rim = painted & (inner < 4)
+        blur = cv2.GaussianBlur(rgb, (0, 0), 1.3)
+        rgb[rim] = rgb[rim] * 0.4 + blur[rim] * 0.6
+        hits += 1
+    out = im.copy()
+    out[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    return out, hits
+
+
+def heal_neck_seam(im, pos):
+    """画布 y≈237 的横缝：下面那一层突然更黑。只抬低频，发丝纹理留着，十几像素内软接上。"""
+    rgb = im[..., :3].astype(np.float32).copy()
+    a = im[..., 3].astype(np.float32)
+    H, W = a.shape
+    py = int(pos[1])
+    L = Lof(rgb)
+    sat = rgb.max(-1) - rgb.min(-1)
+    ornament = ((L > 150) & (a > 150)) | ((sat > 30) & (L > 120) & (a > 150))
+    ornament = cv2.dilate(ornament.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    seam_y = np.full(W, -1, np.int32)
+    for x in range(W):
+        best, by = 0.0, -1
+        for y in range(4, H - 6):
+            yc = y + py
+            if yc < 220 or yc > 262:
+                continue
+            if a[y, x] < 150 or a[y - 1, x] < 150:
+                continue
+            if ornament[y, x] or ornament[y - 1, x]:
+                continue
+            drop = float(L[y - 1, x] - L[y, x])
+            if drop > best:
+                best, by = drop, y
+        if best >= 8 and a[min(H - 1, by + 5), x] > 140 and L[min(H - 1, by + 5), x] < L[by - 1, x] - 5:
+            seam_y[x] = by
+    detected = seam_y[seam_y > 0]
+    if len(detected) < 10:
+        return im, 0
+    consensus = int(np.median(detected))
+    # 只要这一行左右都有人接缝，整条头发在这一行的下跌都算，不要漏掉耳旁那几列特别黑的。
+    agree = np.zeros(W, bool)
+    for x in range(W):
+        if ornament[:, x].mean() > 0.4:
+            continue
+        for y in (consensus - 1, consensus, consensus + 1):
+            if y < 2 or y >= H - 2:
+                continue
+            if a[y, x] < 150 or a[y - 1, x] < 150:
+                continue
+            if float(L[y - 1, x] - L[y, x]) >= 6:
+                agree[x] = True
+                seam_y[x] = y
+                break
+    if int(agree.sum()) < 10:
+        return im, 0
+    for x in np.where(agree)[0]:
+        y = int(seam_y[x])
+        cols = []
+        for dx in (-3, -2, -1, 0, 1, 2, 3):
+            xx = x + dx
+            if not (0 <= xx < W and agree[xx]):
+                continue
+            for back in (6, 5, 4):
+                yy = int(seam_y[xx]) - back
+                if yy >= 1 and a[yy, xx] > 140 and not ornament[yy, xx]:
+                    cols.append(rgb[yy, xx])
+                    break
+        if len(cols) < 3:
+            continue
+        src = np.median(cols, 0)
+        src_L = float(src @ LUM)
+        # 接缝上方若有一条发亮的棱，一并收进周围发色，免得留下一道白线
+        for back in (1, 2):
+            yy = y - back
+            if yy < 0 or a[yy, x] < 140 or ornament[yy, x]:
+                continue
+            if float(rgb[yy, x] @ LUM) > src_L + 4:
+                rgb[yy, x] = rgb[yy, x] * 0.35 + src * 0.65
+        for dy in range(0, 32):
+            yy = y + dy
+            if yy >= H or a[yy, x] < 140 or ornament[yy, x]:
+                continue
+            w = 0.9 if dy < 14 else 0.9 * max(0.0, 1.0 - (dy - 14) / 18.0)
+            cur = rgb[yy, x]
+            if float(cur @ LUM) > src_L - 3:
+                continue
+            rgb[yy, x] = cur * (1 - w) + src * w
+    out = im.copy()
+    out[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    return out, int(agree.sum())
+
+
+def heal_alpha_notch(im, pos):
+    """下颌高度发际若先拉成一条直线、再突然往里收一截，就是矩形缺口。顺着原来的边软补回去。"""
+    rgb = im[..., :3].astype(np.float32).copy()
+    a = im[..., 3].astype(np.float32).copy()
+    H, W = a.shape
+    px, py = int(pos[0]), int(pos[1])
+    cx = 216 - px
+    n = 0
+    for side in ("L", "R"):
+        edge = np.full(H, -1, np.int32)
+        for y in range(H):
+            xs = np.where(a[y] > 80)[0]
+            if side == "L":
+                xs = xs[xs < cx]
+                if len(xs):
+                    edge[y] = int(xs.max())
+            else:
+                xs = xs[xs > cx]
+                if len(xs):
+                    edge[y] = int(xs.min())
+        best = None
+        y = 0
+        while y < H - 16:
+            if edge[y] < 0:
+                y += 1
+                continue
+            y1 = y
+            while y1 < H and edge[y1] >= 0 and abs(int(edge[y1]) - int(edge[y])) <= 1:
+                y1 += 1
+            run = y1 - y
+            yc = y + py
+            if run >= 16 and y1 < H and edge[y1] >= 0 and 190 <= yc <= 250:
+                jump = int(edge[y]) - int(edge[y1]) if side == "L" else int(edge[y1]) - int(edge[y])
+                if jump >= 8 and (best is None or jump > best[0]):
+                    best = (jump, y, y1, int(edge[y]), int(edge[y1]))
+            y = max(y + 1, y1 if y1 > y else y + 1)
+        if best is None:
+            continue
+        jump, y0, y1, old_e, new_e = best
+        for yy in range(y1, min(H, y1 + jump + 6)):
+            if edge[yy] < 0:
+                continue
+            t = min(1.0, (yy - y1) / float(jump))
+            t = t * t * (3 - 2 * t)
+            dest = int(round(old_e * (1 - t) + edge[yy] * t))
+            src_x = int(edge[yy])
+            if side == "L":
+                span = range(src_x + 1, dest + 1)
+            else:
+                span = range(dest, src_x)
+            for xx in span:
+                if not (0 <= xx < W) or a[yy, src_x] < 80:
+                    continue
+                dist = abs(xx - src_x)
+                fade = float(np.exp(-0.5 * (dist / 3.4) ** 2))
+                if a[yy, xx] >= 255 * fade:
+                    continue
+                rgb[yy, xx] = rgb[yy, src_x]
+                a[yy, xx] = max(a[yy, xx], 255.0 * fade)
+        n += 1
+    out = im.copy()
+    out[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    out[..., 3] = np.clip(a, 0, 255).astype(np.uint8)
+    return out, n
+
+
+def soften_mask_g(mask):
+    """G 是换脸时切头发的脸颈保护区。硬边会在别的脸上切出直边。已经是软边就不再模糊。"""
+    g = mask[..., 1].astype(np.float32)
+    if g.max() < 20:
+        return mask
+    gx = np.abs(np.diff(g, axis=1)).max() if g.shape[1] > 1 else 0
+    if gx < 45:
+        return mask
+    out = mask.copy()
+    out[..., 1] = np.clip(cv2.GaussianBlur(g, (0, 0), 3.0), 0, 255).astype(np.uint8)
+    return out
+
+
+def soften_aux_g(im):
+    """头发 aux 的 G 是源脸的保护区，和头部遮罩一样会切出直边。R（保留发丝）不动。"""
+    if im.shape[2] < 2:
+        return im
+    g = im[..., 1].astype(np.float32)
+    if g.max() < 20:
+        return im
+    gx = np.abs(np.diff(g, axis=1)).max() if g.shape[1] > 1 else 0
+    if gx < 45:
+        return im
+    out = im.copy()
+    out[..., 1] = np.clip(cv2.GaussianBlur(g, (0, 0), 2.4), 0, 255).astype(np.uint8)
+    return out
+
+
+def apply(soft_hair=True):
+    """毛领尖角、发束不透（仅从烘焙原图重做时），再改底脸眉、发缝、脸颈遮罩。
+
+    已经收过边的发布图不要再跑 repair_hair_soft：它不是幂等的，会把发缘再啃掉一圈。
+    """
     lib = json.load(open(LIBP, encoding="utf-8"))
     rel = lib["parts"]["outer_f4@base_f"]["tex"]
     save_webp(rel, repair_outer_horns(load_rgba(rel)))
     print("outer_f4")
     n_hair = 0
+    n_rect = 0
+    n_seam = 0
     for key, e in lib["parts"].items():
         if e.get("kind") != "hair":
             continue
-        save_webp(e["tex"], repair_hair_soft(load_rgba(e["tex"])))
+        im = load_rgba(e["tex"])
+        if soft_hair:
+            im = repair_hair_soft(im)
+        im, hits = heal_flat_blocks(im, e["pos"])
+        im, cols = heal_neck_seam(im, e["pos"])
+        im, _notch = heal_alpha_notch(im, e["pos"])
+        save_webp(e["tex"], im)
+        if e.get("aux"):
+            save_webp(e["aux"], soften_aux_g(load_rgba(e["aux"])))
         n_hair += 1
-    print("hair", n_hair)
+        n_rect += hits
+        n_seam += 1 if cols else 0
+    print("hair", n_hair, "flat_blocks", n_rect, "seams", n_seam)
+    n_brow = 0
+    for name in HOLLOW_BROWS:
+        rel = "heads/%s.jpg" % name
+        im = load_rgba(rel)
+        rgb = solidify_brow(im[..., :3], lib["heads"][name]["anchors"])
+        if rgb is not im[..., :3]:
+            im = im.copy()
+            im[..., :3] = rgb
+            save_webp(rel, im)
+            n_brow += 1
+    print("brows", n_brow)
+    n_mask = 0
+    for name in lib["heads"]:
+        rel = "heads/%s.mask.png" % name
+        im = load_rgba(rel)
+        out = soften_mask_g(im)
+        if out is not im:
+            save_webp(rel, out)
+            n_mask += 1
+    print("masks", n_mask)
     return lib
 
 
@@ -526,11 +894,20 @@ def render_zoom(lib):
         ("base_f3", "hair_f7@base_f", (90, 10, 320, 260)),
         ("base_f4", "hair_f6@base_f", (70, 30, 270, 290)),
         ("base_f", "hair_f11@base_f", (90, 20, 300, 280)),
+        ("base_f3", "hair_f6@base_f", (70, 30, 270, 290)),
+        ("base_f3", "hair_f4@base_f", (70, 30, 280, 300)),
+        ("base_f3", "hair_f11@base_f", (80, 20, 300, 280)),
+        ("base_m", "hair_m1@base_m", (70, 30, 280, 300)),
+        ("base_m2", "hair_m4@base_m", (70, 30, 280, 300)),
     ]
     tiles = []
     for base, hair, box in combos:
-        im = compose(lib, base, hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
-                     outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f")
+        if base.startswith("base_m"):
+            im = compose(lib, base, hair=hair, robe="robe_m1@base_m", robe_tint=(90, 110, 130),
+                         eyes="eyes:fx_m1@base_m")
+        else:
+            im = compose(lib, base, hair=hair, robe="robe_f2@base_f", robe_tint=(214, 196, 170),
+                         outer="outer_f4@base_f", outer_tint=(232, 224, 210), eyes="eyes:fx_f4@base_f")
         c = Image.fromarray(im).crop(box)
         z = c.resize((c.width * 2, c.height * 2), Image.Resampling.NEAREST)
         d = ImageDraw.Draw(z)
@@ -539,9 +916,11 @@ def render_zoom(lib):
         tiles.append(z)
     w = max(t.width for t in tiles)
     h = max(t.height for t in tiles)
-    sheet = Image.new("RGB", (w * 3, h * 2), (245, 240, 230))
+    cols = 3
+    rows = (len(tiles) + cols - 1) // cols
+    sheet = Image.new("RGB", (w * cols, h * rows), (245, 240, 230))
     for i, t in enumerate(tiles):
-        sheet.paste(t, ((i % 3) * w, (i // 3) * h))
+        sheet.paste(t, ((i % cols) * w, (i // cols) * h))
     sheet.save(os.path.join(DOCS, "face_edge_2x.png"))
     print("face_edge_2x", sheet.size)
 
@@ -561,9 +940,8 @@ def main():
     # 修之前的对照图已经在 docs/art/v0168/*_before.png，不要覆盖。
     cmd = sys.argv[1] if len(sys.argv) > 1 else "sheets"
     if cmd == "apply":
-        apply()
-        import subprocess
-        subprocess.check_call([sys.executable, os.path.join(R, "tools/bundle_portraits.py")])
+        # 发布图上的发缘已经收过。再跑 repair_hair_soft 会把边缘再啃一圈。从烘焙原图重做时加 --resoft。
+        apply(soft_hair=("--resoft" in sys.argv))
         return
     if cmd == "sheets":
         render_after()
