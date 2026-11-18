@@ -11,7 +11,7 @@ const Econ = preload("res://scripts/econ.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Estate = preload("res://scripts/estate.gd")   # v0.16 青庐营建、紫芝、指点 / 收徒、以物易物
 const Store = preload("res://scripts/save_store.gd")
-const VERSION = "v0.16.7 试玩版"
+const VERSION = "v0.16.8 试玩版"
 const PBox = preload("res://scripts/portrait_box.gd")
 const PLib = preload("res://addons/portrait5/portrait5_lib.gd")
 const Glyph = preload("res://scripts/ink_glyph.gd")
@@ -224,8 +224,10 @@ func _ready() -> void:
 	_hook_web()
 	if OS.has_feature("web"):
 		PLib.fetch = _pf_fetch
-		# 标题页先出来；2.5 秒后在后台慢慢把立绘部件取完（按需的会插队）
-		get_tree().create_timer(2.5).timeout.connect(_pf_prefetch_all)
+		# 标题页先出来；很快就开始把立绘部件取完，换脸时少等
+		get_tree().create_timer(0.3).timeout.connect(_pf_prefetch_all)
+	else:
+		get_tree().create_timer(0.4).timeout.connect(_warm_portraits)
 	session_start = Time.get_ticks_msec()
 	refresh()
 
@@ -413,6 +415,54 @@ func _pf_fetch(rel: String) -> void:
 		pf_hi.erase(rel)
 		pf_hi.push_front(rel)
 	_pf_pump()
+
+## 把会换到的头、发、袍、外披先放进缓存。一次只取几张，免得卡死当前这一帧。
+var _warm_q: Array = []
+func _warm_portraits() -> void:
+	if not _warm_q.is_empty():
+		return
+	PLib.ensure()
+	var P: Dictionary = PLib.lib.pools
+	var rels: Array = []
+	for sex in ["f", "m"]:
+		var bases: Array = P.F_BASES if sex == "f" else P.M_BASES
+		for b in bases:
+			rels.append("heads/%s.jpg" % b)
+			rels.append("heads/%s.mask.png" % b)
+			if OS.has_feature("web"):
+				rels.append("pack/feat_%s.bin" % b)
+		for k in P.hair[sex]:
+			var e: Dictionary = PLib.lib.parts[k]
+			rels.append(e.tex)
+			if e.has("aux"):
+				rels.append(e.aux)
+		for k in P.robes[sex]:
+			rels.append(PLib.lib.parts[k].tex)
+		if P.has("robes_new"):
+			for k in P.robes_new[sex]:
+				rels.append(PLib.lib.parts[k].tex)
+		for k in P.outers[sex]:
+			rels.append(PLib.lib.parts[k].tex)
+	_warm_q = rels
+	_warm_step()
+
+func _warm_step() -> void:
+	if not is_inside_tree():
+		return
+	var low0 := PLib.low
+	PLib.low = false
+	var n := 0
+	while n < 4 and not _warm_q.is_empty():
+		var rel: String = _warm_q.pop_front()
+		if OS.has_feature("web"):
+			if PLib.fetch.is_valid():
+				_pf_fetch(rel)
+		else:
+			PLib.tex(rel)
+		n += 1
+	PLib.low = low0
+	if not _warm_q.is_empty():
+		get_tree().create_timer(0.04).timeout.connect(_warm_step)
 
 func _pf_prefetch_all() -> void:
 	for n in LAZY_BG:
@@ -2644,11 +2694,12 @@ func _title() -> void:
 
 func _create() -> void:
 	_stage_image("bg_home", 0.25)
+	_warm_portraits()
 	if create_portrait.is_empty():
 		_reroll_portrait()
 	var vs = get_viewport_rect().size
 	var ph = clampf(vs.y * 0.26, 140, 220)
-	var pr = _portrait_frame(create_portrait, Vector2(ph * 0.75, ph), body)
+	var pr = _portrait_frame(create_portrait, Vector2(ph * 0.75, ph), body, PBox.BUST, 1.0, "create")
 	pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var rr = row()
 	rr.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2707,13 +2758,14 @@ func _reroll_portrait(part: String = "all") -> void:
 	create_portrait = sp
 
 ## 带描边的立绘框（纸底画像）
-func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = PBox.BUST, motion: float = 1.0) -> Control:
+func _portrait_frame(spec: Dictionary, sz: Vector2, parent: Node, crop: Rect2 = PBox.BUST, motion: float = 1.0, hold_id: String = "") -> Control:
 	var p = PanelContainer.new()
 	p.add_theme_stylebox_override("panel", _sb(Color(0.96, 0.94, 0.9, 1), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.7), 6, 1, 2))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.clip_contents = true
 	parent.add_child(p)
 	var pb = PBox.new()
+	pb.hold_id = hold_id
 	pb.custom_minimum_size = sz
 	p.add_child(pb)
 	pb.setup(spec, crop, motion)

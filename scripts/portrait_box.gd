@@ -24,6 +24,16 @@ var _sv: SubViewport = null
 var _bake_frames := -1
 var _k := 2.0
 var no_bake := false
+## 同一格换人时（创建页）留着上一张，新的好了再淡入。别的立绘不填。
+var hold_id := ""
+const PAPER := Color(0.96, 0.94, 0.9, 1.0)
+const FADE_SEC := 0.15
+var _fade := 1.0
+var _fading := false
+static var _slot := {}
+var _gsv: SubViewport = null
+var _gframes := -1
+var _grab_pending := false
 
 func setup(spec: Dictionary, crop_rect: Rect2 = BUST, motion: float = 1.0) -> void:
 	clip_contents = true
@@ -31,10 +41,13 @@ func setup(spec: Dictionary, crop_rect: Rect2 = BUST, motion: float = 1.0) -> vo
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS   # 缩小时不起锯齿（贴图带 mipmap，见 Portrait5Lib.put）
 	crop = crop_rect
 	self.spec = spec
+	var spec_s := JSON.stringify(spec)
+	var other := _other_hold(spec_s)
 	if motion <= 0.0 and bake_ok and not no_bake:
-		_key = "%s|%s" % [JSON.stringify(spec), str(crop)]
+		_key = "%s|%s" % [spec_s, str(crop)]
 		if _cache.has(_key + "|" + _size_key()):
 			_use_baked(_cache[_key + "|" + _size_key()])
+			_arm_fade(other, true)
 			return
 	if view == null:
 		view = View.new()
@@ -43,16 +56,58 @@ func setup(spec: Dictionary, crop_rect: Rect2 = BUST, motion: float = 1.0) -> vo
 	self.spec = spec
 	_build()
 	_fit()
+	_arm_fade(other, complete)
+
+func _other_hold(spec_s: String) -> bool:
+	if hold_id == "" or not _slot.has(hold_id):
+		return false
+	return str(_slot[hold_id].get("spec", "")) != "" and str(_slot[hold_id].get("spec", "")) != spec_s
+
+func _arm_fade(other: bool, ready: bool) -> void:
+	if not ready:
+		_fade = 0.0
+		_fading = true
+		if view != null:
+			view.visible = false
+		set_process(true)
+		queue_redraw()
+		return
+	if other:
+		_fade = 0.0
+		_fading = true
+		if view != null:
+			view.modulate.a = 0.0
+		set_process(true)
+		queue_redraw()
+		return
+	_fade = 1.0
+	_fading = false
+	if view != null:
+		view.modulate.a = 1.0
+	_queue_grab()
+	queue_redraw()
+
+func _prev_shot() -> Texture2D:
+	if hold_id == "" or not _slot.has(hold_id):
+		return null
+	if str(_slot[hold_id].get("spec", "")) == JSON.stringify(spec):
+		return null
+	return _slot[hold_id].get("tex")
 
 func _build() -> void:
 	Lib.miss = 0
 	Lib.low = view.motion <= 0.0   # 缩略图（不动的）下载排在主立绘后面
 	view.setup(spec)
 	Lib.low = false
+	var was := complete
 	complete = Lib.miss == 0
 	view.visible = complete
+	if complete and not was:
+		_fade = 0.0
+		_fading = true
+		view.modulate.a = 0.0
 	_gen = Lib.gen
-	set_process(not complete or _key != "")
+	set_process(not complete or _key != "" or _fading or _gframes > 0)
 	queue_redraw()
 
 func _size_key() -> String:
@@ -115,7 +170,21 @@ func _finish_bake() -> void:
 	_use_baked(t)
 
 func _process(delta: float) -> void:
-	if _baked != null:
+	if _grab_pending and _gsv == null and not _fading and size.x >= 8.0:
+		_queue_grab()
+	if _fading and (complete or _baked != null):
+		_fade = minf(1.0, _fade + delta / FADE_SEC)
+		if view != null:
+			view.modulate.a = _fade
+		queue_redraw()
+		if _fade >= 1.0:
+			_fading = false
+			_queue_grab()
+	if _gframes > 0:
+		_gframes -= 1
+		if _gframes == 0:
+			_finish_grab()
+	if _baked != null and not _fading and _gframes < 0:
 		set_process(false)
 		return
 	if _bake_frames > 0:
@@ -130,42 +199,76 @@ func _process(delta: float) -> void:
 			_start_bake()
 		return
 	_wait += delta
-	_pulse += delta
-	if not complete:
-		queue_redraw()
 	if _wait < 0.15 or Lib.gen == _gen:
 		return
 	_wait = 0.0
 	_build()
 
-## 部件没到齐时画一个淡墨剪影（头、颈、肩），轻轻呼吸，免得一片空白
-var _pulse := 0.0
+## 部件没到齐、或新立绘还在淡入时：只垫纸色，或留着上一张。不画剪影。
 func _draw() -> void:
+	var under := (not complete) or _fade < 0.999
+	if under and size.x > 1.0 and size.y > 1.0:
+		var shot := _prev_shot()
+		if shot != null:
+			var ss := shot.get_size()
+			if ss.x > 1.0 and ss.y > 1.0:
+				var sc := maxf(size.x / ss.x, size.y / ss.y)
+				var dst := ss * sc
+				draw_texture_rect(shot, Rect2((size - dst) * 0.5, dst), false)
+			else:
+				draw_rect(Rect2(Vector2.ZERO, size), PAPER)
+		else:
+			draw_rect(Rect2(Vector2.ZERO, size), PAPER)
 	if _baked != null:
 		var ts := _baked.get_size()
 		if ts.x > 1.0 and ts.y > 1.0 and size.x > 1.0 and size.y > 1.0:
 			# 铺满并裁边，不把脸拉扁。控件比例和烘焙时一致时，正好贴满。
-			var sc := maxf(size.x / ts.x, size.y / ts.y)
-			var dst := ts * sc
-			draw_texture_rect(_baked, Rect2((size - dst) * 0.5, dst), false)
+			var sc2 := maxf(size.x / ts.x, size.y / ts.y)
+			var dst2 := ts * sc2
+			draw_texture_rect(_baked, Rect2((size - dst2) * 0.5, dst2), false, Color(1, 1, 1, _fade))
 		return
-	if complete or view == null:
+
+func _queue_grab() -> void:
+	if hold_id == "" or not complete or _gsv != null:
 		return
-	var a := 0.10 + 0.05 * sin(_pulse * 2.4)
-	var ink := Color(0.29, 0.25, 0.2, a)
-	draw_set_transform(view.position, 0.0, view.scale)
-	var body := PackedVector2Array()
-	for i in 25:
-		var t := PI + PI * float(i) / 24.0
-		body.append(Vector2(216 + cos(t) * 190, 600 + sin(t) * 300))
-	draw_colored_polygon(body, ink)
-	draw_rect(Rect2(188, 256, 56, 45), ink)   # 颈：接在头下、肩上，不与两者重叠（重叠处会显深）
-	var head := PackedVector2Array()
-	for i in 40:
-		var t := TAU * float(i) / 40.0
-		head.append(Vector2(216 + cos(t) * 74, 165 + sin(t) * 92))
-	draw_colored_polygon(head, Color(ink.r, ink.g, ink.b, a * 1.2))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if _slot.has(hold_id) and str(_slot[hold_id].get("spec", "")) == JSON.stringify(spec):
+		return
+	if size.x < 8.0 or size.y < 8.0:
+		_grab_pending = true
+		set_process(true)
+		return
+	_grab_pending = false
+	_gsv = SubViewport.new()
+	_gsv.transparent_bg = false
+	_gsv.disable_3d = true
+	_gsv.size = Vector2i(maxi(8, int(size.x)), maxi(8, int(size.y)))
+	_gsv.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var paper := ColorRect.new()
+	paper.color = PAPER
+	paper.position = Vector2.ZERO
+	paper.size = Vector2(_gsv.size)
+	paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gsv.add_child(paper)
+	var v2 = View.new()
+	v2.motion = 0.0
+	_gsv.add_child(v2)
+	add_child(_gsv)
+	v2.setup(spec)
+	var s := maxf(size.x / crop.size.x, size.y / crop.size.y) if cover else minf(size.x / crop.size.x, size.y / crop.size.y)
+	v2.scale = Vector2(s, s)
+	v2.position = -crop.position * s + (size - crop.size * s) * 0.5
+	_gframes = 3
+	set_process(true)
+
+func _finish_grab() -> void:
+	var img: Image = _gsv.get_texture().get_image() if _gsv != null else null
+	if _gsv != null:
+		_gsv.queue_free()
+		_gsv = null
+	_gframes = -1
+	if img == null or img.is_empty():
+		return
+	_slot[hold_id] = {"tex": ImageTexture.create_from_image(img), "spec": JSON.stringify(spec)}
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
